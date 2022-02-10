@@ -33,8 +33,11 @@ or in the discrete-time form
 
 where `x(t)`, `u(t)` and `y(t)` are the system state vector, system input vector and system output vector, respectively, and `t` is the continuous or discrete time variable. The system matrices satisfy `A(t) = A(t+T)`, `B(t) = B(t+T)`, `C(t) = C(t+T)`, `D(t) = D(t+T)`,  i.e., are periodic with period `T`. 
 
-The targeted functionality of this package is described in [1]
+Many control applications are formulated as genuine
+periodic control problems as for example, satellite attitude control, helicopter forward flight control, orbital stabilization of underactuated systems, etc. Besides
+that, periodic systems represent a general framework to analyze and design multi-rate sampled-data systems. 
 
-[1] A. Varga. [A Periodic Systems Toolbox for Matlab](https://www.sciencedirect.com/science/article/pii/S1474667016364874). 
-Proc. of IFAC 2005 World Congress, Prague, Czech Republic, 2005.
+The targeted functionality of this package is described in [1].
+
+[1] A. Varga. [A Periodic Systems Toolbox for Matlab](https://elib.dlr.de/12283/1/varga_ifac2005p1.pdf). Proc. of IFAC 2005 World Congress, Prague, Czech Republic, 2005.
 
