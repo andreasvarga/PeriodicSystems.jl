@@ -1,9 +1,9 @@
 # PeriodicSystems.jl
 
 <!-- [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4568159.svg)](https://doi.org/10.5281/zenodo.4568159) -->
-[![DocBuild](https://github.com/andreasvarga/PeriodicSystems.jl/workflows/CI/badge.svg)](https://github.com/andreasvarga/PeriodicSystems.jl/actions)
+<!-- [![DocBuild](https://github.com/andreasvarga/PeriodicSystems.jl/workflows/CI/badge.svg)](https://github.com/andreasvarga/PeriodicSystems.jl/actions)
 [![codecov.io](https://codecov.io/gh/andreasvarga/PeriodicSystems.jl/coverage.svg?branch=main)](https://codecov.io/gh/andreasvarga/PeriodicSystems.jl?branch=main)
-[![Latest](https://img.shields.io/badge/docs-latest-blue.svg)](https://andreasvarga.github.io/PeriodicSystems.jl/dev/)
+[![Latest](https://img.shields.io/badge/docs-latest-blue.svg)](https://andreasvarga.github.io/PeriodicSystems.jl/dev/) -->
 [![The MIT License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](https://github.com/andreasvarga/PeriodicSystems.jl/blob/main/LICENSE.md)
 
 ## Linear periodic time-varying systems 
@@ -24,7 +24,7 @@ pkg> test PeriodicSystems
 `PeriodicSystems.jl` is intended to be a collection of Julia functions for numerical computations related to periodic system representations in the continuous-time form
 
      dx(t)/dt = A(t)x(t) + B(t)u(t) ,
-     y(t)     = Cx(t) + Du(t) ,
+     y(t)     = C(t)x(t) + D(t)u(t) ,
 
 or in the discrete-time form
 
