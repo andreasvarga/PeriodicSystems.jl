@@ -30,6 +30,7 @@ export PeriodicDiscreteStateSpace, pschur, phess, psreduc_reg, psreduc_fast, che
 export monodromy, psceig
 export PeriodicArray, PeriodicMatrix
 export PeriodicTimeSeriesMatrix, HarmonicArray, PeriodicFunctionMatrix,  PeriodicSymbolicMatrix
+export mb03vd!, mb03vy!, mb03bd!
 
 
 abstract type AbstractDynamicalSystem end
@@ -43,5 +44,4 @@ abstract type AbstractPeriodicArray{Domain} end
 include("types/PeriodicMatrices.jl")
 # include("ps.jl")
 include("psutils.jl")
-
 end

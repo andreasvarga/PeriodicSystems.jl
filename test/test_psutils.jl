@@ -8,7 +8,7 @@ using OrdinaryDiffEq
 using Symbolics
 using FFTW
 #using SLICOTMath
-using SLICOTtools
+#using SLICOTtools
 using LinearAlgebra
 using LinearAlgebra: BlasInt
 using Test
@@ -48,7 +48,7 @@ SCAL = Array{BlasInt,1}(undef, NMAX)
 IWORK = Array{BlasInt,1}(undef, LIWORK)
 DWORK = Array{Float64,1}(undef, LDWORK)
 
-SLICOTtools.mb03bd!('T','C','I',QIND,3,3,2,1,3,S,A,Q,ALPHAR, ALPHAI, BETA, SCAL, LIWORK, LDWORK)
+mb03bd!('T','C','I',QIND,3,3,2,1,3,S,A,Q,ALPHAR, ALPHAI, BETA, SCAL, LIWORK, LDWORK)
 
 poles = (ALPHAR+im*ALPHAI) ./ BETA .* (2. .^SCAL)
 
