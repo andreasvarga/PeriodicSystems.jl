@@ -4,7 +4,6 @@ module SLICOTtools
 using SLICOT_jll
 using LinearAlgebra
 using LinearAlgebra: BlasInt
-using DocStringExtensions
 
 export mb03vd!, mb03vy!, mb03bd!
 

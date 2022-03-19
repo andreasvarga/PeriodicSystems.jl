@@ -14,7 +14,6 @@ using Symbolics
 #using StaticArrays
 #using DifferentialEquations
 using OrdinaryDiffEq
-using DocStringExtensions
 using IRKGaussLegendre
 
 import LinearAlgebra: BlasInt, BlasFloat, BlasReal, BlasComplex, copy_oftype, transpose, adjoint, opnorm, normalize, rdiv!
