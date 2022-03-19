@@ -6,6 +6,7 @@ version = "0.1"
 [deps]
 SLICOT_jll = "545525a2-e20e-568b-b87f-b40a06098995"
 OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
+Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 DescriptorSystems = "a81e2ce2-54d1-11eb-2c75-db236b00f339"
 MatrixPencils = "48965c70-4690-11ea-1f13-43a2532b2fa8"
 MatrixEquations = "99c1a7ee-ab34-5fd5-8076-27c950a045f4"
@@ -17,7 +18,9 @@ Polynomials = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [compat]
+SLICOT_jll = "5.7"
 OrdinaryDiffEq = "5"
+Interpolations = "0.13"
 Polynomials = "2.0, 3"
 MatrixPencils = "1.7"
 MatrixEquations = "2.2"
