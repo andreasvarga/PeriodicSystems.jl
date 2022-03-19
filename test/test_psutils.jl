@@ -14,7 +14,7 @@ using LinearAlgebra: BlasInt
 using Test
 #using StaticArrays
 using IRKGaussLegendre
-using BenchmarkTools
+#using BenchmarkTools
 
 println("Test_psutils")
 
