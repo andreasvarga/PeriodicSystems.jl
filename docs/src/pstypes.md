@@ -1,0 +1,18 @@
+# Periodic matrix data types
+
+* **[`PeriodicMatrix`](@ref)**   Discrete-time periodic matrix representation.
+* **[`PeriodicArray`](@ref)**    Discrete-time periodic array representation.
+* **[`PeriodicFunctionMatrix`](@ref)**  Continuous-time periodic function matrix representation.
+* **[`PeriodicSymbolicMatrix`](@ref)**   Continuous-time periodic symbolic matrix representation.
+* **[`PeriodicTimeSeriesMatrix`](@ref)**   Continuous-time periodic time series matrix representation.
+* **[`HarmonicArray`](@ref)**   Continuous-time harmonic array representation.
+
+```@docs
+PeriodicMatrix
+PeriodicArray
+PeriodicFunctionMatrix
+PeriodicSymbolicMatrix
+PeriodicTimeSeriesMatrix
+HarmonicArray
+HarmonicArray(A0::MT, Acos::Union{Vector{Any}, Vector{MT}}, Asin::Union{Vector{Any}, Vector{MT}}, period::Real) where {T<:Real, MT<:VecOrMat{T}} 
+```
