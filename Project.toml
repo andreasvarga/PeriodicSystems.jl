@@ -18,7 +18,7 @@ Polynomials = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [compat]
-SLICOT_jll = "5.7.0+0"
+SLICOT_jll = "5.7"
 OrdinaryDiffEq = "5"
 Interpolations = "0.13"
 Polynomials = "2.0, 3"
