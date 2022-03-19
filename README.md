@@ -2,9 +2,9 @@
 
 <!-- [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4568159.svg)](https://doi.org/10.5281/zenodo.4568159) -->
 [![DocBuild](https://github.com/andreasvarga/PeriodicSystems.jl/workflows/CI/badge.svg)](https://github.com/andreasvarga/PeriodicSystems.jl/actions)
-[![codecov.io](https://codecov.io/gh/andreasvarga/PeriodicSystems.jl/coverage.svg?branch=main)](https://codecov.io/gh/andreasvarga/PeriodicSystems.jl?branch=main)
+[![codecov.io](https://codecov.io/gh/andreasvarga/PeriodicSystems.jl/coverage.svg?branch=master)](https://codecov.io/gh/andreasvarga/PeriodicSystems.jl?branch=master)
 [![Latest](https://img.shields.io/badge/docs-latest-blue.svg)](https://andreasvarga.github.io/PeriodicSystems.jl/dev/)
-[![The MIT License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](https://github.com/andreasvarga/PeriodicSystems.jl/blob/main/LICENSE.md)
+[![The MIT License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](https://github.com/andreasvarga/PeriodicSystems.jl/blob/master/LICENSE.md)
 
 ## Linear periodic time-varying systems 
 
