@@ -16,6 +16,10 @@ using Symbolics
 using OrdinaryDiffEq
 using IRKGaussLegendre
 
+include("SLICOTtools.jl")
+using .SLICOTtools: mb03vd!, mb03vy!, mb03bd!
+
+
 import LinearAlgebra: BlasInt, BlasFloat, BlasReal, BlasComplex, copy_oftype, transpose, adjoint, opnorm, normalize, rdiv!
 import Base: +, -, *, /, \, (==), (!=), ^, isapprox, iszero, convert, promote_op, size, length, ndims, 
              hcat, vcat, hvcat, inv, show, lastindex, require_one_based_indexing, print, show, one, zero, eltype
@@ -39,5 +43,5 @@ abstract type AbstractPeriodicArray{Domain} end
 include("types/PeriodicMatrices.jl")
 # include("ps.jl")
 include("psutils.jl")
-include("SLICOTtools.jl")
+
 end
