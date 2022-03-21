@@ -35,5 +35,5 @@ makedocs(
 deploydocs(
   repo = "github.com/andreasvarga/PeriodicSystems.jl.git",
   target = "build",
-  devbranch = "main"
+  devbranch = "master"
 )
