@@ -26,32 +26,25 @@ Many control applications are formulated as genuine
 periodic control problems as for example, satellite attitude control, helicopter forward flight control, orbital stabilization of underactuated systems, etc. Besides
 that, periodic systems represent a general framework to analyze and design multi-rate sampled-data systems. 
 
-The targeted functionality of this package is described in [1].
-
-
-
-The available functions in the `PeriodicSystems.jl` package cover both continuous-time and discrete-time periodic systems. The current version of the package includes the following functions:
+The targeted functionality of this package is described in [1] and will cover both continuous-time and discrete-time periodic systems. The following categories of functions are planned:
 
 **Building periodic system state-space models**
 
-**Interconnecting periodic system models**
-
-
 **Basic operations on periodic system models**
-
 
 **Basic conversions on periodic system models**
 
-**Some operations on rational transfer functions and matrices**
+**Solving periodic matrix equations**
 
 **Simplification of periodic system models**
 
-
 **Periodic system analysis**
 
+**Periodic output and state feedback controller design** 
 
 
-## [Release Notes](https://github.com/andreasvarga/PeriodicSystems.jl/blob/main/ReleaseNotes.md)
+
+## [Release Notes](https://github.com/andreasvarga/PeriodicSystems.jl/blob/master/ReleaseNotes.md)
 
 ## Main developer
 

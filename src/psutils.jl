@@ -18,7 +18,7 @@ lower order solvers are employed for `reltol >= 1.e-4`,
 which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
 higher order solvers are employed able to cope with high accuracy demands. 
 
-The following solvers form the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
 
 `solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
 
@@ -109,7 +109,9 @@ The number of execution threads is controlled either by using the `-t/--threads`
 or by using the `JULIA_NUM_THREADS` environment variable.  
 """
 function monodromy(at::PeriodicFunctionMatrix{:c,T}, K::Int = 1; solver = "non-stiff", reltol = 1e-3, abstol = 1e-7, dt = at.period/max(K,100)) where T
-   n = LinearAlgebra.checksquare(at.f(0))
+   #n = LinearAlgebra.checksquare(at.f(0))
+   n = at.dims[1]
+   n == at.dims[2] || error("the function matrix must be square")
    Ts = at.period/K
    M = Array{T,3}(undef, n, n, K) 
    K >= 100 ? dt = Ts : dt = Ts*K/100
@@ -160,13 +162,15 @@ function pseig(at::PeriodicFunctionMatrix{:c,T}, K::Int = 1; lifting::Bool = fal
       if K == 1
          ev = eigvals(tvstm(at.f, at.period, 0; solver, reltol, abstol, dt)) 
       else   
+         Z = zeros(T,n,n)
+         ZI = [ Z; -I]
          si = tvstm(at.f, Ts, 0; solver, reltol, abstol); ti = -I
          t = Ts
          for i = 1:K-1
              tf = t+Ts
              F = qr([ ti; tvstm(at.f, tf, t; solver, reltol, abstol, dt) ])     
-             si = F.Q'*[si; zeros(T,n,n)];  si = si[n+1:end,:]
-             ti = F.Q'*[ zeros(T,n,n); -I]; ti = ti[n+1:end,:]
+             si = F.Q'*[si; Z];  si = si[n+1:end,:]
+             ti = F.Q'*ZI; ti = ti[n+1:end,:]
              t = tf
          end
          ev = -eigvals(si,ti)
@@ -918,11 +922,13 @@ function psreduc_reg(A::AbstractArray{T,3}) where T
     if K == 1
        return A[:,:,1], Matrix{T}(I, n, n)
     else   
+       Z = zeros(T,n,n)
+       ZI = [Z; -I]
        si = A[:,:,1];  ti = -I
        for i = 1:K-1
            F = qr([ ti; A[:,:,i+1] ])     
-           si = F.Q'*[si; zeros(T,n,n)];  si = si[n+1:end,:]
-           ti = F.Q'*[ zeros(T,n,n); -I]; ti = ti[n+1:end,:]
+           si = F.Q'*[si; Z];  si = si[n+1:end,:]
+           ti = F.Q'*ZI; ti = ti[n+1:end,:]
        end
        return si, -ti
     end

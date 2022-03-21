@@ -4,13 +4,15 @@
 
 Discrete-time periodic matrix representation. 
 
-The discrete periodic matrix object `A` is built from a 
+The discrete-time periodic matrix object `A` is built from a 
 `p`-vector `M` of real matrices and the associated time period `T`. 
 `M` contains the cyclic component matrices `M[i]`, `i = 1,..., p`, 
 where `M[i]` represents the value `M(Δ(i-1))` of a time periodic matrix `M(t)`
 of period `T`, with `Δ := T/p`, the associated sampling time.
 It is assumed that `M[k] := M[mod(k-1,p)+1]` for arbitrary `k`. 
 All component matrices are allowed to have arbitrary (time-varying) dimensions.
+The component matrices `M`, the period `T` and the discrete period `p`
+can be accessed via `A.M`, `A.period` and `A.dperiod`, respectively. 
 """
 struct  PeriodicMatrix{Domain,T} <: AbstractPeriodicArray{Domain}
     M::Vector{Matrix{T}}
@@ -40,12 +42,14 @@ Base.propertynames(A::PeriodicMatrix) = (:dperiod, fieldnames(typeof(A))...)
 
 Discrete-time periodic array representation.
 
-The discrete periodic matrix object `A` is built from a `m×n×p` real array
+The discrete-time periodic array object `A` is built from a `m×n×p` real array
 `M` and the associated time period `T`. 
 `M` contains the cyclic component matrices `M[:,:,i]`, `i = 1,..., p`, 
 where `M[:,:,i]` represents the value `M(Δ(i-1))` of a time periodic matrix `M(t)`
 of period `T`, with `Δ := T/p`, the associated sampling time.
 It is assumed that  `M[:,:,k] := M[:,:,mod(k-1,p)+1]` for arbitrary `k`. 
+The component matrices `M`, the period `T` and the discrete period `p`
+can be accessed via `A.M`, `A.period` and `A.dperiod`, respectively. 
 """
 struct PeriodicArray{Domain,T} <: AbstractPeriodicArray{Domain}
     M::Array{T,3}
@@ -71,12 +75,17 @@ Base.propertynames(A::PeriodicArray) = (:dperiod, fieldnames(typeof(A))...)
 
 Continuous-time periodic function matrix representation.
 
-`A = t -> f(t)` is a time function defining a `m×n` time periodic real matrix `A(t)` of period `T`
-such that `A(t) = A(t+T)` for any time value `t`. 
+The continuous-time periodic function matrix object `A` is built from a 
+time periodic real matrix function `f(t)` of real time variable `t` 
+and the associated time period `T`. 
+It is assumed that  `f(t) = f(t+T)` for any real time value `t`. 
+The function `f(t)`, the period `T`, and the row and column dimensions 
+of `f(t)` can be accessed via `A.f`, `A.period` and the tuple `A.dims`, respectively.
 """
 struct PeriodicFunctionMatrix{Domain,T} <: AbstractPeriodicArray{Domain}
    f::Function
-   period::T
+   period::Float64
+   dims::Tuple{Int,Int}
    function PeriodicFunctionMatrix{:c,Tf}(f::Function, period::Real) where {Tf} 
       period > 0 || error("period must be positive") 
       T = eltype(f(0))
@@ -85,7 +94,7 @@ struct PeriodicFunctionMatrix{Domain,T} <: AbstractPeriodicArray{Domain}
       nd = ndims(Ft)
       nd == 2 || error("two-dimensional function array expected, got an $nd -dimensional array")
       Ft ≈ f(t+period) || @warn "function f is likely not periodic"
-      new{:c,T}(t -> f(t), Float64(period)) 
+      new{:c,T}(t -> f(t), Float64(period), size(Ft)) 
    end
 end 
 PeriodicFunctionMatrix(f::F, period::Real) where {F<:Function}  = 
@@ -95,14 +104,15 @@ PeriodicFunctionMatrix(A::VecOrMat{T}, period::Real) where {T <: Real}  =
 PeriodicFunctionMatrix(at::PeriodicFunctionMatrix, period::Real = at.period)  = 
           PeriodicFunctionMatrix(at.f, period)
 
-
 """
     PeriodicSymbolicMatrix(F, T) -> A::PeriodicSymbolicMatrix
 
 Continuous-time periodic symbolic matrix representation.
  
-`F(t)` is a symbolic periodic real matrix or vector of symbolic variable `t` and period `T` 
-such that `F(t) = F(t+T)` for any real time value `t`. 
+The continuous-time periodic symbolic matrix object `A` is built from `F`, a 
+symbolic periodic real matrix or vector of symbolic variable `t`, and the associated time period `T`. 
+It is assumed that  `F(t) = F(t+T)` for any real time value `t`.
+The symbolic matrix `F` and the period `T` can be accessed via `A.F` and `A.period`, respectively.
 """
 struct PeriodicSymbolicMatrix{Domain,T} <: AbstractPeriodicArray{Domain} 
    F::Matrix{<:Num}
@@ -127,43 +137,45 @@ PeriodicSymbolicMatrix(A::PeriodicSymbolicMatrix{:c,T}, period::Real = A.period)
              PeriodicSymbolicMatrix{:c,T}(A.F, period)
 
 """
-     HarmonicArray(A, T) -> Ahr::HarmonicArray
+     HarmonicArray(Ahr, T) -> A::HarmonicArray
 
 Continuous-time harmonic array representation.
 
-The harmonic array object `Ahr` is built for 
-the harmonic representation of a periodic matrix `A(t)` of period `T` in the form
+The harmonic array object `A` is built for 
+the harmonic representation of a periodic matrix `Ahr(t)` of period `T` in the form
 
-                   p
-     A(t) = A_0 +  ∑ ( Ac_i*cos(i*t*2*π/T)+As_i*sin(i*2*π*t/T) ) .
-                  i=1 
+                     p
+     Ahr(t) = A_0 +  ∑ ( Ac_i*cos(i*t*2*π/T)+As_i*sin(i*2*π*t/T) ) .
+                    i=1 
 
-The `m×n×(p+1)` complex array `A` contains the harmonic components as follows:
-`A[:,:,1]` contains the constant term `A_0` (the mean value) and
-the real and imaginary parts of `A[:,:,i+1]`  
+The `m×n×(p+1)` complex array `Ahr` contains the harmonic components as follows:
+`Ahr[:,:,1]` contains the constant term `A_0` (the mean value) and
+the real and imaginary parts of `Ahr[:,:,i+1]`  
 for `i = 1, ..., p` contain the coefficient matrices `Ac_i` and `As_i`, respectively. 
+The complex matrix `Ahr` containing the harmonic components and the period `T` 
+can be accessed via `A.values` and `A.period`, respectively.
 """
 struct HarmonicArray{Domain,T} <: AbstractPeriodicArray{Domain} 
    values::Array{Complex{T},3}
    period::Float64
-   function HarmonicArray{:c,T}(A::Array{Complex{T},3}, period::Real) where T
+   function HarmonicArray{:c,T}(Ahr::Array{Complex{T},3}, period::Real) where T
       period > 0 || error("period must be positive") 
-      (size(A,3) > 0 && iszero(imag(view(A,:,:,1)))) || error("imaginary part of constant term must be zero")
-      new{:c,T}(A, Float64(period)) 
+      (size(Ahr,3) > 0 && iszero(imag(view(Ahr,:,:,1)))) || error("imaginary part of constant term must be zero")
+      new{:c,T}(Ahr, Float64(period)) 
    end
 end
-HarmonicArray(A::Array{Complex{T},3}, period::Real) where {T} = HarmonicArray{:c,T}(A, period) 
+HarmonicArray(Ahr::Array{Complex{T},3}, period::Real) where {T} = HarmonicArray{:c,T}(Ahr, period) 
 """
-     HarmonicArray(A0, Ac, As, T) -> Ahr::HarmonicArray
+     HarmonicArray(A0, Ac, As, T) -> A::HarmonicArray
 
 Construct a harmonic array representation from the harmonic components.
 
-The harmonic array object `Ahr` is built for 
-the harmonic representation of a periodic matrix `A(t)` of period `T` in the form
+The harmonic array object `A` is built for 
+the harmonic representation `Ahr(t)` of a periodic matrix of period `T` in the form
 
-                   p
-     A(t) = A_0 +  ∑ ( Ac_i*cos(i*t*2*π/T)+As_i*sin(i*2*π*t/T) ) ,
-                  i=1 
+                     p
+     Ahr(t) = A_0 +  ∑ ( Ac_i*cos(i*t*2*π/T)+As_i*sin(i*2*π*t/T) ) ,
+                    i=1 
 
 where the constant term `A_0` is contained in the real matrix `A0`, and `Ac` and `As` are
 vectors of real matrices such that the `i`-th (cosinus) coefficient matrix 
@@ -171,6 +183,8 @@ vectors of real matrices such that the `i`-th (cosinus) coefficient matrix
 `As_i` is contained in `As[i]`. `p` is the maximum of length of the vectors of matrices `Ac` and `As`. 
 If the length of `Ac` or `As` is less than `p`, then zero trailing matrices are assumed in the respective matrix. 
 All component matrices must have the same dimensions.
+The complex matrix containing the harmonic components and the period `T` 
+can be accessed via `A.values` and `A.period`, respectively.
 """
 function HarmonicArray(A0::MT, Acos::Union{Vector{MT},Vector{Any}}, 
                                Asin::Union{Vector{MT},Vector{Any}}, period::Real) where {T <: Real, MT <: VecOrMat{T}}
@@ -191,37 +205,38 @@ HarmonicArray(A0::VecOrMat{T}, Acos::Vector{MT}, period::Real) where {T <: Real,
           HarmonicArray(A0, Acos, nothing, period) 
 
 """
-    PeriodicTimeSeriesMatrix(A, T) -> At::PeriodicTimeSeriesMatrix
+    PeriodicTimeSeriesMatrix(At, T) -> A::PeriodicTimeSeriesMatrix
 
 Continuous-time periodic time series matrix representation.
 
-The continuous-time periodic time series matrix object `At` is built from a 
-`p`-vector `A` of real matrices and the associated time period `T`. 
-`A` contains the cyclic component matrices `A[i]`, `i = 1,..., p`, 
-where `A[i]` represents the value `A(Δ(i-1))` of a time periodic matrix `A(t)`
+The continuous-time periodic time series matrix object `A` is built from a 
+`p`-vector `At` of real matrices and the associated time period `T`. 
+`At` contains the cyclic component matrices `At[i]`, `i = 1,..., p`, 
+where `At[i]` represents the value `A(Δ(i-1))` of a time periodic matrix `A(t)`
 of period `T`, with `Δ := T/p`, the associated sampling time.
-It is assumed that `A[k] := A[mod(k-1,p)+1]` for arbitrary `k`. 
+It is assumed that `At[k] := At[mod(k-1,p)+1]` for arbitrary `k`. 
 All component matrices must have the same dimensions.
+The component matrices `At` and the period `T` 
+can be accessed via `A.values` and `A.period`, respectively. 
 """
 struct PeriodicTimeSeriesMatrix{Domain,T} <: AbstractPeriodicArray{Domain} 
    values::Vector{Array{T,2}}
    period::Float64
-   function PeriodicTimeSeriesMatrix{:c,T}(A::Union{Vector{Vector{T}},Vector{Matrix{T}}}, period::Real) where {T <: Real} 
+   function PeriodicTimeSeriesMatrix{:c,T}(At::Union{Vector{Vector{T}},Vector{Matrix{T}}}, period::Real) where {T <: Real} 
       period > 0 || error("period must be positive") 
-      N = length(A) 
-      N <= 1 && (return new{:c,T}(A, Float64(period)) ) # the constant matrix case 
-      n1, n2 = size(A[1],1), size(A[1],2)
-      (all(size.(A,1) .== n1) && all(size.(A,2) .== n2)) || error("all component matrices must have the same dimensions")
+      N = length(At) 
+      N <= 1 && (return new{:c,T}(At, Float64(period)) ) # the constant matrix case 
+      n1, n2 = size(At[1],1), size(At[1],2)
+      (all(size.(At,1) .== n1) && all(size.(At,2) .== n2)) || error("all component matrices must have the same dimensions")
 
       # adjust final data to matrix type
-      n2 == 1 ? At = [reshape(A[j],n1,n2) for j in 1:N] : At = A
-      new{:c,T}(At, Float64(period)) 
+      new{:c,T}(n2 == 1 ? [reshape(At[j],n1,n2) for j in 1:N] : At, Float64(period)) 
    end
 end
-PeriodicTimeSeriesMatrix(A::Union{Vector{Vector{T}},Vector{Matrix{T}}}, period::Real) where {T <: Real, Ts <: Real} = 
-    PeriodicTimeSeriesMatrix{:c,T}(A, period)  
-PeriodicTimeSeriesMatrix(A::VecOrMat{T}, period::Real) where {T <: Real, Ts <: Real}  = 
-        PeriodicTimeSeriesMatrix([reshape(A,size(A,1),size(A,2))], period) 
+PeriodicTimeSeriesMatrix(At::Union{Vector{Vector{T}},Vector{Matrix{T}}}, period::Real) where {T <: Real} = 
+    PeriodicTimeSeriesMatrix{:c,T}(At, period)  
+PeriodicTimeSeriesMatrix(At::VecOrMat{T}, period::Real) where {T <: Real}  = 
+        PeriodicTimeSeriesMatrix([reshape(At,size(At,1),size(At,2))], period) 
 
 # conversions to discrete-time PeriodicMatrix
 Base.convert(::Type{PeriodicMatrix}, A::PeriodicArray{:d,T}) where T = 
@@ -238,9 +253,9 @@ function Base.convert(::Type{PeriodicArray}, A::PeriodicMatrix{:d,T}) where T
        [copyto!(view(t,1:m[i],1:n[i],i),A[i]) for i in 1:N]
        PeriodicArray{:d,T}(t,A.period)
     else
-      t = zeros(T,m[1],n[1],N)
-      [copyto!(view(t,:,:,i),A[i]) for i in 1:N]
-      PeriodicArray{:d,T}(t,A.period)
+       t = zeros(T,m[1],n[1],N)
+       [copyto!(view(t,:,:,i),A[i]) for i in 1:N]
+       PeriodicArray{:d,T}(t,A.period)
     end
 end
 
