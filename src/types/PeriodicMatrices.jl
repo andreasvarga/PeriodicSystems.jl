@@ -78,7 +78,8 @@ Continuous-time periodic function matrix representation.
 The continuous-time periodic function matrix object `A` is built from a 
 time periodic real matrix function `f(t)` of real time variable `t` 
 and the associated time period `T`. 
-It is assumed that  `f(t) = f(t+T)` for any real time value `t`. 
+The periodicity condition `f(t) ≈ f(t+T)` is checked for a randomly generated value of `t`
+and a warning is issued if this condition is not satisfied.
 The function `f(t)`, the period `T`, and the row and column dimensions 
 of `f(t)` can be accessed via `A.f`, `A.period` and the tuple `A.dims`, respectively.
 """

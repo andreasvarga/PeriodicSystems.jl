@@ -28,7 +28,9 @@ orthogonal similarity transformations on `A`,
                ...
         Q_p' * A_p * Q_1 = H_p.
 
-`H_1`, `H_2`, ..., `H_p` overwrite `A_1`, `A_2`, ..., `A_p`. 
+The matrices `A_1`, `A_2`, ..., `A_p` are contained in the 3-dimensional array `A`. 
+The resulting `H_1`, `H_2`, ..., `H_p` and `Q_1`, `Q_2`, ..., `Q_p` overwrite 
+`A_1`, `A_2`, ..., `A_p` in `A` and the array `tau`.   
 
 See the SLICOT documentation of `MB03VD` for details.
 """
@@ -60,7 +62,8 @@ of order `n`, as returned in `A_1`, `A_2`, ..., `A_p` by `mb03vd!`:
 
      Q_j = H_j(ilo) H_j(ilo+1) . . . H_j(ihi-1).
 
-`Q_1`, `Q_2`, ..., `Q_p` overwrite `A_1`, `A_2`, ..., `A_p`. 
+The 3-dimensional arrays `A` and `tau` contains the information on the employed
+elementary reflectors. The resulting `Q_1`, `Q_2`, ..., `Q_p` overwrite `A_1`, `A_2`, ..., `A_p`. 
 
 See the SLICOT documentation of `MB03VY` for details.
 

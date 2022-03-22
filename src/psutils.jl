@@ -1,8 +1,8 @@
 """
-     Φ = tvstm(At::Function, tf, t0; solver, reltol, abstol, dt) 
+     tvstm(A::PeriodicFunctionMatrix, tf, t0; solver, reltol, abstol, dt) -> Φ 
 
 Compute the state transition matrix for a linear ODE with time-varying coefficients. 
-For the given time-dependent square matrix function `At`, initial time `t0` and 
+For the given time-dependent square matrix function `A(t)`, initial time `t0` and 
 final time `tf`, the state transition matrix `Φ(tf,t0)`
 is computed by integrating numerically the homogeneous linear ODE 
 
@@ -30,17 +30,17 @@ The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/Ordi
 
 `solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 """
-function tvstm(At::Function, tf::Real, t0::Real = 0; solver = "", reltol = 1e-3, abstol = 1e-7, dt = (tf-t0)/10) 
+function tvstm(A::PeriodicFunctionMatrix{:c,T}, tf::Real, t0::Real = 0; solver = "", reltol = 1e-3, abstol = 1e-7, dt = (tf-t0)/10) where {T}
+   n = A.dims[1]
+   n == A.dims[2] || error("the function matrix must be square")
    
-   At0 = At(t0)
-   n = LinearAlgebra.checksquare(At0)
-   T = promote_type(eltype(At0), typeof(t0), typeof(tf))
+   T1 = promote_type(typeof(t0), typeof(tf))
 
    # using OrdinaryDiffEq
    u0 = Matrix{T}(I,n,n)
-   tspan = (T(t0),T(tf))
+   tspan = (T1(t0),T1(tf))
    if solver != "linear" 
-      f!(du,u,p,t) = mul!(du,At(t),u)
+      f!(du,u,p,t) = mul!(du,A.f(t),u)
       prob = ODEProblem(f!, u0, tspan)
    end
    if solver == "stiff" 
@@ -64,7 +64,7 @@ function tvstm(At::Function, tf::Real, t0::Real = 0; solver = "", reltol = 1e-3,
          A .= p(t)
       end
       DEop = DiffEqArrayOperator(ones(T,n,n),update_func=update_func!)     
-      prob = ODEProblem(DEop, u0, tspan, At)
+      prob = ODEProblem(DEop, u0, tspan, A.f)
       sol = solve(prob,MagnusGL6(), dt = dt, save_evrystep = false)
    elseif solver == "symplectic" 
       # high accuracy symplectic
@@ -82,11 +82,11 @@ function tvstm(At::Function, tf::Real, t0::Real = 0; solver = "", reltol = 1e-3,
    return sol(tf)     
 end
 """ 
-     monodromy(At, K = 1; solver, reltol, abstol, dt) -> Ψ 
+     monodromy(A::PeriodicFunctionMatrix, K = 1; solver, reltol, abstol, dt) -> Ψ::PeriodicArray 
 
 Compute the monodromy matrix for a linear ODE with periodic time-varying coefficients. 
 
-For the given square periodic function matrix `At` of period `T`, 
+For the given square periodic function matrix `A(t)` of period `T`, 
 the monodromy matrix `Ψ = Φ(T,0)` is computed, where `Φ(t,τ)` is the state transition matrix satisfying the homogeneous linear ODE 
 
     dΦ(t,τ)/dt = A(t)Φ(t,τ),  Φ(τ,τ) = I. 
@@ -94,7 +94,6 @@ the monodromy matrix `Ψ = Φ(T,0)` is computed, where `Φ(t,τ)` is the state t
 If `K > 1`, then `Ψ = Φ(T,0)` is determined as a product of `K` matrices 
 `Ψ = Ψ_K*...*Ψ_1`, where for `Δ := T/K`, `Ψ_i = Φ(iΔ,(i-1)Δ)` is the 
 state transition matrix on the time interval `[(i-1)Δ,iΔ]`. 
-The resulting `Ψ` is a periodic array object. 
 
 The state transition matrices `Φ(iΔ,(i-1)Δ)`
 are computed by integrating numerically the above homogeneous linear ODE.  
@@ -102,30 +101,29 @@ The ODE solver to be employed can be
 specified using the keyword argument `solver`, together with
 the required relative accuracy `reltol` (default: `reltol = 1.e-3`), 
 absolute accuracy `abstol` (default: `abstol = 1.e-7`) and/or 
-the fixed step length `dt` (default: `dt = tf-t0`) (see [`tvstm`](@ref)). 
+the fixed step length `dt` (default: `dt = min(Δ, Δ*K/100)`) (see [`tvstm`](@ref)). 
 For large values of `K`, parallel computation of factors can be alternatively performed 
 by starting Julia with several execution threads. 
 The number of execution threads is controlled either by using the `-t/--threads` command line argument 
 or by using the `JULIA_NUM_THREADS` environment variable.  
 """
-function monodromy(at::PeriodicFunctionMatrix{:c,T}, K::Int = 1; solver = "non-stiff", reltol = 1e-3, abstol = 1e-7, dt = at.period/max(K,100)) where T
-   #n = LinearAlgebra.checksquare(at.f(0))
-   n = at.dims[1]
-   n == at.dims[2] || error("the function matrix must be square")
-   Ts = at.period/K
+function monodromy(A::PeriodicFunctionMatrix{:c,T}, K::Int = 1; solver = "non-stiff", reltol = 1e-3, abstol = 1e-7, dt = at.period/max(K,100)) where T
+   n = A.dims[1]
+   n == A.dims[2] || error("the function matrix must be square")
+   Ts = A.period/K
    M = Array{T,3}(undef, n, n, K) 
    K >= 100 ? dt = Ts : dt = Ts*K/100
 
    Threads.@threads for i = 1:K
-       @inbounds M[:,:,i] = tvstm(at.f, i*Ts, (i-1)*Ts; solver = solver, reltol = reltol, abstol = abstol, dt = dt) 
+       @inbounds M[:,:,i] = tvstm(A, i*Ts, (i-1)*Ts; solver = solver, reltol = reltol, abstol = abstol, dt = dt) 
    end
-   return PeriodicArray(M,at.period)
+   return PeriodicArray(M,A.period)
 end
 """
      pseig(A, K = 1; lifting = false, solver, reltol, abstol, dt) -> ev
 
-Compute the characteristic multipliers of a periodic matrix. 
-For the given square continuous-time periodic matrix `A(t)` of period `T`, 
+Compute the characteristic multipliers of a continuous-time periodic matrix. 
+For the given square periodic matrix `A(t)` of period `T`, 
 the characteristic multipliers `ev` are the eigenvalues of 
 the monodromy matrix `Ψ = Φ(T,0)`, where `Φ(t,τ)` is the state transition matrix satisfying the homogeneous linear ODE 
 
@@ -135,15 +133,15 @@ If `lifting = false`, `Ψ` is computed as a product of `K` state transition matr
 `Ψ = Ψ_K*...*Ψ_1` (see [`monodromy`](@ref) with the associated keyword arguments). 
 The eigenvalues are computed using the periodic Schur decomposition method of [1].
 
-If `lifting = false`, `Ψ` is determined as `Ψ = inv(N)*M`, where `M-λN` is a regular
+If `lifting = true`, `Ψ` is determined as `Ψ = inv(N)*M`, where `M-λN` is a regular
 pencil with `N` invertible and  
 the eigenvalues of `M-λN` are the same as those of the matrix product
 `Ψ := Ψ_K*...*Ψ_1`. 
 An efficient version of the structure exploiting fast reduction method of [2] is employed, 
-which embeds the determination of transition matrices into the reduction algorithms. 
+which embeds the determination of transition matrices into the reduction algorithm. 
 This option may occasionally lead to inaccurate results for large values of `K`. 
-`A` may be a _periodic function matrix object_, or a _periodic symbolic matrix object_, or a 
-_harmonic representation object_ or a _periodic time series matrix object_.
+`A` may be a [`PeriodicFunctionMatrix`](@ref), or a [`PeriodicSymbolicMatrix`](@ref), or a 
+[`HarmonicArray`](@ref) or a [`PeriodicTimeSeriesMatrix`](@ref).
 
 _References_
 
@@ -190,33 +188,13 @@ pseig(at::PeriodicTimeSeriesMatrix{:c,T}, K::Int = 1; kwargs...) where T =
     pseig(convert(PeriodicFunctionMatrix,at),K; kwargs...)
 
 """
-     pcseig(A, K = 1; lifting = false, solver, reltol, abstol, dt) -> ce
-
-Compute the characteristic exponents of a periodic matrix.
-For a given square continuous-time periodic function matrix `A(t)` of period `T`, 
-the characteristic exponents `ce` are `log(ev)/T`, where  `ev` are the characteristic
-multipliers (i.e., the eigenvalues of the monodromy matrix of `A(t)`).  
-For available options see [`pseig(::PeriodicFunctionMatrix)`](@ref). 
-For a given square discrete-time periodic matrix `A(t)` of discrete period `N`,  
-the characteristic exponents `ce` are `ev.^-N`. 
-"""
-function psceig(at::AbstractPeriodicArray{:c}, K::Int = 1; kwargs...) where T
-   ce = log.(complex(pseig(convert(PeriodicFunctionMatrix,at), K; kwargs...)))/at.period
-   return isreal(ce) ? real(ce) : ce
-end
-function psceig(at::AbstractPeriodicArray{:d}) where T
-   ce = (complex(pseig(convert(PeriodicMatrix,at)))).^-(at.dperiod) 
-   return isreal(ce) ? real(ce) : ce
-end
-"""
-     ev = pseig(A; rev = true, fast = false) 
+     ev = pseig(A::PeriodicMatrix; rev = true, fast = false) 
 
 Compute the eigenvalues of a product of `p` square matrices 
 `A(p)...*A(2)*A(1)`, if `rev = true` (default) (also called characteristic multipliers) or 
 of `A(1)*A(2)...A(p)` if `rev = false`, without evaluating the product. 
 The matrices `A(1)`, `...`, `A(p)` are contained in the `n×n×p` array `A` 
 such that the `i`-th matrix `A(i)` is contained in `A[:,:,i]`.
-Alternatively, `A` can be a [`PeriodicArray`](@ref) object. 
 If `fast = false` (default) then the eigenvalues are computed using an approach
 based on the periodic Schur decomposition [1], while if `fast = true` 
 the structure exploiting reduction [2] of an appropriate lifted pencil is employed.
@@ -253,15 +231,14 @@ function pseig(A::Array{Float64,3}; rev::Bool = true, fast::Bool = false) where 
 end
 pseig(A::PeriodicArray{T}; fast::Bool = false) where T = pseig(A.M; fast)
 """
-     ev = pseig(A; rev = true, fast = false, istart = 1) 
+     ev = pseig(A::PeriodicArray; rev = true, fast = false, istart = 1) 
 
 Compute the eigenvalues of a square cyclic product of `p` matrices 
 `A(k-1)...*A(2)*A(1)*A(p)...*A(k)`, if `rev = true` (default) or 
 `A(k)*A(k+1)*...A(p)*A(1)...A(k-1)` if `rev = false`, without evaluating the product. 
+The keyword argument `istart = k` specifies the starting index (default: `k = 1`). 
 The matrices `A(1)`, `...`, `A(p)` are contained in the `p`-vector of matrices `A` 
 such that the `i`-th matrix  `A(i)`, of dimensions `m(i)×n(i)`, is contained in `A[i]`.
-Alternatively, `A` can be [`PeriodicMatrix`](@ref) object. 
-`istart = k` specifies the starting index (default: `k = 1`). 
 If `fast = false` (default) then the eigenvalues are computed using an approach
 based on the periodic Schur decomposition [1], while if `fast = true` 
 the structure exploiting reduction [2] of an appropriate lifted pencil is employed. 
@@ -320,6 +297,26 @@ function pseig(A::Vector{Matrix{T}}; rev::Bool = true, fast::Bool = false, istar
    end
 end
 pseig(A::PeriodicMatrix{T}; fast::Bool = false, istart::Int = 1) where T = pseig(A.M; fast, istart)
+"""
+     pcseig(A, K = 1; lifting = false, solver, reltol, abstol, dt) -> ce
+
+Compute the characteristic exponents of a periodic matrix.
+For a given square continuous-time periodic function matrix `A(t)` of period `T`, 
+the characteristic exponents `ce` are computed as `log.(ev)/T`, 
+where  `ev` are the characteristic
+multipliers (i.e., the eigenvalues of the monodromy matrix of `A(t)`).  
+For available options see [`pseig(::PeriodicFunctionMatrix)`](@ref). 
+For a given square discrete-time periodic matrix `A(t)` of discrete period `N`,  
+the characteristic exponents `ce` are computed as `ev.^-N`. 
+"""
+function psceig(at::AbstractPeriodicArray{:c}, K::Int = 1; kwargs...) where T
+   ce = log.(complex(pseig(convert(PeriodicFunctionMatrix,at), K; kwargs...)))/at.period
+   return isreal(ce) ? real(ce) : ce
+end
+function psceig(at::AbstractPeriodicArray{:d}) where T
+   ce = (complex(pseig(convert(PeriodicMatrix,at)))).^-(at.dperiod) 
+   return isreal(ce) ? real(ce) : ce
+end
 
 function sorteigvals!(ev)
    # an approximately complex conjugated set is assumed 
@@ -358,7 +355,7 @@ The resulting `S(i)`, for `i = 1, ..., p` are in an extended  periodic Schur for
 with `S(ischur)` in a quasi-upper trapezoidal form and `S(i)` 
 upper trapezoidal for `i` ``\\neq`` `ischur`. 
 `S(i)` and `Z(i)` are contained in `S[i]` and `Z[i]`, respectively. 
-The first `nmin` components of `ev := α .* γ` contain the core eigenvalues of the appropriate matrix product,
+The first `nmin` components of `ev := α .* γ` contain the _core eigenvalues_ of the appropriate matrix product,
 where `nmin = m(ischur)`, while the last `nmax-nmin` components of `ev` are zero, 
 where `nmax` is the largest row or column dimension of `A(i)`, for `i = 1, ..., p`. 
 The eigenvalues can be alternatively expressed as `α .* γ`, where `γ` contains suitable 
@@ -700,16 +697,16 @@ end
 Compute the periodic function matrix corresponding to an interpolated periodic time series matrix. 
 For the given periodic time series matrix `At`, a periodic function matrix `A(t)` is defined as the 
 mapping `A(t) = t -> etpf(t)`, where `etpf(t)` is a periodic interpolation/extrapolation object,  
-as provided in the `Interpolation.jl` package. The keyword parameter method specifies the
-interpolation/extrapolation method to be used as follows:
+as provided in the [`Interpolations.jl`](https://github.com/JuliaMath/Interpolations.jl)  package. 
+The keyword parameter `method` specifies the interpolation/extrapolation method to be used as follows:
 
-`method = "constant"` - use periodic B-splines of degree 0 
+`method = "constant"` - use periodic B-splines of degree 0 (periodic constant interpolation);
 
-`method = "linear"` - use periodic B-splines of degree 1 (periodic linear interpolation; default)
+`method = "linear"` - use periodic B-splines of degree 1 (periodic linear interpolation) (default);
 
-`method = "quadratic"` - use periodic B-splines of degree 2 (periodic quadratic interpolation) 
+`method = "quadratic"` - use periodic B-splines of degree 2 (periodic quadratic interpolation); 
 
-`method = "cubic"` - use periodic B-splines of degree 3 (periodic cubic interpolation) 
+`method = "cubic"` - use periodic B-splines of degree 3 (periodic cubic interpolation). 
 """
 function ts2pfm(A::PeriodicTimeSeriesMatrix; method = "linear")
    N = length(A.values)
@@ -735,7 +732,7 @@ end
 """
      ts2hr(A::PeriodicTimeSeriesMatrix; atol = 0, rtol = √ϵ, n) -> Ahr::HarmonicArray
 
-Compute the harmonic (Fourier) approximation of a periodic matrix specified by a time series. 
+Compute the harmonic (Fourier) approximation of a periodic matrix specified by a time series matrix. 
 The periodic matrix `A(t)` is specified as a continuous-time periodic time series matrix `A`, 
 with `m` matrices contained in the vector of matrices `A.values`, where `A.values[k]` 
 is the value of `A(t)` at time moment `(k-1)T/m`, with `T = A.period` being the period. 
@@ -764,10 +761,10 @@ function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0
    n1, n2 = size(A.values[1])
    
    if ismissing(n)
-       n = Int(floor((M-1)/2))
+       n = div(M-1,2)
        ncur = 0
    else
-       n = min( n, Int(floor((M-1)/2)) ) 
+       n = min( n, div(M-1,2) ) 
        ncur = n
    end
    n = max(n,0)
@@ -797,7 +794,7 @@ function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0
 end
 
 """
-   hr2psm(Ahr::HarmonicArray, nrange) -> A::Matrix
+     hr2psm(Ahr::HarmonicArray, nrange) -> A::Matrix{Num}
 
 Convert a range of harmonic components `nrange` of the harmonic array `Ahr` to a symbolic matrix `A`. 
 The default range is `nrange = 0:n`, where `n` is the order of the maximum harmonics.  
@@ -805,13 +802,12 @@ The default range is `nrange = 0:n`, where `n` is the order of the maximum harmo
 function hr2psm(ahr::HarmonicArray, nrange::UnitRange = 0:size(ahr.values,3)-1)   
    Symbolics.@variables t   
    Period = ahr.period
-   i1 = first(nrange)
-   i2 = last(nrange)
-   (i1 < 0 || i2 >= size(ahr.values,3)) && error("nrange out of allowed range")
+   i1 = max(first(nrange),0)
+   i2 = min(last(nrange), size(ahr.values,3)-1)
    
    ts = t*2*pi/Period
    
-   i1 == 0 ? a = Num.(real.(ahr.values[:,:,1])) : a = zeros(Num,size(ahr.values,1),size(ahr.values,2))
+   i1 == 0 ? a = Num.(real.(ahr.values[:,:,1])) : (i1 -=1; a = zeros(Num,size(ahr.values,1),size(ahr.values,2)))
    for i in i1+1:i2
        ta = view(ahr.values,:,:,i+1)
        a .+= real.(ta).*(cos(i*ts)) .+ imag.(ta) .* (sin(i*ts))
@@ -909,7 +905,7 @@ Determine for a `n×n×p` array `A`, the matrix pair `(M, N)`
 with `N` invertible and `M-λN` regular, such that 
 the eigenvalues of `M-λN` are the same as those of the matrix product
 `A(p)*A(p-1)*...*A(1)`, where `A(i)` is contained in `A[:,:,i]`. 
-The structure exploiting fast reduction method of [1] is employed.
+The structure exploiting fast reduction method of [1] is employed to determine `M` and `N`.
 
 [1] A. Varga & P. Van Dooren. Computing the zeros of periodic descriptor systems.
     Systems and Control Letters, 50:371-381, 2003.
@@ -940,7 +936,7 @@ Determine for a `p`-dimensional vector of rectangular matrices `A`,
 the matrix pair `(M, N)` with `N` invertible and `M-λN` regular, such that 
 the eigenvalues of `M-λN` are the same as those of the square 
 matrix product `A(p)*A(p-1)*...*A(1)`, where `A(i)` is contained in `A[i]`. 
-The structure exploiting fast reduction method of [1] is employed.
+The structure exploiting fast reduction method of [1] is employed to determine `M` and `N`.
 
 [1] A. Varga & P. Van Dooren. Computing the zeros of periodic descriptor systems.
     Systems and Control Letters, 50:371-381, 2003.
@@ -971,20 +967,22 @@ end
 """
      tvmeval(At::PeriodicTimeSeriesMatrix, t; method = "linear") -> A::Vector{Matrix}
 
-Time response evaluation of a periodic time series matrix.
+Evaluate the time response of a periodic time series matrix.
+
 For the periodic time series matrix `At` and the vector of time values `t`, 
 an interpolation/extrapolation based approximation  
-`A[i]` is evaluated for each time value `t[i]`. The keyword parameter method specifies the
-interpolation/extrapolation method to be used as follows:
+`A[i]` is evaluated for each time value `t[i]`. The keyword parameter `method` specifies the
+interpolation/extrapolation method to be used for periodic data. 
+The following interpolation methods from the [`Interpolations.jl`](https://github.com/JuliaMath/Interpolations.jl) 
+package can be selected: 
 
-`method = "constant"` - use periodic B-splines of degree 0 
+`method = "constant"` - use periodic B-splines of degree 0; 
 
-`method = "linear"` - use periodic B-splines of degree 1 (periodic linear interpolation) 
+`method = "linear"` - use periodic B-splines of degree 1 (periodic linear interpolation) (default);
 
-`method = "quadratic"` - use periodic B-splines of degree 2 (periodic quadratic interpolation) 
+`method = "quadratic"` - use periodic B-splines of degree 2 (periodic quadratic interpolation); 
 
-`method = "cubic"` - use periodic B-splines of degree 3 (periodic cubic interpolation) 
-
+`method = "cubic"` - use periodic B-splines of degree 3 (periodic cubic interpolation).
 """
 function tvmeval(A::PeriodicTimeSeriesMatrix{:c,T}, t::Union{Real,Vector{<:Real}}; method = "linear") where T
    N = length(A.values)
@@ -1015,17 +1013,17 @@ end
 
 Evaluate the harmonic array `Ahr` representing a continuous-time 
 time periodic matrix `A(t)` for a numerical or symbolic time value `t`. 
-For real `t`, if `exact = true (defualt)` an exact evaluation is computed, while for `exact = false`, 
+For a real value `t`, if `exact = true (default)` an exact evaluation is computed, while for `exact = false`, 
 a linear interpolation based approximation is computed (potentially more accurate in intersample points).
 The keyword argument `ntrunc` specifies the number of harmonics to be used for the evaluation 
 (default: maximum possible number). 
+If `t` is a symbolic variable, a symbolic evaluation of `A(t)` is performed (see also [`hr2psm`](@ref))
 """
 function hreval(ahr::HarmonicArray, t::Union{Num,Real}; exact::Bool = true, ntrunc::Int = max(size(ahr.values,3)-1,0))   
       (ntrunc < 0 || ntrunc >= size(ahr.values,3)) && error("ntrunc out of allowed range")
-   isa(t,Num) && (return hr2psm(ahr))
-   n = ntrunc
+   isa(t,Num) && (return hr2psm(ahr, 0:ntrunc))
 
-     
+   n = ntrunc    
    ts = mod(t,ahr.period)*2*pi/ahr.period
    
    # determine interpolation coefficients
@@ -1047,14 +1045,16 @@ end
 """
      tvmeval(Ahr::HarmonicArray, t; ntrunc, exact = true) -> A::Vector{Matrix}
 
-Time response evaluation of a harmonic array.
-For the harmonic array `Ahr` representing a time periodic matrix A(t) and the vector of time values `t`, 
-a exact evaluation or linear interpolation based approximation   
-`A[i] = A(t[i])` is evaluated for each time value `t[i]`. 
-If `exact = true (defualt)` an exact evaluation is computed, while for `exact = false`, 
-a linear interpolation based approximation is computed (potentially more accurate in intersample points).
+Evaluate the time response of a harmonic array.
+
+For the harmonic array `Ahr` representing representing a continuous-time 
+time periodic matrix `A(t)` and the vector of time values `t`, 
+`A[i] = A(t[i])` is computed for each time value `t[i]`. 
+If `exact = true (default)` an exact evaluation is computed, while for `exact = false`, 
+a linear interpolation based approximation is computed 
+(potentially more accurate in intersample points).
 The keyword argument `ntrunc` specifies the number of harmonics to be used for evaluation 
-(default: maximum possible number). 
+(default: maximum possible number of harmonics). 
 """
 function tvmeval(ahr::HarmonicArray, t::Union{Real,Vector{<:Real}}; ntrunc::Int = size(ahr.values,3), 
                 exact::Bool = true) 
@@ -1089,8 +1089,10 @@ end
 """
      tvmeval(Asym::PeriodicSymbolicMatrix, t) -> A::Vector{Matrix}
 
-Time response evaluation of a periodic symbolic matrix.
-For the periodic symbolic matrix `Asym` representing a time periodic matrix A(t) and the vector of time values `t`, 
+Evaluate the time response of a periodic symbolic matrix.
+
+For the periodic symbolic matrix `Asym` representing a time periodic matrix `A(t)`
+and the vector of time values `t`, 
 `A[i] = A(t[i])` is evaluated for each time value `t[i]`. 
 """
 function tvmeval(A::PeriodicSymbolicMatrix, t::Union{Real,Vector{<:Real}} )
@@ -1100,8 +1102,9 @@ end
 """
      tvmeval(Af::PeriodicFunctionMatrix, t) -> A::Vector{Matrix}
 
-Time response evaluation of a periodic function matrix.
-For the periodic function matrix `Af` representing a time periodic matrix A(t) and the vector of time values `t`, 
+Evaluate the time response of a periodic function matrix.
+
+For the periodic function matrix `Af` representing a time periodic matrix `A(t)` and the vector of time values `t`, 
 `A[i] = A(t[i])` is evaluated for each time value `t[i]`. 
 """
 function tvmeval(A::PeriodicFunctionMatrix, t::Union{Real,Vector{<:Real}} )
