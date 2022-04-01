@@ -1,4 +1,4 @@
-# Periodic matrix data types
+# Constructors for periodic data types
 
 * **[`PeriodicMatrix`](@ref)**   Discrete-time periodic matrix representation.
 * **[`PeriodicArray`](@ref)**    Discrete-time periodic array representation.
@@ -6,6 +6,7 @@
 * **[`PeriodicSymbolicMatrix`](@ref)**   Continuous-time periodic symbolic matrix representation.
 * **[`PeriodicTimeSeriesMatrix`](@ref)**   Continuous-time periodic time series matrix representation.
 * **[`HarmonicArray`](@ref)**   Continuous-time harmonic array representation.
+* **[`PeriodicStateSpace`](@ref)**   Periodic state space system representation.
 
 ```@docs
 PeriodicMatrix
@@ -14,5 +15,6 @@ PeriodicFunctionMatrix
 PeriodicSymbolicMatrix
 PeriodicTimeSeriesMatrix
 HarmonicArray
-HarmonicArray(A0::MT, Acos::Union{Vector{Any}, Vector{MT}}, Asin::Union{Vector{Any}, Vector{MT}}, period::Real) where {T<:Real, MT<:VecOrMat{T}} 
+HarmonicArray(A0::MT, Acos::Union{Nothing, Vector{MT}}, Asin::Union{Nothing, Vector{MT}}, period::Real) where {T<:Real, MT<:VecOrMat{T}} 
+PeriodicStateSpace
 ```

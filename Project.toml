@@ -16,6 +16,7 @@ Polynomials = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SLICOT_jll = "545525a2-e20e-568b-b87f-b40a06098995"
 Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
+Primes = "27ebfcd6-29c5-5fa9-bf4b-fb8fc14df3ae"
 
 [compat]
 DescriptorSystems = "1"
@@ -29,6 +30,7 @@ OrdinaryDiffEq = "5, 6"
 Polynomials = "3"
 SLICOT_jll = "5.7"
 Symbolics = "4"
+Primes = "0.5"
 julia = "1.7"
 
 [extras]

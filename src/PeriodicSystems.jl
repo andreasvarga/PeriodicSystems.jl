@@ -15,9 +15,10 @@ using Symbolics
 #using DifferentialEquations
 using OrdinaryDiffEq
 using IRKGaussLegendre
+using Primes
 
 include("SLICOTtools.jl")
-using .SLICOTtools: mb03vd!, mb03vy!, mb03bd!
+using .SLICOTtools: mb03vd!, mb03vy!, mb03bd!, mb03wd!
 
 
 import LinearAlgebra: BlasInt, BlasFloat, BlasReal, BlasComplex, copy_oftype, transpose, adjoint, opnorm, normalize, rdiv!
@@ -26,11 +27,13 @@ import Base: +, -, *, /, \, (==), (!=), ^, isapprox, iszero, convert, promote_op
 import MatrixPencils: isregular, rmeval
 import Polynomials: AbstractRationalFunction, AbstractPolynomial, poles, isconstant, variable, degree, pqs
 
-export PeriodicDiscreteStateSpace, pschur, phess, psreduc_reg, psreduc_fast, check_psim, mshift, ts2hr, ts2pfm, pseig, tvmeval, hr2psm, hreval, tvstm
+export PeriodicStateSpace, pschur, phess, pschurw, psreduc_reg, psreduc_fast, check_psim, mshift, pseig, tvmeval, hreval, tvstm
+export ts2hr, ts2pfm, pfm2hr, hr2psm, psm2hr, pm2pa
 export monodromy, psceig
 export PeriodicArray, PeriodicMatrix
 export PeriodicTimeSeriesMatrix, HarmonicArray, PeriodicFunctionMatrix,  PeriodicSymbolicMatrix
-export mb03vd!, mb03vy!, mb03bd!
+export isperiodic
+export mb03vd!, mb03vy!, mb03bd!, mb03wd!
 
 
 abstract type AbstractDynamicalSystem end
@@ -39,9 +42,10 @@ abstract type AbstractLTVSystem <: AbstractDynamicalSystem end
 abstract type AbstractDescriptorStateSpace <: AbstractLTISystem end
 abstract type AbstractPeriodicStateSpace <: AbstractLTVSystem end
 
-abstract type AbstractPeriodicArray{Domain} end
+abstract type AbstractPeriodicArray{Domain,T} end
 
 include("types/PeriodicMatrices.jl")
+include("types/PeriodicStateSpace.jl")
 # include("ps.jl")
 include("psutils.jl")
 end

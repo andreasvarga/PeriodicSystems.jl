@@ -14,6 +14,7 @@ using LinearAlgebra: BlasInt
 using Test
 #using StaticArrays
 using IRKGaussLegendre
+using Primes: factor
 #using BenchmarkTools
 
 println("Test_psutils")
@@ -54,6 +55,15 @@ poles = (ALPHAR+im*ALPHAI) ./ BETA .* (2. .^SCAL)
 
 @test sort(real(poles)) ≈ sort(real(ev)) && 
       sort(imag(poles)) ≈ sort(imag(ev))
+
+A = reshape([A2 inv(E3) inv(E1)],3,3,3);
+mb03wd!('S','I',3,3,1,3,1,3,A,Q,ALPHAR, ALPHAI, LDWORK)
+
+poles = (ALPHAR+im*ALPHAI) 
+
+@test sort(real(poles)) ≈ sort(real(ev)) && 
+      sort(imag(poles)) ≈ sort(imag(ev))
+
 
 
 
@@ -112,6 +122,17 @@ ev = eigvals(A[:,:,2]*A[:,:,1])
 @test sort(real(eigs)) ≈ sort(real(ev)) && 
       sort(imag(eigs)) ≈ sort(imag(ev))
 
+A1 = [1.5 -.7 3.5 -.7; 1.  0.  2.  3.; 1.5 -.7 2.5 -.3; 1.  0.  2.  1.]; 
+n = 4; K = 18; 
+A = reshape(hcat([A1 for i in 1:K]...), n, n, K);
+@time H, Z, ihess = phess(A; rev = false);
+@test check_psim(A,Z,H; rev = false) && istriu(H[:,:,ihess],-1) && ihess == 1
+
+@time S, Z, eigs, ischur, = pschur(A; rev = false);
+@test check_psim(A,Z,S; rev = false)
+
+# @time S1, Z1, eigs1, ischur1 = pschurw(A; rev = false);
+# @test check_psim(A,Z1,S1; rev = false)
 
 
 
@@ -248,10 +269,57 @@ A = PeriodicSymbolicMatrix([cos(t) 1; 1 1-sin(t)],2*pi);
 println("A(t) = $(A.F)")
 B = HarmonicArray([0;1],[[1;0]],[[1;-1]],2*pi);
 println("B(t) = $(convert(PeriodicSymbolicMatrix,B).F)")
-C = PeriodicFunctionMatrix(t-> [sin(t)+cos(2*t) 1],2*pi);
+C = PeriodicFunctionMatrix(t-> [sin(2*t)+cos(2*t) 1],pi);
 println("C(t) = $(C.f(t))")
+D = PeriodicFunctionMatrix(zeros(1,1),pi)
+K = 100
+Δ = 2*pi/K
+ts = (0:K-1)*Δ
 
-Ad = PeriodicMatrix([[1 0], [1;1]],10)
+psys = PeriodicStateSpace(convert(PeriodicFunctionMatrix,A), 
+                          convert(PeriodicFunctionMatrix,B), 
+                          convert(PeriodicFunctionMatrix,C), 
+                          convert(PeriodicFunctionMatrix,D));
+
+psys = PeriodicStateSpace(convert(PeriodicFunctionMatrix{:c,BigFloat},A), 
+                          convert(PeriodicFunctionMatrix{:c,BigFloat},B), 
+                          convert(PeriodicFunctionMatrix{:c,BigFloat},C), 
+                          convert(PeriodicFunctionMatrix{:c,BigFloat},D));
+
+psys = PeriodicStateSpace(convert(PeriodicSymbolicMatrix,A), 
+                          convert(PeriodicSymbolicMatrix,B), 
+                          convert(PeriodicSymbolicMatrix,C), 
+                          convert(PeriodicSymbolicMatrix,D));
+
+psys = PeriodicStateSpace(convert(HarmonicArray,A), 
+                          convert(HarmonicArray,B), 
+                          convert(HarmonicArray,C), 
+                          convert(HarmonicArray,D));
+
+At = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,A).f.(ts),A.period);
+Bt = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,B).f.(ts),B.period);
+Ct = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,C).f.(ts),C.period); 
+Dt = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,D).f.(ts),D.period);
+psys = PeriodicStateSpace(At, Bt, Ct, Dt); 
+
+
+Ad = PeriodicMatrix([[1. 0], [1;1]],10);
+Bd = PeriodicMatrix( [[ 1 ], [ 1; 1]] ,2);
+Cd = PeriodicMatrix( [[ 1 1 ], [ 1 ]] ,10);
+Dd = PeriodicMatrix( [[ 1 ], [ 1 ]], 1);
+psys = PeriodicStateSpace(Ad,Bd,Cd,Dd);
+convert(PeriodicStateSpace{PeriodicArray},psys)
+convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys)
+
+
+Ad = PeriodicArray(rand(Float32,2,2,3),10);
+Bd = PeriodicArray(rand(2,1,3),2);
+Cd = PeriodicArray(rand(1,2,3),10);
+Dd = PeriodicArray(rand(1,1,3), 3);
+psys = PeriodicStateSpace(Ad,Bd,Cd,Dd);
+convert(PeriodicStateSpace{PeriodicMatrix},psys)
+convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys)
+
 
 # symbolic periodic 
 @variables t
@@ -287,6 +355,16 @@ Ct = PeriodicTimeSeriesMatrix(tC.(time),2*pi);
 @time Chr = ts2hr(Ct);
 @test Chr.values[:,:,1] ≈ [0. 1] && Chr.values[:,:,2] ≈ [im 0] && Chr.values[:,:,3] ≈ [1 0]
 
+nperiod = 24
+#tg1 = collect((0:N-1)*4*pi/N);
+time1 = (0:N-1)*2*pi*nperiod/N;
+At1 = PeriodicTimeSeriesMatrix(tA.(time1),2*pi*nperiod);
+Ahr1 = ts2hr(At1);
+@test convert(PeriodicFunctionMatrix,Ahr1).f(1) ≈ convert(PeriodicFunctionMatrix,Ahr).f(1) 
+
+@test iszero(hr2psm(Ahr,1:1) + hr2psm(Ahr,0:0) - hr2psm(Ahr))
+@test iszero(hr2psm(Ahr1,1:1) + hr2psm(Ahr1,0:0) - hr2psm(Ahr1))
+
 # harmonic vs. symbolic
 @test norm(substitute.(convert(PeriodicSymbolicMatrix,Ahr).F - A, (Dict(t => rand()),))) < 1e-15
 @test norm(substitute.(convert(PeriodicSymbolicMatrix,Bhr).F - B, (Dict(t => rand()),))) < 1e-15
@@ -315,18 +393,22 @@ end
 Amat = convert(PeriodicFunctionMatrix,Ahr); 
 @test all(norm.(tvmeval(At,tt; method = "linear").-tvmeval(Ahr,tt)) .< 1.e-3)
 @test iszero(convert(PeriodicSymbolicMatrix,Amat).F-Ap.F)
+@test isperiodic(Amat)
 
 Amat =  convert(PeriodicFunctionMatrix,At);
 @test all(norm.(tvmeval(At,tt; method = "linear").-Amat.f.(tt)) .< 1.e-3)
 #@test iszero(convert(PeriodicSymbolicMatrix,Amat).F-Ap.F)
+@test isperiodic(Amat)
 
 Amat = PeriodicFunctionMatrix(tA,2pi);
 @test all(norm.(tvmeval(At,tt; method = "linear").-tvmeval(Amat,tt)) .< 1.e-3)
 @test iszero(convert(PeriodicSymbolicMatrix,Amat).F-Ap.F)
+@test isperiodic(Amat)
 
 Amat =  convert(PeriodicFunctionMatrix,Ap);
 @test all(norm.(tvmeval(At,tt; method = "linear").-tvmeval(Ap,tt)) .< 1.e-3)
 @test iszero(convert(PeriodicSymbolicMatrix,Amat).F-Ap.F)
+@test isperiodic(Amat) && isperiodic(Ap) && size(Amat) == size(Ap)
 
 
 for method in ("constant", "linear", "quadratic", "cubic")

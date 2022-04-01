@@ -29,7 +29,7 @@ pkg> test PeriodicSystems
 or in the discrete-time form
 
      x(t+1)  = A(t)x(t) + B(t)u(t) ,
-     y(t)(t) = C(t)x(t) + D(t)u(t) ,
+     y(t)    = C(t)x(t) + D(t)u(t) ,
 
 where `x(t)`, `u(t)` and `y(t)` are the system state vector, system input vector and system output vector, respectively, and `t` is the continuous or discrete time variable. The system matrices satisfy `A(t) = A(t+T)`, `B(t) = B(t+T)`, `C(t) = C(t+T)`, `D(t) = D(t+T)`,  i.e., are periodic with period `T`. 
 

@@ -33,6 +33,8 @@ The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/Ordi
 function tvstm(A::PeriodicFunctionMatrix{:c,T}, tf::Real, t0::Real = 0; solver = "", reltol = 1e-3, abstol = 1e-7, dt = (tf-t0)/10) where {T}
    n = A.dims[1]
    n == A.dims[2] || error("the function matrix must be square")
+
+   isconstant(A) && ( return exp(A.f(t0)*(tf-t0)) )
    
    T1 = promote_type(typeof(t0), typeof(tf))
 
@@ -112,6 +114,10 @@ function monodromy(A::PeriodicFunctionMatrix{:c,T}, K::Int = 1; solver = "non-st
    n == A.dims[2] || error("the function matrix must be square")
    Ts = A.period/K
    M = Array{T,3}(undef, n, n, K) 
+
+   # compute the matrix exponential for K = 1 and constant matrix
+   K == 1 && isconstant(A) && ( M[:,:,1] = exp(A.f(0)*Ts); return M )
+
    K >= 100 ? dt = Ts : dt = Ts*K/100
 
    Threads.@threads for i = 1:K
@@ -153,20 +159,22 @@ _References_
 
 """
 function pseig(at::PeriodicFunctionMatrix{:c,T}, K::Int = 1; lifting::Bool = false, solver = "non-stiff", reltol = 1e-3, abstol = 1e-7, dt = at.period/100) where T
-   n = LinearAlgebra.checksquare(at.f(0))
+   n = at.dims[1]
+   n == at.dims[2] || error("the function matrix must be square")
+
    t = 0  
    Ts = at.period/K
    if lifting 
       if K == 1
-         ev = eigvals(tvstm(at.f, at.period, 0; solver, reltol, abstol, dt)) 
+         ev = eigvals(tvstm(at, at.period, 0; solver, reltol, abstol, dt)) 
       else   
          Z = zeros(T,n,n)
          ZI = [ Z; -I]
-         si = tvstm(at.f, Ts, 0; solver, reltol, abstol); ti = -I
+         si = tvstm(at, Ts, 0; solver, reltol, abstol); ti = -I
          t = Ts
          for i = 1:K-1
              tf = t+Ts
-             F = qr([ ti; tvstm(at.f, tf, t; solver, reltol, abstol, dt) ])     
+             F = qr([ ti; tvstm(at, tf, t; solver, reltol, abstol, dt) ])     
              si = F.Q'*[si; Z];  si = si[n+1:end,:]
              ti = F.Q'*ZI; ti = ti[n+1:end,:]
              t = tf
@@ -176,7 +184,7 @@ function pseig(at::PeriodicFunctionMatrix{:c,T}, K::Int = 1; lifting::Bool = fal
       sorteigvals!(ev)
    else
       M = monodromy(at, K; solver, reltol, abstol, dt) 
-      ev = pschur(M.M; withZ = false)[3]
+      ev = K == 1 ? eigvals(view(M.M,:,:,1)) : pschur(M.M; withZ = false)[3]
       return isreal(ev) ? real(ev) : ev
    end
 end
@@ -560,6 +568,89 @@ function pschur(A::Array{Float64,3}; rev::Bool = true, sind::Int = 1, withZ::Boo
      end
   end
 end
+# function pschurw(A::Array{Float64,3}; rev::Bool = true, sind::Int = 1, withZ::Bool = true)
+#    n = size(A,1)
+#    n == size(A,2) || error("A must have equal first and second dimensions") 
+#    p = size(A,3)
+#    (sind < 1 || sind > p) && error("sind is out of range $(1:p)") 
+
+#    shift = (sind != 1)
+#    #  use ilo = 1 and ihi = n for the reduction to the periodic Hessenberg form
+#    ilo = 1; ihi = n; 
+#    TAU = Array{Float64,2}(undef, max(n-1,1), p)
+   
+#    if withZ 
+#       Z = Array{Float64,3}(undef, n, n, p) 
+#       compQ = 'V'
+#    else
+#       Z = Array{Float64,3}(undef, 0, 0, 0)
+#       compQ = 'N'
+#    end
+
+#    if shift 
+#      if rev 
+#         imap = mod.(Vector(sind+p-1:-1:sind),p) .+ 1
+#         S = A[:,:,imap]
+#     else
+#         # shift h, h+1, ..., h+p-1 matrices to position 1, 2, ..., p
+#         imap = mod.(Vector(sind-1:sind+p-2),p) .+ 1
+#         #rev && (ind = reverse(ind); h = p-hind+1 )
+#         S = copy(view(A,:,:,imap))
+#      end
+#    else
+#       if rev 
+#          imap = mod.(Vector(p:-1:1),p) .+ 1
+#          S = A[:,:,imap]
+#       else
+#          S = copy(A); imap = 1:p; 
+#       end
+#    end
+
+#    # reduce to periodic Hessenberg form
+#    SLICOTtools.mb03vd!(n, p, ilo, ihi,  S, TAU)
+#    for i in 1:p
+#        withZ && (Z[:,:,i] .= tril(view(S,:,:,i)))    
+#        if n > 1 
+#           if n > 2 && i == 1 
+#              triu!(view(S,:,:,i),-1)  
+#           elseif i > 1 
+#              triu!(view(S,:,:,i))
+#           end 
+#        end 
+#    end 
+   
+#    # accumulate transformations
+#    withZ && SLICOTtools.mb03vy!(n, p, ilo, ihi, Z, TAU)
+
+
+#    # reduce to periodic Schur form
+#    LDWORK = p + max( 2*n, 8*p )
+#    LIWORK = 2*p + n
+#    QIND = Array{BlasInt,1}(undef, 1) 
+#    ALPHAR = Array{Float64,1}(undef, n)
+#    ALPHAI = Array{Float64,1}(undef, n)
+#    BETA = Array{Float64,1}(undef, n)
+#    SCAL = Array{BlasInt,1}(undef, n)
+#    SLICOTtools.mb03wd!('S',compQ, n, p, ilo, ihi, ilo, ihi, S, Z, ALPHAR, ALPHAI, LDWORK)
+#    ev = complex.(ALPHAR, ALPHAI)
+
+#    if shift
+#      if rev
+#         return S[:,:,imap], withZ ? Z[:,:,mod.(p+sind:-1:sind+1,p).+1] : nothing, ev, sind
+#      else
+#         # return back shifted matrices
+#         imap1 = mod.(imap.+(sind+1),p).+1
+#         return S[:,:,imap1], withZ ? Z[:,:,imap1] : nothing, ev, sind
+#      end
+#    else
+#      if rev 
+#         return S[:,:,imap], withZ ? Z[:,:,mod.(p+1:-1:2,p).+1] : nothing, ev, sind
+#      else
+#         return S, withZ ? Z : nothing, ev, sind
+#      end
+#   end
+# end
+
 """
      phess(A; hind = 1, rev = true, withZ = true) -> (H, Z, ihess)
 
@@ -755,7 +846,7 @@ are `atol = 0` and `rtol = √ϵ`, where `ϵ` is the working machine precision.
 The resulting harmonic approximation `Ahr(t)` is returned in the harmonic array object `Ahr` 
 (see [`HarmonicArray`](@ref)). 
 """
-function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0, n::Union{Int,Missing} = missing) where  {T, Ts}
+function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0, n::Union{Int,Missing} = missing, squeeze::Bool = true) where  {T, Ts}
    
    M = length(A.values)
    n1, n2 = size(A.values[1])
@@ -790,9 +881,73 @@ function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0
            AHR[i,j,indi] += im*imag(tt[indi])
        end
    end
-   return HarmonicArray(AHR[:,:,1:ncur],A.period)
-end
+   nperiod = 1
+   if ncur > 2 && squeeze
+      nh = ncur-1
+      s = falses(nh)
+      for i = 1:nh
+          s[i] = any(abs.(view(AHR,:,:,i+1)) .> tol)
+      end  
+      t = Primes.factor(Vector,nh)
+      s1 = copy(s)
+      for i = 1:length(t)
+          #st = falses(0) 
 
+          #k = div(nh,t[i])  # number of possible patterns
+          stry = true
+          for j1 = 1:t[i]:nh
+              stry = stry & all(view(s1,j1:j1+t[i]-2) .== false) 
+              stry || break
+              #st = [st; s1[j1+t[i]-1]]
+          end
+          if stry 
+             nperiod = nperiod*t[i]
+             s1 = s1[t[i]:t[i]:nh]
+             nh = div(nh,t[i])
+          end
+      end 
+      return HarmonicArray(AHR[:,:,[1;nperiod+1:nperiod:ncur]],A.period;nperiod)
+   else
+      return HarmonicArray(AHR[:,:,1:ncur],A.period;nperiod)
+   end       
+
+end
+"""
+     pfm2hr(A::PeriodicFunctionMatrix; nsample, NyquistFreq) -> Ahr::HarmonicArray
+
+Convert a periodic function matrix into a harmonic array representation. 
+If `A(t)` is a periodic function matrix of period `T`, then the harmonic array representation
+`Ahr` is determined by applying the fast Fourier transform to the sampled arrays `A(iΔ)`, `i = 0, ..., k`,
+where `Δ = T/k` is the sampling period and `k` is the number of samples specified by the keyword argument
+`nsample = k` (default: `k = 128`). If the Nyquist frequency `f` is specified via the keyword argument
+`NyquistFreq = f`, then `k` is chosen `k = 2*f*T` to avoid signal aliasing.     
+"""
+function pfm2hr(A::PeriodicFunctionMatrix; nsample::Int = 128, NyquistFreq::Union{Real,Missing} = missing)   
+   isconstant(A) && (return HarmonicArray(A.f(0),A.period))
+   nsample > 0 || ArgumentError("nsample must be positive, got $nsaple")
+   ns = ismissing(NyquistFreq) ? nsample : Int(floor(2*abs(NyquistFreq)*A.period))+1
+   Δ = A.period/ns
+   ts = (0:ns-1)*Δ
+   return ts2hr(PeriodicTimeSeriesMatrix(A.f.(ts), A.period))
+end
+"""
+     psm2hr(A::PeriodicSymbolicMatrix; nsample, NyquistFreq) -> Ahr::HarmonicArray
+
+Convert a periodic symbolic matrix into a harmonic array representation. 
+If `A(t)` is a periodic symbolic matrix of period `T`, then the harmonic array representation
+`Ahr` is determined by applying the fast Fourier transform to the sampled arrays `A(iΔ)`, `i = 0, ..., k`,
+where `Δ = T/k` is the sampling period and `k` is the number of samples specified by the keyword argument
+`nsample = k` (default: `k = 128`). If the Nyquist frequency `f` is specified via the keyword argument
+`NyquistFreq = f`, then `k` is chosen `k = 2*f*T` to avoid signal aliasing.     
+"""
+function psm2hr(A::PeriodicSymbolicMatrix; nsample::Int = 128, NyquistFreq::Union{Real,Missing} = missing)   
+   isconstant(A) && (return HarmonicArray(convert(PeriodicFunctionMatrix,A).f(0),A.period))
+   nsample > 0 || ArgumentError("nsample must be positive, got $nsaple")
+   ns = ismissing(NyquistFreq) ? nsample : Int(floor(2*abs(NyquistFreq)*A.period))+1
+   Δ = A.period/ns
+   ts = (0:ns-1)*Δ
+   return ts2hr(PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,A).f.(ts), A.period))
+end
 """
      hr2psm(Ahr::HarmonicArray, nrange) -> A::Matrix{Num}
 
@@ -805,7 +960,7 @@ function hr2psm(ahr::HarmonicArray, nrange::UnitRange = 0:size(ahr.values,3)-1)
    i1 = max(first(nrange),0)
    i2 = min(last(nrange), size(ahr.values,3)-1)
    
-   ts = t*2*pi/Period
+   ts = t*2*pi*ahr.nperiod/Period
    
    i1 == 0 ? a = Num.(real.(ahr.values[:,:,1])) : (i1 -=1; a = zeros(Num,size(ahr.values,1),size(ahr.values,2)))
    for i in i1+1:i2
@@ -813,7 +968,36 @@ function hr2psm(ahr::HarmonicArray, nrange::UnitRange = 0:size(ahr.values,3)-1)
        a .+= real.(ta).*(cos(i*ts)) .+ imag.(ta) .* (sin(i*ts))
    end
    return a
-end   
+end 
+"""
+     pm2pa(At::PeriodicMatrix) -> A::PeriodicArray
+
+Convert a discrete-time periodic matrix object into a discrete-time periodic array object.
+
+The discrete-time periodic matrix object `At` contains a  
+`p`-vector `At` of real matrices `At[i]`, `i = 1,..., p` 
+and the associated time period `T`. The resulting discrete-time periodic array object
+`A` of period `T` is built from a `m×n×p` real array `A`, such that `A[:,:,i]` 
+contains `At[i]`, for `i = 1,..., p`. 
+For non-constant dimensions, the resulting `m` and `n` are the maximum row and column dimensions, respectively,
+and the resulting component matrices `A[:,:,i]` contain `At[i]`, appropriately padded with zero entries. 
+"""
+function pm2pa(A::PeriodicMatrix{:d,T}) where T
+   N = length(A)
+   m, n = size(A)
+   N == 0 && PeriodicArray(Array{T,3}(undef,0,0,0),A.period)
+   if any(m .!= m[1]) || any(m .!= m[1]) 
+      #@warn "Non-constant dimensions: the resulting component matrices padded with zeros"
+      t = zeros(T,maximum(m),maximum(n),N)
+      [copyto!(view(t,1:m[i],1:n[i],i),A.M[i]) for i in 1:N]
+      PeriodicArray{:d,T}(t,A.period)
+   else
+      t = zeros(T,m[1],n[1],N)
+      [copyto!(view(t,:,:,i),A.M[i]) for i in 1:N]
+      PeriodicArray{:d,T}(t,A.period)
+   end
+end
+
 
 
 # lifting-based structure exploiting (fast) reductions
@@ -1019,15 +1203,16 @@ The keyword argument `ntrunc` specifies the number of harmonics to be used for t
 (default: maximum possible number). 
 If `t` is a symbolic variable, a symbolic evaluation of `A(t)` is performed (see also [`hr2psm`](@ref))
 """
-function hreval(ahr::HarmonicArray, t::Union{Num,Real}; exact::Bool = true, ntrunc::Int = max(size(ahr.values,3)-1,0))   
+function hreval(ahr::HarmonicArray{:c,T}, t::Union{Num,Real}; exact::Bool = true, ntrunc::Int = max(size(ahr.values,3)-1,0)) where {T}
       (ntrunc < 0 || ntrunc >= size(ahr.values,3)) && error("ntrunc out of allowed range")
    isa(t,Num) && (return hr2psm(ahr, 0:ntrunc))
 
-   n = ntrunc    
-   ts = mod(t,ahr.period)*2*pi/ahr.period
+   n = ntrunc   
+   T1 = float(promote_type(T,typeof(t)))
+   ts = mod(T1(t),T1(ahr.period))*2*pi*ahr.nperiod/ahr.period
    
    # determine interpolation coefficients
-   ht = ones(Float64,n);
+   ht = ones(T1,n);
    if !exact
       # use linear interpolation
       for i = 2:n
@@ -1035,10 +1220,10 @@ function hreval(ahr::HarmonicArray, t::Union{Num,Real}; exact::Bool = true, ntru
            ht[i] = (sin(x)/x)^2
       end
    end
-   a = real.(ahr.values[:,:,1])
+   a = T == T1 ? real.(ahr.values[:,:,1]) : T1.(real.(ahr.values[:,:,1]))
    for i = 1:n
        ta = view(ahr.values,:,:,i+1)
-       a .+= real.(ta).*(cos(i*ts)*ht[i]) .+ imag.(ta) .* ((sin(i*ts)*ht[i]))
+       a .+= T1.(real.(ta)).*(cos(i*ts)*ht[i]) .+ T1.(imag.(ta)) .* ((sin(i*ts)*ht[i]))
    end
    return a
 end   
@@ -1065,7 +1250,7 @@ function tvmeval(ahr::HarmonicArray, t::Union{Real,Vector{<:Real}}; ntrunc::Int 
    nt = length(te)
    period = ahr.period
    
-   tscal = 2*pi/period
+   tscal = 2*pi*ahr.nperiod/period
    # determine interpolation coefficients
    ht = ones(Float64,n);
    if !exact
