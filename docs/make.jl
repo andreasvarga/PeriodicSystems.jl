@@ -10,10 +10,9 @@ makedocs(
       "Home"   => "index.md",
       "Library" => [ 
          "Data Types and Constructors" => [
-          "pstypes.md"
+          "pstypes.md",
+          "ps.md"
           ],
-   #       "dss.md",
-   #      "rtf.md",
    #      "operations.md",
    #      "operations_rtf.md",
    #      "conversions.md",
