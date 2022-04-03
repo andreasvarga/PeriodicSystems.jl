@@ -5,81 +5,129 @@
 Discrete-time periodic matrix representation. 
 
 The discrete-time periodic matrix object `A` is built from a 
-`p`-vector `M` of real matrices and the associated time period `T`. 
+`p`-vector `M` of real matrices, the associated time period `T` and 
+the number of subperiods specified via the keyword argument `nperiod = k`. 
+
 `M` contains the cyclic component matrices `M[i]`, `i = 1,..., p`, 
 where `M[i]` represents the value `M(Δ(i-1))` of a time periodic matrix `M(t)`
-of period `T`, with `Δ := T/p`, the associated sampling time.
+of period `T/k`, with `Δ := T/(kp)`, the associated sample time. 
 It is assumed that `M[k] := M[mod(k-1,p)+1]` for arbitrary `k`. 
 All component matrices are allowed to have arbitrary (time-varying) dimensions.
-The component matrices `M`, the period `T` and the discrete period `p`
-can be accessed via `A.M`, `A.period` and `A.dperiod`, respectively. 
+The component matrices `M`, the period `T`, the discrete period `p` and the sample time `Δ`
+can be accessed via `A.M`, `A.period`, `A.dperiod` and `A.Ts`, respectively. 
 """
 struct  PeriodicMatrix{Domain,T} <: AbstractPeriodicArray{Domain,T}
     M::Vector{Matrix{T}}
     period::Float64
-    function  PeriodicMatrix(M::Vector{MT}, period::Real) where {MT <: Array} 
-       period > 0 || error("period must be positive") 
-       any(ndims.(M) .> 2) && error("only vectors with vector or matrix elements supported")
-       m = size.(M,2)
-       T = promote_type(eltype.(M)...)
-       return any(m .== 1) ?  new{:d,T}([T.(reshape(M[i],size(M[i],1),m[i])) for i in 1:length(M)], Float64(period))  :  
-                       new{:d,T}([T.(M[i]) for i in 1:length(M)], Float64(period)) 
-    end
+    nperiod::Int
 end 
 # additional constructors
-function PeriodicMatrix{:d,T}(A::Vector{Matrix{T1}}, period::Real) where {T,T1}
-    PeriodicMatrix([T.(A[i]) for i in 1:length(A)], period)
+function  PeriodicMatrix(M::Vector{MT}, period::Real; nperiod::Int = 1) where {MT <: Array} 
+   period > 0 || error("period must be positive") 
+   nperiod > 0 || error("number of subperiods must be positive") 
+   any(ndims.(M) .> 2) && error("only vectors with vector or matrix elements supported")
+   m = size.(M,2)
+   T = promote_type(eltype.(M)...)
+   return any(m .== 1) ?  PeriodicMatrix{:d,T}([T.(reshape(M[i],size(M[i],1),m[i])) for i in 1:length(M)], Float64(period), nperiod)  :  
+                   PeriodicMatrix{:d,T}([T.(M[i]) for i in 1:length(M)], Float64(period), nperiod) 
 end
+PeriodicMatrix{:d,T}(A::Vector{Matrix{T}}, period::Real; nperiod::Int = 1) where {T} = 
+      PeriodicMatrix{:d,T}(A, period, nperiod)
+
+# period change
+function PeriodicMatrix{:d,T}(A::PeriodicMatrix{:d,T1}, period::Real) where {T,T1}
+   period > 0 || error("period must be positive") 
+   Aperiod = A.period
+   r = rationalize(Aperiod/period)
+   n, d = numerator(r), denominator(r)
+   min(n,d) == 1 || error("new period is incommensurate with the old period")
+   if period >= Aperiod
+      PeriodicMatrix{:d,T}([T.(A.M[i]) for i in 1:length(A)], Aperiod*d, A.nperiod*d)
+   elseif period < Aperiod
+      nperiod = div(A.nperiod,n)
+      nperiod < 1 && error("new period is incommensurate with the old period")
+      PeriodicMatrix{:d,T}([T.(A.M[i]) for i in 1:length(A)], Aperiod/n, nperiod)
+   end
+end
+
+# function PeriodicMatrix{:d,T}(A::Vector{Matrix{T1}}, period::Real) where {T,T1}
+#     PeriodicMatrix([T.(A[i]) for i in 1:length(A)], period)
+# end
 # PeriodicMatrix(M::Vector{MT}, period::Real) where {T <: Real, MT <: Array{T}} = 
 #            PeriodicMatrix{:d,T}(M, period)
-PeriodicMatrix(M::VecOrMat{T}, period::Real) where {T <: Real} = PeriodicMatrix([M], period)
+PeriodicMatrix(M::Vector{Matrix{T}}, period::Real; nperiod::Int = 1) where {T <: Real} = 
+       PeriodicMatrix{:d,T}(M, period, nperiod)
+PeriodicMatrix(M::VecOrMat{T}, period::Real; nperiod::Int = 1) where {T <: Real} =
+   PeriodicMatrix{:d,T}([reshape(M,size(M,1),size(M,2))], period, nperiod)
 function Base.getproperty(A::PeriodicMatrix, d::Symbol)  
    if d === :dperiod
       return length(getfield(A, :M))
+   elseif d === :Ts
+      return A.period/A.dperiod/A.nperiod
    else
       getfield(A, d)
    end
 end
-Base.propertynames(A::PeriodicMatrix) = (:dperiod, fieldnames(typeof(A))...)
+Base.propertynames(A::PeriodicMatrix) = (:dperiod, :Ts, fieldnames(typeof(A))...)
 isconstant(A::PeriodicMatrix) = (A.dperiod == 1)
 Base.size(A::PeriodicMatrix) = (size.(A.M,1),size.(A.M,2))
 Base.size(A::PeriodicMatrix, d::Integer) = size.(A.M,d)
 Base.length(A::PeriodicMatrix) = A.dperiod
 Base.eltype(A::PeriodicMatrix{:d,T}) where T = T
 """
-    PeriodicArray(M, T) -> A::PeriodicArray
+    PeriodicArray(M, T; nperiod = k) -> A::PeriodicArray
 
 Discrete-time periodic array representation.
 
 The discrete-time periodic array object `A` is built from a `m×n×p` real array
-`M` and the associated time period `T`. 
+`M`, the associated time period `T` and the number of subperiods specified via 
+the keyword argument `nperiod = k`. 
 `M` contains the cyclic component matrices `M[:,:,i]`, `i = 1,..., p`, 
 where `M[:,:,i]` represents the value `M(Δ(i-1))` of a time periodic matrix `M(t)`
-of period `T`, with `Δ := T/p`, the associated sampling time.
+of period `T/k`, with `Δ := T/(kp)`, the associated sample time. 
 It is assumed that  `M[:,:,k] := M[:,:,mod(k-1,p)+1]` for arbitrary `k`. 
-The component matrices `M`, the period `T` and the discrete period `p`
-can be accessed via `A.M`, `A.period` and `A.dperiod`, respectively. 
+The component matrices `M`, the period `T`, the discrete period `p` and the sample time `Δ`
+can be accessed via `A.M`, `A.period`, `A.dperiod` and `A.Ts`, respectively. 
 """
 struct PeriodicArray{Domain,T} <: AbstractPeriodicArray{Domain,T}
     M::Array{T,3}
     period::Float64
-    function  PeriodicArray{:d,T}(M::Array{T,3}, period::Real) where {T <: Real} 
-       period > 0 || error("period must be positive")       
-       new{:d,T}(M, Float64(period)) 
-    end
+    nperiod::Int
 end 
 # additional constructors
-PeriodicArray{:d,T}(M::Array{T1,3}, period::Real) where {T,T1} = PeriodicArray(T.(M), period)
-PeriodicArray(M::Array{T,3}, period::Real) where {T <: Real} = PeriodicArray{:d,T}(M, period)
-PeriodicArray(M::VecOrMat{T}, period::Real) where T = PeriodicArray(reshape(M,size(M,1),size(M,2),1), period)
+function  PeriodicArray{:d,T}(M::Array{T,3}, period::Real; nperiod::Int = 1) where {T <: Real} 
+   period > 0 || error("period must be positive")       
+   nperiod > 0 || error("number of subperiods must be positive") 
+   PeriodicArray{:d,T}(M, Float64(period), nperiod) 
+end
+function PeriodicArray{:d,T}(A::PeriodicArray{:d,T1}, period::Real) where {T,T1}
+   period > 0 || error("period must be positive") 
+   #isconstant(A) && (return PeriodicArray{:d,T}(convert(Array{T,3},A.M), period; nperiod = 1))
+   Aperiod = A.period
+   r = rationalize(Aperiod/period)
+   n, d = numerator(r), denominator(r)
+   min(n,d) == 1 || error("new period is incommensurate with the old period")
+   if period >= Aperiod
+      PeriodicArray{:d,T}(convert(Array{T,3},A.M), Aperiod*d; nperiod = A.nperiod*d)
+   elseif period < Aperiod
+      nperiod = div(A.nperiod,n)
+      nperiod < 1 && error("new period is incommensurate with the old period")
+      PeriodicArray{:d,T}(convert(Array{T,3},A.M), Aperiod/n; nperiod)
+   end
+end
+#PeriodicArray{:d,T}(M::Array{T1,3}, period::Real; nperiod::Int = 1) where {T,T1} = PeriodicArray(T.(M), period; nperiod)
+PeriodicArray(M::Array{T,3}, period::Real; nperiod::Int = 1) where {T <: Real} = PeriodicArray{:d,T}(M, period, nperiod)
+PeriodicArray(M::VecOrMat{T}, period::Real; nperiod::Int = 1) where T = PeriodicArray(reshape(M,size(M,1),size(M,2),1), period; nperiod)
 function Base.getproperty(A::PeriodicArray, d::Symbol)  
    if d === :dperiod
       return size(getfield(A, :M), 3)
+   elseif d === :Ts
+      return A.period/A.dperiod/A.nperiod
    else
       getfield(A, d)
    end
 end
-Base.propertynames(A::PeriodicArray) = (:dperiod, fieldnames(typeof(A))...)
+Base.propertynames(A::PeriodicArray) = (:dperiod, :Ts, fieldnames(typeof(A))...)
 isconstant(A::PeriodicArray) = (A.dperiod == 1)
 Base.size(A::PeriodicArray) = (size(A.M,1),size(A.M,2))
 Base.size(A::PeriodicArray, d::Integer) = size(A.M,d)
@@ -294,21 +342,20 @@ function PeriodicTimeSeriesMatrix{:c,T}(At::Union{Vector{Vector{T}},Vector{Matri
    period > 0 || error("period must be positive") 
    nperiod > 0 || error("number of subperiods must be positive") 
    N = length(At) 
-   N <= 1 && (return PeriodicTimeSeriesMatrix{:c,T}(At, Float64(period); nperiod) ) # the constant matrix case 
+   #N <= 1 && (return PeriodicTimeSeriesMatrix{:c,T}(At, Float64(period); nperiod) ) # the constant matrix case 
    n1, n2 = size(At[1],1), size(At[1],2)
    (all(size.(At,1) .== n1) && all(size.(At,2) .== n2)) || error("all component matrices must have the same dimensions")
 
    # adjust final data to matrix type
    PeriodicTimeSeriesMatrix{:c,T}(n2 == 1 ? [reshape(At[j],n1,n2) for j in 1:N] : At, Float64(period), nperiod) 
 end
-function PeriodicTimeSeriesMatrix{:d,T}(A::Vector{Matrix{T1}}, period::Real) where {T,T1}
-   PeriodicTimeSeriesMatrix([T.(A[i]) for i in 1:length(A)], period)
-end
-
-PeriodicTimeSeriesMatrix(At::Union{Vector{Vector{T}},Vector{Matrix{T}}}, period::Real) where {T <: Real} = 
-    PeriodicTimeSeriesMatrix{:c,T}(At, period)  
-PeriodicTimeSeriesMatrix(At::VecOrMat{T}, period::Real) where {T <: Real}  = 
-        PeriodicTimeSeriesMatrix([reshape(At,size(At,1),size(At,2))], period) 
+PeriodicTimeSeriesMatrix{:c,T}(A::Vector{Matrix{T1}}, period::Real; nperiod::Int = 1) where {T,T1} = 
+   PeriodicTimeSeriesMatrix([T.(A[i]) for i in 1:length(A)], period; nperiod)
+PeriodicTimeSeriesMatrix(At::Union{Vector{Vector{T}},Vector{Matrix{T}}}, period::Real; nperiod::Int = 1) where {T <: Real} = 
+     PeriodicTimeSeriesMatrix{:c,T}(At, period; nperiod)  
+PeriodicTimeSeriesMatrix(At::VecOrMat{T}, period::Real; nperiod::Int = 1) where {T <: Real}  = 
+        PeriodicTimeSeriesMatrix([reshape(At,size(At,1),size(At,2))], period; nperiod) 
+# period change
 function PeriodicTimeSeriesMatrix{:c,T}(A::PeriodicTimeSeriesMatrix{:c,T1}, period::Real) where {T,T1}
    Aperiod = A.period
    r = rationalize(Aperiod/period)
@@ -332,7 +379,7 @@ Base.eltype(At::PeriodicTimeSeriesMatrix{:c,T}) where T = T
 
 # conversions to discrete-time PeriodicMatrix
 Base.convert(::Type{PeriodicMatrix}, A::PeriodicArray{:d,T}) where T = 
-             PeriodicMatrix{:d,T}([A.M[:,:,i] for i in 1:size(A.M,3)],A.period)
+             PeriodicMatrix{:d,T}([A.M[:,:,i] for i in 1:size(A.M,3)],A.period; nperiod = A.nperiod)
 
 # conversions to discrete-time PeriodicArray
 # function Base.convert(::Type{PeriodicArray}, A::PeriodicMatrix{:d,T}) where T
@@ -425,7 +472,7 @@ Base.convert(::Type{HarmonicArray}, A::PeriodicSymbolicMatrix) = psm2hr(A)
 # conversions to PeriodicTimeSeriesMatrix
 Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicFunctionMatrix) = 
          PeriodicTimeSeriesMatrix(A.f.((0:127)*A.period/128), A.period)
-# conversions pf discrete-time periodic matries to continuous-time PeriodicTimeSeriesMatrix
+# conversions of discrete-time periodic matrices to continuous-time PeriodicTimeSeriesMatrix
 
 # function PeriodicTimeSeriesMatrix(A::PeriodicMatrix{:d,T}, period::Real = A.period) where {T <: Real}
 #    N = length(A.M) 
@@ -437,7 +484,6 @@ Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicFunctionMatrix) =
 # end
 Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicMatrix) =
     convert(PeriodicTimeSeriesMatrix, pm2pa(A))
-
 Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicArray) =
-    PeriodicTimeSeriesMatrix([A.M[:,:,i] for i in 1:size(A.M,3)], A.period)
+    PeriodicTimeSeriesMatrix([A.M[:,:,i] for i in 1:size(A.M,3)], A.period; nperiod = A.nperiod)
 

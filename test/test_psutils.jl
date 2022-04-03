@@ -302,21 +302,32 @@ Ct = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,C).f.(ts),C.period)
 Dt = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,D).f.(ts),D.period);
 psys = PeriodicStateSpace(At, Bt, Ct, Dt); 
 
+# constant dimensions
+Ad = PeriodicMatrix([[1. 0; 0 0], [1 1;1 1], [0 1; 1 0]], 3);
+Bd = PeriodicMatrix( [[ 1; 0 ], [ 1; 1]] ,2);
+Cd = PeriodicMatrix( [[ 1 1 ], [ 1 0]] ,2);
+Dd = PeriodicMatrix( [[ 1 ]], 1);
+psys = PeriodicStateSpace(Ad,Bd,Cd,Dd); 
+convert(PeriodicStateSpace{PeriodicArray},psys);
+convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys);
 
-Ad = PeriodicMatrix([[1. 0], [1;1]],10);
+
+Ad = PeriodicMatrix([[1. 0], [1;1]],2);
 Bd = PeriodicMatrix( [[ 1 ], [ 1; 1]] ,2);
-Cd = PeriodicMatrix( [[ 1 1 ], [ 1 ]] ,10);
-Dd = PeriodicMatrix( [[ 1 ], [ 1 ]], 1);
+Cd = PeriodicMatrix( [[ 1 1 ], [ 1 ]] ,2);
+Dd = PeriodicMatrix( [[ 1 ]], 1); 
 psys = PeriodicStateSpace(Ad,Bd,Cd,Dd);
-convert(PeriodicStateSpace{PeriodicArray},psys)
-convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys)
+print(psys);
+convert(PeriodicStateSpace{PeriodicArray},psys);
+convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys);
 
 
-Ad = PeriodicArray(rand(Float32,2,2,3),10);
-Bd = PeriodicArray(rand(2,1,3),2);
-Cd = PeriodicArray(rand(1,2,3),10);
-Dd = PeriodicArray(rand(1,1,3), 3);
-psys = PeriodicStateSpace(Ad,Bd,Cd,Dd);
+Ad = PeriodicArray(rand(Float32,2,2,10),10);
+Bd = PeriodicArray(rand(2,1,2),2);
+Cd = PeriodicArray(rand(1,2,3),3);
+Dd = PeriodicArray(rand(1,1,1), 1);
+psys = PeriodicStateSpace(Ad,Bd,Cd,Dd); 
+print(psys);
 convert(PeriodicStateSpace{PeriodicMatrix},psys)
 convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys)
 

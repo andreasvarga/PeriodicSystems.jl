@@ -16,14 +16,22 @@ function promote_period(PM1,args...; ndigits = 4)
     end
     return period
 end
+function promote_Ts(PM1,args...)
+    Ts = PM1.Ts
+    isconst = isconstant(PM1)
+    for a in args
+        isconstant(a) && continue
+        isconst && (isconst = false; Ts = a.Ts; continue)
+        Ts ≈ a.Ts || error("incompatible sampling times")
+    end
+    return Ts
+end
+
 struct PeriodicStateSpace{PM} <: AbstractPeriodicStateSpace
     A::PM
     B::PM
     C::PM
     D::PM
-    ny::Int
-    nu::Int
-    nx::Vector{Int}
     period::Float64
 end
 """
@@ -41,48 +49,49 @@ in the continuous-time form
 or in the discrete-time form
 
      x(t+1)  = A(t)x(t) + B(t)u(t) ,
-     y(t)    = C(t)x(t) + D(t)u(t) ,
+     y(t)    = C(t)x(t) + D(t)u(t) , 
 
 where `x(t)`, `u(t)` and `y(t)` are the system state vector, 
 system input vector and system output vector, respectively, 
 and `t` is the continuous or discrete time variable. 
-The system matrices satisfy `A(t) = A(t+T1)`, `B(t) = B(t+T2)`, `C(t) = C(t+T3)`, `D(t) = D(t+T4)`,  
-i.e., are periodic with periods `T1`, `T2`, `T3` and `T4`, respectively. 
-The different periods must be however commensurate (i.e., their ratios must be rational numbers). 
+The system matrices satisfy `A(t) = A(t+T₁)`, `B(t) = B(t+T₂)`, `C(t) = C(t+T₃)`, `D(t) = D(t+T₄)`,  
+i.e., are periodic with periods `T₁`, `T₂`, `T₃` and `T₄`, respectively. 
+The different periods must be commensurate (i.e., their ratios must be rational numbers with
+numerators and denominators up to at most 4 decimal digits). 
 All periodic matrix objects must have the same type `PM`, where
 `PM` stays for one of the supported periodic matrix types, i.e., 
 [`PeriodicMatrix`](@ref), [`PeriodicArray`](@ref), [`PeriodicFunctionMatrix`](@ref), [`PeriodicSymbolicMatrix`](@ref),
 [`HarmonicArray`](@ref) or [`PeriodicTimeSeriesMatrix`](@ref). 
 """
 function PeriodicStateSpace(A::PFM, B::PFM, C::PFM, D::PFM) where {T,PFM <: PeriodicFunctionMatrix{:c,T}}
-    ny, nu, nx, period = ps_validation(A, B, C, D)
+    period = ps_validation(A, B, C, D)
     PeriodicStateSpace{PFM}(period == A.period ? A : PeriodicFunctionMatrix(A,period), period == B.period ? B : PeriodicFunctionMatrix(B,period), 
                             period == C.period ? C : PeriodicFunctionMatrix(C,period), period == D.period ? D : PeriodicFunctionMatrix(D,period), 
-                            ny, nu, nx, Float64(period))
+                            Float64(period))
 end
 function PeriodicStateSpace(A::PSM, B::PSM, C::PSM, D::PSM) where {T,PSM <: PeriodicSymbolicMatrix{:c,T}}
-    ny, nu, nx, period = ps_validation(A, B, C, D)
+    period = ps_validation(A, B, C, D)
     PeriodicStateSpace{PSM}(period == A.period ? A : PeriodicSymbolicMatrix(A,period), period == B.period ? B : PeriodicSymbolicMatrix(B,period), 
                             period == C.period ? C : PeriodicSymbolicMatrix(C,period), period == D.period ? D : PeriodicSymbolicMatrix(D,period), 
-                            ny, nu, nx, Float64(period))
+                            Float64(period))
 end
 function PeriodicStateSpace(A::PHR1, B::PHR2, C::PHR3, D::PHR4) where {PHR1 <: HarmonicArray, PHR2 <: HarmonicArray, PHR3 <: HarmonicArray, PHR4 <: HarmonicArray}
-    ny, nu, nx, period = ps_validation(A, B, C, D)
+    period = ps_validation(A, B, C, D)
     T = promote_type(eltype(A),eltype(B),eltype(C),eltype(D))
     PeriodicStateSpace{HarmonicArray{:c,T}}((period == A.period && T == eltype(A)) ? A : HarmonicArray{:c,T}(A,period), 
                                             (period == B.period && T == eltype(B)) ? B : HarmonicArray{:c,T}(B,period), 
                                             (period == C.period && T == eltype(C)) ? C : HarmonicArray{:c,T}(C,period), 
                                             (period == D.period && T == eltype(D)) ? D : HarmonicArray{:c,T}(D,period), 
-                                            ny, nu, nx, Float64(period))
+                                            Float64(period))
 end
 function PeriodicStateSpace(A::PTSM1, B::PTSM2, C::PTSM3, D::PTSM4) where {PTSM1 <: PeriodicTimeSeriesMatrix, PTSM2 <: PeriodicTimeSeriesMatrix, PTSM3 <: PeriodicTimeSeriesMatrix, PTSM4 <: PeriodicTimeSeriesMatrix}
-    ny, nu, nx, period = ps_validation(A, B, C, D)
+    period = ps_validation(A, B, C, D)
     T = promote_type(eltype(A),eltype(B),eltype(C),eltype(D))
     PeriodicStateSpace{PeriodicTimeSeriesMatrix{:c,T}}((period == A.period && T == eltype(A)) ? A : PeriodicTimeSeriesMatrix{:c,T}(A,period), 
                                             (period == B.period && T == eltype(B)) ? B : PeriodicTimeSeriesMatrix{:c,T}(B,period), 
                                             (period == C.period && T == eltype(C)) ? C : PeriodicTimeSeriesMatrix{:c,T}(C,period), 
                                             (period == D.period && T == eltype(D)) ? D : PeriodicTimeSeriesMatrix{:c,T}(D,period), 
-                                            ny, nu, nx, Float64(period))
+                                            Float64(period))
 end
 
 function ps_validation(A::PM1, B::PM2, C::PM3, D::PM4) where {T1, T2, T3, T4, PM1 <: AbstractPeriodicArray{:c,T1}, PM2 <: AbstractPeriodicArray{:c,T2}, PM3 <: AbstractPeriodicArray{:c,T3}, PM4 <: AbstractPeriodicArray{:c,T4}}
@@ -96,58 +105,64 @@ function ps_validation(A::PM1, B::PM2, C::PM3, D::PM4) where {T1, T2, T3, T4, PM
     ny == size(C,1) ||  DimensionMismatch("D(t) must have the same row size as C(t)")
     # validate sampling time
     period = promote_period(A, B, C, D)
-    return ny, nu, [nx], period
+    return period
 end
 function PeriodicStateSpace(A::PM1, B::PM2, C::PM3, D::PM4) where {PM1 <: PeriodicMatrix, PM2 <: PeriodicMatrix, PM3 <: PeriodicMatrix, PM4 <: PeriodicMatrix}
-    ny, nu, nx, period = ps_validation(A, B, C, D)
+    period = ps_validation(A, B, C, D)
+    promote_Ts(A,B,C,D)
     T = promote_type(eltype(A),eltype(B),eltype(C),eltype(D))
-    PeriodicStateSpace{PeriodicMatrix{:d,T}}((period == A.period && T == eltype(A)) ? A : PeriodicMatrix{:d,T}(A.M,period), 
-                                            (period == B.period && T == eltype(B)) ? B : PeriodicMatrix{:d,T}(B.M,period), 
-                                            (period == C.period && T == eltype(C)) ? C : PeriodicMatrix{:d,T}(C.M,period), 
-                                            (period == D.period && T == eltype(D)) ? D : PeriodicMatrix{:d,T}(D.M,period), 
-                                            ny, nu, nx, Float64(period))
+    PeriodicStateSpace{PeriodicMatrix{:d,T}}((period == A.period && T == eltype(A)) ? A : PeriodicMatrix{:d,T}(A,period), 
+                                             (period == B.period && T == eltype(B)) ? B : PeriodicMatrix{:d,T}(B,period), 
+                                             (period == C.period && T == eltype(C)) ? C : PeriodicMatrix{:d,T}(C,period), 
+                                             (period == D.period && T == eltype(D)) ? D : PeriodicMatrix{:d,T}(D,period), 
+                                             Float64(period))
 end
 
 function ps_validation(A::PM1, B::PM2, C::PM3, D::PM4) where {T1, T2, T3, T4, PM1 <: PeriodicMatrix{:d,T1}, PM2 <: PeriodicMatrix{:d,T2}, PM3 <: PeriodicMatrix{:d,T3}, PM4 <: PeriodicMatrix{:d,T4}}
-    N = length(A)
-    (N != length(B) || N != length(C) || N != length(D)) && 
-        error("all vectors of state-space matrices must have the same length") 
     period = promote_period(A, B, C, D)
-    N == 0 && (return 0, 0, Int[], period)
+    max(length(A),length(B),length(C),length(D)) == 0 && (return 0, 0, Int[], period)
 
     # Validate dimensions
     ny = size(D,1)
     nu = size(D,2)
     any(ny .!= ny[1]) && DimensionMismatch("all matrices D[i] must have the same row size")
     any(nu .!= nu[1]) && DimensionMismatch("all matrices D[i] must have the same column size")
-    ndx, nx = size(A)
     
-    for i = 1:N
-        i == N && ndx[i] != nx[1] && DimensionMismatch("the number of columns of A[i+1] must be equal to the number of rows of A[i]")
-        i != N && ndx[i] != nx[i+1] && DimensionMismatch("the number of columns of A[i+1] must be equal to the number of rows of A[i]")
+    ndx, nx = size(A)
+    if all(ndx .== ndx[1]) && all(nx .== nx[1]) 
+       # constant dimensions of A, B, C, D
+       ndx[1] == nx[1] || DimensionMismatch("A[i] must be square matrices")
+       any(size(B, 1) .!= ndx[1]) && DimensionMismatch("all matrices A[i] and B[i] must have the same row size")
+       any(size(C, 2) .!= nx[1]) &&  DimensionMismatch("all matrices A[i] and C[i] must have the same column size")
+       any(size(C, 1) .!= ny[1]) && DimensionMismatch("all matrices C[i] and D[i] must have the same row size")
+       any(size(B, 2) .!= nu[1]) && DimensionMismatch("all matrices B[i] and D[i] must have the same column size")
+    else     
+       N = A.nperiod
+       (N != B.nperiod || N != C.nperiod) && DimensionMismatch("the number of component matrices of A, B and C must be the same ")
+       for i = 1:N
+           i == N && ndx[i] != nx[1] && DimensionMismatch("the number of columns of A[i+1] must be equal to the number of rows of A[i]")
+           i != N && ndx[i] != nx[i+1] && DimensionMismatch("the number of columns of A[i+1] must be equal to the number of rows of A[i]")
+       end
+       any(size(B, 1) .!= ndx) && DimensionMismatch("all matrices A[i] and B[i] must have the same row size")
+       any(size(C, 2) .!= nx) &&  DimensionMismatch("all matrices A[i] and C[i] must have the same column size")
+       any(size(C, 1) .!= ny[1]) && DimensionMismatch("all matrices C[i] and D[i] must have the same row size")
+       any(size(B, 2) .!= nu[1]) && DimensionMismatch("all matrices B[i] and D[i] must have the same column size")
     end
-    any(size(B, 1) .!= ndx) && DimensionMismatch("all matrices A[i] and B[i] must have the same row size")
-    any(size(C, 2) .!= nx) &&  DimensionMismatch("all matrices A[i] and C[i] must have the same column size")
-    any(size(C, 1) .!= ny) && DimensionMismatch("all matrices C[i] and D[i] must have the same row size")
-    any(size(B, 2) .!= nu) && DimensionMismatch("all matrices B[i] and D[i] must have the same column size")
- 
-    return ny[1], nu[1], nx, period
+    return period
 end
 function PeriodicStateSpace(A::PA1, B::PA2, C::PA3, D::PA4) where {PA1 <: PeriodicArray, PA2 <: PeriodicArray, PA3 <: PeriodicArray, PA4 <: PeriodicArray}
-    ny, nu, nx, period = ps_validation(A, B, C, D)
+    period = ps_validation(A, B, C, D)
+    promote_Ts(A,B,C,D)
     T = promote_type(eltype(A),eltype(B),eltype(C),eltype(D))
-    PeriodicStateSpace{PeriodicArray{:d,T}}((period == A.period && T == eltype(A)) ? A : PeriodicArray{:d,T}(A.M,period), 
-                                            (period == B.period && T == eltype(B)) ? B : PeriodicArray{:d,T}(B.M,period), 
-                                            (period == C.period && T == eltype(C)) ? C : PeriodicArray{:d,T}(C.M,period), 
-                                            (period == D.period && T == eltype(D)) ? D : PeriodicArray{:d,T}(D.M,period), 
-                                            ny, nu, nx, Float64(period))
+    PeriodicStateSpace{PeriodicArray{:d,T}}((period == A.period && T == eltype(A)) ? A : PeriodicArray{:d,T}(A,period), 
+                                            (period == B.period && T == eltype(B)) ? B : PeriodicArray{:d,T}(B,period),  
+                                            (period == C.period && T == eltype(C)) ? C : PeriodicArray{:d,T}(C,period),  
+                                            (period == D.period && T == eltype(D)) ? D : PeriodicArray{:d,T}(D,period),  
+                                            Float64(period))
 end
 function ps_validation(A::PA1, B::PA2, C::PA3, D::PA4) where {T1, T2, T3, T4, PA1 <: PeriodicArray{:d,T1}, PA2 <: PeriodicArray{:d,T2}, PA3 <: PeriodicArray{:d,T3}, PA4 <: PeriodicArray{:d,T4}}
-    N = length(A)
-    (N != length(B) || N != length(C) || N != length(D)) && 
-        error("all vectors of state-space matrices must have the same length") 
     period = promote_period(A, B, C, D)
-    N == 0 && (return 0, 0, Int[], period)
+    max(length(A),length(B),length(C),length(D)) == 0 && (return 0, 0, Int[], period)
 
     # Validate dimensions
     ny = size(D,1)
@@ -160,12 +175,183 @@ function ps_validation(A::PA1, B::PA2, C::PA3, D::PA4) where {T1, T2, T3, T4, PA
     any(size(C, 1) .!= ny) && DimensionMismatch("C and D must have the same row size")
     any(size(B, 2) .!= nu) && DimensionMismatch("B and D must have the same column size")
  
-    return ny, nu, [nx], period
+    return period
 end
-           
+
+#  conversions
 function Base.convert(::Type{PeriodicStateSpace{PM}}, psys::PeriodicStateSpace) where {PM <: AbstractPeriodicArray}
     PeriodicStateSpace(convert(PM,psys.A), convert(PM,psys.B), convert(PM,psys.C), convert(PM,psys.D))
- end
+end
+# properties
+Base.size(sys::PeriodicStateSpace) = maximum.(size(sys.D))
+function Base.size(sys::PeriodicStateSpace, d::Integer)
+    return d <= 2 ? size(sys)[d] : 1
+end
+Base.length(sys::PeriodicStateSpace) = 1
+Base.eltype(sys::PeriodicStateSpace) = eltype(sys.A)
+
+function Base.getproperty(sys::PeriodicStateSpace, d::Symbol)  
+    if d === :nx
+        return size(getfield(sys, :A), 2)
+    elseif d === :ny
+        return size(getfield(sys, :C), 1)
+    elseif d === :nu
+        return size(getfield(sys, :B), 2)
+    else
+        getfield(sys, d)
+    end
+end
+Base.propertynames(sys::PeriodicStateSpace) =
+    (:nx, :ny, :nu, fieldnames(typeof(sys))...)
+
+
+# display sys
+Base.print(io::IO, sys::PeriodicStateSpace) = show(io, sys)
+Base.show(io::IO, sys::PeriodicStateSpace{PM}) where {PM <: Union{PeriodicMatrix,PeriodicArray}} = show(io, MIME("text/plain"), sys)
+
+function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateSpace{<:PeriodicMatrix})
+    summary(io, sys); println(io)
+    n = sys.nx 
+    N = sys.A.dperiod
+    p, m = size(sys)
+    period = sys.period
+    Ts = sys.A.Ts
+    if any(n .> 0)
+       dperiod, nperiod = sys.A.dperiod, sys.A.nperiod
+       subperiod = period/nperiod
+       println(io, "\nState matrix A: subperiod: $subperiod    #subperiods: $nperiod ")
+       println(io, "time values: t[1:$dperiod]")
+       for i = 1:dperiod
+           println("t[$i] = $(i*Ts)")
+          display(mime, sys.A.M[i])
+       end
+       if m > 0 
+          dperiod, nperiod = sys.B.dperiod, sys.B.nperiod
+          subperiod = period/nperiod
+          println(io, "\n\nInput matrix B: subperiod: $subperiod    #subperiods: $nperiod ") 
+          println(io, "time values: t[1:$dperiod]")
+          for i = 1:dperiod
+              println("t[$i] = $(i*Ts)")
+              display(mime, sys.B.M[i])
+          end
+       else
+          println(io, "\n\nEmpty input matrix B.")
+       end
+       if p > 0 
+          dperiod, nperiod = sys.C.dperiod, sys.C.nperiod
+          subperiod = period/nperiod
+          println(io, "\n\nOutput matrix C: subperiod: $subperiod    #subperiods: $nperiod ")
+          println(io, "time values: t[1:$dperiod]")
+          for i = 1:dperiod
+              println("t[$i] = $(i*Ts)")
+             display(mime, sys.C.M[i])
+          end
+       else
+          println(io, "\n\nEmpty output matrix C.") 
+       end
+       if m > 0 && p > 0
+          dperiod, nperiod = sys.D.dperiod, sys.D.nperiod
+          subperiod = period/nperiod
+          println(io, "\n\nFeedthrough matrix D: subperiod: $subperiod    #subperiods: $nperiod ") 
+          println(io, "time values: t[1:$dperiod]")
+          for i = 1:dperiod
+              println("t[$i] = $(i*Ts)")
+              display(mime, sys.D.M[i])
+          end
+       else
+           println(io, "\n\nEmpty feedthrough matrix D.") 
+       end
+       println(io, "\n\nPeriod:      $(sys.period) second(s).")
+       println(io,     "Sample time: $Ts second(s).")
+       println(io, "Periodic discrete-time state-space model.") 
+    elseif m > 0 && p > 0
+       dperiod, nperiod = sys.D.dperiod, sys.D.nperiod
+       subperiod = period/nperiod
+       println(io, "\n\nFeedthrough matrix D: subperiod: $subperiod    #subperiods: $nperiod ") 
+       println(io, "time values: t[1:$dperiod]")
+       for i = 1:dperiod
+           println("t[$i] = $(i*Ts)")
+           display(mime, sys.D.M[i])
+       end
+       println(io, "\n\nPeriod:      $(sys.period) second(s).")
+       println(io,     "Sample time: $Ts second(s).")
+       println(io, "Time-varying gains.") 
+    else
+       println(io, "\nEmpty Periodic discrete-time state-space model.")
+    end
+end
+function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateSpace{<:PeriodicArray})
+    summary(io, sys); println(io)
+    n = sys.nx 
+    N = sys.A.dperiod
+    p, m = size(sys)
+    period = sys.period
+    Ts = sys.A.Ts
+    if any(n .> 0)
+        dperiod, nperiod = sys.A.dperiod, sys.A.nperiod
+        subperiod = period/nperiod
+        println(io, "\nState matrix A: subperiod: $subperiod    #subperiods: $nperiod ")
+        println(io, "time values: t[1:$dperiod]")
+        for i = 1:dperiod
+            println("t[$i] = $(i*Ts)")
+            display(mime, sys.A.M[:,:,i])
+        end
+        if m > 0 
+           dperiod, nperiod = sys.B.dperiod, sys.B.nperiod
+           subperiod = period/nperiod
+           println(io, "\n\nInput matrix B: subperiod: $subperiod    #subperiods: $nperiod ") 
+           println(io, "time values: t[1:$dperiod]")
+           for i = 1:dperiod
+               println("t[$i] = $(i*Ts)")
+               display(mime, sys.B.M[:,:,i])
+           end
+        else
+           println(io, "\n\nEmpty input matrix B.")
+        end
+        if p > 0 
+           dperiod, nperiod = sys.C.dperiod, sys.C.nperiod
+           subperiod = period/nperiod
+           println(io, "\n\nOutput matrix C: subperiod: $subperiod    #subperiods: $nperiod ")
+           println(io, "time values: t[1:$dperiod]")
+           for i = 1:dperiod
+               println("t[$i] = $(i*Ts)")
+               display(mime, sys.C.M[:,:,i])
+           end
+        else
+           println(io, "\n\nEmpty output matrix C.") 
+        end
+        if m > 0 && p > 0
+           dperiod, nperiod = sys.D.dperiod, sys.D.nperiod
+           subperiod = period/nperiod
+           println(io, "\n\nFeedthrough matrix D: subperiod: $subperiod    #subperiods: $nperiod ") 
+           println(io, "time values: t[1:$dperiod]")
+           for i = 1:dperiod
+               println("t[$i] = $(i*Ts)")
+               display(mime, sys.D.M[:,:,i])
+           end
+        else
+           println(io, "\n\nEmpty feedthrough matrix D.") 
+        end
+        println(io, "\n\nPeriod:      $(sys.period) second(s).")
+        println(io,     "Sample time: $Ts second(s).")
+        println(io, "Periodic discrete-time state-space model.") 
+    elseif m > 0 && p > 0
+        dperiod, nperiod = sys.D.dperiod, sys.D.nperiod
+        subperiod = period/nperiod
+        println(io, "\n\nFeedthrough matrix D: subperiod: $subperiod    #subperiods: $nperiod ") 
+        println(io, "time values: t[1:$dperiod]")
+        for i = 1:dperiod
+            println("t[$i] = $(i*Ts)")
+            display(mime, sys.D.M[:,:,i])
+        end
+        println(io, "\n\nPeriod:      $(sys.period) second(s).")
+        println(io,     "Sample time: $Ts second(s).")
+        println(io, "Time-varying gains.") 
+    else
+        println(io, "\nEmpty Periodic discrete-time state-space model.")
+    end
+end
+
  
 # """ 
 #     PeriodicDiscreteStateSpace{T}(A::Vector{Matrix{T}}, E::Vector{Union{Matrix{T},UniformScaling}}, 
