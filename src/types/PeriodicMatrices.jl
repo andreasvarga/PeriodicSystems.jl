@@ -488,14 +488,14 @@ Base.convert(::Type{PeriodicFunctionMatrix}, At::PeriodicTimeSeriesMatrix)  wher
 # conversions to continuous-time PeriodicSymbolicMatrix
 function Base.convert(::Type{PeriodicSymbolicMatrix}, A::PeriodicFunctionMatrix) where T
    @variables t
-   PeriodicSymbolicMatrix(Num.(A.f(t)), A.period)
+   PeriodicSymbolicMatrix(Num.(A.f(t)), A.period; nperiod = A.nperiod)
 end
 function Base.convert(::Type{PeriodicSymbolicMatrix{:c,T}}, A::PeriodicFunctionMatrix) where T
    @variables t
-   PeriodicSymbolicMatrix(Num.(A.f(t)), A.period)
+   PeriodicSymbolicMatrix(Num.(A.f(t)), A.period; nperiod = A.nperiod)
 end
 Base.convert(::Type{PeriodicSymbolicMatrix}, ahr::HarmonicArray)  where T = 
-   PeriodicSymbolicMatrix(hr2psm(ahr), ahr.period)
+   PeriodicSymbolicMatrix(hr2psm(ahr), ahr.period; nperiod = ahr.nperiod)
 # function PeriodicSymbolicMatrix(ahr::HarmonicArray, period::Real = ahr.period)
 #    @variables t
 #    PeriodicSymbolicMatrix(hreval(ahr,t)[1], period)
