@@ -1,4 +1,4 @@
-# Constructors for periodic data types
+# Constructors for periodic matrices
 
 * **[`PeriodicMatrix`](@ref)**   Discrete-time periodic matrix representation.
 * **[`PeriodicArray`](@ref)**    Discrete-time periodic array representation.

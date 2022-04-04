@@ -63,16 +63,21 @@ All periodic matrix objects must have the same type `PM`, where
 [`PeriodicMatrix`](@ref), [`PeriodicArray`](@ref), [`PeriodicFunctionMatrix`](@ref), [`PeriodicSymbolicMatrix`](@ref),
 [`HarmonicArray`](@ref) or [`PeriodicTimeSeriesMatrix`](@ref). 
 """
-function PeriodicStateSpace(A::PFM, B::PFM, C::PFM, D::PFM) where {T,PFM <: PeriodicFunctionMatrix{:c,T}}
+function PeriodicStateSpace(A::PFM1, B::PFM2, C::PFM3, D::PFM4) where {PFM1 <: PeriodicFunctionMatrix, PFM2 <: PeriodicFunctionMatrix, PFM3 <: PeriodicFunctionMatrix, PFM4 <: PeriodicFunctionMatrix}
     period = ps_validation(A, B, C, D)
-    PeriodicStateSpace{PFM}(period == A.period ? A : PeriodicFunctionMatrix(A,period), period == B.period ? B : PeriodicFunctionMatrix(B,period), 
-                            period == C.period ? C : PeriodicFunctionMatrix(C,period), period == D.period ? D : PeriodicFunctionMatrix(D,period), 
-                            Float64(period))
+    T = promote_type(eltype(A),eltype(B),eltype(C),eltype(D))
+    PeriodicStateSpace{PeriodicFunctionMatrix{:c,T}}((period == A.period && T == eltype(A)) ? A : PeriodicFunctionMatrix{:c,T}(A,period), 
+                                                     (period == B.period && T == eltype(B)) ? B : PeriodicFunctionMatrix{:c,T}(B,period), 
+                                                     (period == C.period && T == eltype(C)) ? C : PeriodicFunctionMatrix{:c,T}(C,period), 
+                                                     (period == D.period && T == eltype(D)) ? D : PeriodicFunctionMatrix{:c,T}(D,period), 
+                                                     Float64(period))
 end
 function PeriodicStateSpace(A::PSM, B::PSM, C::PSM, D::PSM) where {T,PSM <: PeriodicSymbolicMatrix{:c,T}}
     period = ps_validation(A, B, C, D)
-    PeriodicStateSpace{PSM}(period == A.period ? A : PeriodicSymbolicMatrix(A,period), period == B.period ? B : PeriodicSymbolicMatrix(B,period), 
-                            period == C.period ? C : PeriodicSymbolicMatrix(C,period), period == D.period ? D : PeriodicSymbolicMatrix(D,period), 
+    PeriodicStateSpace{PSM}(period == A.period ? A : PeriodicSymbolicMatrix{:c,T}(A,period), 
+                            period == B.period ? B : PeriodicSymbolicMatrix{:c,T}(B,period), 
+                            period == C.period ? C : PeriodicSymbolicMatrix{:c,T}(C,period), 
+                            period == D.period ? D : PeriodicSymbolicMatrix{:c,T}(D,period), 
                             Float64(period))
 end
 function PeriodicStateSpace(A::PHR1, B::PHR2, C::PHR3, D::PHR4) where {PHR1 <: HarmonicArray, PHR2 <: HarmonicArray, PHR3 <: HarmonicArray, PHR4 <: HarmonicArray}

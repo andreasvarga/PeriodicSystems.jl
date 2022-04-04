@@ -135,82 +135,119 @@ Base.length(A::PeriodicArray) = A.dperiod
 Base.eltype(A::PeriodicArray{:d,T}) where T = T
 
 """
-    PeriodicFunctionMatrix(f, T) -> A::PeriodicFunctionMatrix
+    PeriodicFunctionMatrix(f, T; nperiod = k) -> A::PeriodicFunctionMatrix
 
 Continuous-time periodic function matrix representation.
 
 The continuous-time periodic function matrix object `A` is built from a 
-time periodic real matrix function `f(t)` of real time variable `t` 
-and the associated time period `T`. 
-It is assumed that  `F(t) = F(t+T)` for any real time value `t`.
-The function `f(t)`, the period `T`, and the row and column dimensions 
-of `f(t)` can be accessed via `A.f`, `A.period` and the tuple `A.dims`, respectively.
+time periodic real matrix function `f(t)` of real time variable `t`, 
+the associated time period `T` and the associated number of subperiods
+specified via the keyword argument `nperiod = k`. 
+It is assumed that  `F(t) = F(t+T/k)` for any real time value `t`.
+The function `f(t)`, the period `T`, the row and column dimensions 
+of `f(t)`, the number of subperiods `k` can be accessed via `A.f`, `A.period`, 
+the tuple `A.dims` and `A.nperiod`, respectively. 
 """
 struct PeriodicFunctionMatrix{Domain,T} <: AbstractPeriodicArray{Domain,T}
    f::Function
    period::Float64
    dims::Tuple{Int,Int}
+   nperiod::Int
    _isconstant::Bool
 end 
 # additional constructors
-function PeriodicFunctionMatrix{:c,Tf}(f::Function, period::Real; isconst::Bool = false) where {Tf} 
+function PeriodicFunctionMatrix{:c,Tf}(f::Function, period::Real; isconst::Bool = false, nperiod::Int = 1) where {Tf} 
    period > 0 || error("period must be positive") 
+   nperiod > 0 || error("number of subperiods must be positive") 
    F0 = f(period)
    nd = ndims(F0)
    nd == 2 || error("two-dimensional function array expected, got an $nd -dimensional array")
-   eltype(F0) == Tf ? PeriodicFunctionMatrix{:c,Tf}(t -> f(t), Float64(period), size(F0), isconst) :
-                      PeriodicFunctionMatrix{:c,Tf}(t -> convert(Matrix{Tf},f(Tf(t))), Float64(period), size(F0), isconst)
+   eltype(F0) == Tf ? PeriodicFunctionMatrix{:c,Tf}(t -> f(t), Float64(period), size(F0), nperiod, isconst) :
+                      PeriodicFunctionMatrix{:c,Tf}(t -> convert(Matrix{Tf},f(Tf(t))), Float64(period), size(F0), nperiod, isconst)
 end
-PeriodicFunctionMatrix(f::F, period::Real; isconst::Bool = false) where {F<:Function}  = 
-             PeriodicFunctionMatrix{:c,eltype(f(period))}(f, period; isconst)
+PeriodicFunctionMatrix(f::F, period::Real; isconst::Bool = false, nperiod::Int = 1) where {F<:Function}  = 
+             PeriodicFunctionMatrix{:c,eltype(f(period))}(f, period; isconst, nperiod)
 PeriodicFunctionMatrix(A::VecOrMat{T}, period::Real) where {T <: Real}  = 
           PeriodicFunctionMatrix{:c,T}(t -> reshape(A,size(A,1),size(A,2)), period; isconst = true) 
-function PeriodicFunctionMatrix(at::PeriodicFunctionMatrix, period::Real = at.period; isconst::Bool = isconstant(at))
-   # at.period = period
-   # at._isconstant = isconst
-   # return at
-   return PeriodicFunctionMatrix(at.f, period; isconst)
+# period change
+function PeriodicFunctionMatrix{:c,T}(at::PeriodicFunctionMatrix, period::Real) where {T}
+   period > 0 || error("period must be positive") 
+   Aperiod = at.period
+   r = rationalize(Aperiod/period)
+   n, d = numerator(r), denominator(r)
+   min(n,d) == 1 || error("new period is incommensurate with the old period")
+   if period >= Aperiod
+      PeriodicFunctionMatrix{:c,T}(at.f, Aperiod*d, at.dims, at.nperiod*d, at._isconstant)
+   elseif period < Aperiod
+      nperiod = div(A.nperiod,n)
+      nperiod < 1 && error("new period is incommensurate with the old period")
+      PeriodicFunctionMatrix{:c,T}(at.f, Aperiod/n, at.dims, at.nperiod, at._isconstant)
+   end
 end
+# function PeriodicFunctionMatrix(at::PeriodicFunctionMatrix, period::Real = at.period; isconst::Bool = isconstant(at))
+#    # at.period = period
+#    # at._isconstant = isconst
+#    # return at
+#    return PeriodicFunctionMatrix(at.f, period; isconst)
+# end
 # properties
 isconstant(A::PeriodicFunctionMatrix) = A._isconstant
 function isperiodic(f::Function, period::Real)  
    t = rand(typeof(period))
    return f(t) ≈ f(t+period)
 end
-isperiodic(A::PeriodicFunctionMatrix) = isconstant(A) ? true : isperiodic(A.f,A.period)
+isperiodic(A::PeriodicFunctionMatrix) = isconstant(A) ? true : isperiodic(A.f,A.period/A.nperiod)
 Base.size(A::PeriodicFunctionMatrix) = A.dims
 Base.size(A::PeriodicFunctionMatrix, d::Integer) = d <= 2 ? size(A)[d] : 1
 Base.eltype(A::PeriodicFunctionMatrix{:c,T}) where T = T
 
 """
-    PeriodicSymbolicMatrix(F, T) -> A::PeriodicSymbolicMatrix
+    PeriodicSymbolicMatrix(F, T; nperiod = k) -> A::PeriodicSymbolicMatrix
 
 Continuous-time periodic symbolic matrix representation.
  
 The continuous-time periodic symbolic matrix object `A` is built from `F`, a 
-symbolic periodic real matrix or vector of symbolic variable `t`, and the associated time period `T`. 
-It is assumed that  `F(t) = F(t+T)` for any real time value `t`.
-The symbolic matrix `F` and the period `T` can be accessed via `A.F` and `A.period`, respectively.
+symbolic periodic real matrix or vector of symbolic variable `t`, 
+the associated time period `T` and the associated number of subperiods
+specified via the keyword argument `nperiod = k`. 
+It is assumed that  `F(t) = F(t+T/k)` for any real time value `t`.
+The symbolic matrix `F`, the period `T` and the number of subperiods `k` 
+can be accessed via `A.F`, `A.period` and `A.nperiod`, respectively.
 """
 struct PeriodicSymbolicMatrix{Domain,T} <: AbstractPeriodicArray{Domain,T} 
    F::Matrix{<:Num}
    period::Float64
-   function  PeriodicSymbolicMatrix{:c,T}(F::VecOrMat{T}, period::Real) where {T <: Num} 
-      period > 0 || error("period must be positive")       
-      # check that array F is depending only on t
-      tt = rand()
-      @variables t
-      Ft = substitute.(F, (Dict(t => tt),))
-      m, n = size(Ft,1), size(Ft,2)
-      any(length.(Symbolics.get_variables.(Ft)) .> 0 ) && error("t must be the only variable in F")
-      new{:c,T}(n == 1 ? reshape(F,m,n) : F, Float64(period)) 
-   end
+   nperiod::Int
 end 
 # additional constructors
-PeriodicSymbolicMatrix(F::VecOrMat{T}, period::Real) where {T <: Num}  = 
-             PeriodicSymbolicMatrix{:c,T}(F, period)
-PeriodicSymbolicMatrix(A::PeriodicSymbolicMatrix{:c,T}, period::Real = A.period) where {T <: Num}  = 
-             PeriodicSymbolicMatrix{:c,T}(A.F, period)
+function  PeriodicSymbolicMatrix{:c,T}(F::VecOrMat{T}, period::Real; nperiod::Int = 1) where {T <: Num} 
+   period > 0 || error("period must be positive")       
+   nperiod > 0 || error("number of subperiods must be positive") 
+   # check that array F is depending only on t
+   tt = rand()
+   @variables t
+   Ft = substitute.(F, (Dict(t => tt),))
+   m, n = size(Ft,1), size(Ft,2)
+   any(length.(Symbolics.get_variables.(Ft)) .> 0 ) && error("t must be the only variable in F")
+   PeriodicSymbolicMatrix{:c,T}(n == 1 ? reshape(F,m,n) : F, Float64(period), nperiod) 
+end
+PeriodicSymbolicMatrix(F::VecOrMat{T}, period::Real; nperiod::Int = 1) where {T <: Num} = 
+    PeriodicSymbolicMatrix{:c,T}(F, period; nperiod)
+function PeriodicSymbolicMatrix{:c,T}(A::PeriodicSymbolicMatrix, period::Real) where {T}
+   period > 0 || error("period must be positive") 
+   Aperiod = A.period
+   r = rationalize(Aperiod/period)
+   n, d = numerator(r), denominator(r)
+   min(n,d) == 1 || error("new period is incommensurate with the old period")
+   if period >= Aperiod
+      PeriodicSymbolicMatrix{:c,T}(A.F, Aperiod*d, A.nperiod*d)
+   elseif period < Aperiod
+      nperiod = div(A.nperiod,n)
+      nperiod < 1 && error("new period is incommensurate with the old period")
+      PeriodicSymbolicMatrix{:c,T}(A.F, Aperiod/n, A.nperiod)
+   end
+end
+
 # properties 
 isconstant(A::PeriodicSymbolicMatrix) = all(length.(Symbolics.get_variables.(A.F)) .== 0)
 function isperiodic(A::VecOrMat{T}, period::Real) where {T <: Num} 
@@ -222,6 +259,7 @@ end
 isperiodic(A::PeriodicSymbolicMatrix) = isconstant(A) ? true : isperiodic(A.F,A.period)
 Base.size(A::PeriodicSymbolicMatrix) = size(A.F)
 Base.size(A::AbstractPeriodicArray, d::Integer) = d <= 2 ? size(A)[d] : 1
+Base.eltype(A::PeriodicSymbolicMatrix{:c,T}) where T = T
 
 struct HarmonicArray{Domain,T} <: AbstractPeriodicArray{Domain,T} 
    values::Array{Complex{T},3}
@@ -402,31 +440,31 @@ Base.convert(::Type{PeriodicArray}, A::PeriodicMatrix) where T = pm2pa(A)
 
 # conversions to continuous-time PeriodicFunctionMatrix
 function Base.convert(::Type{PeriodicFunctionMatrix{:c,T}}, A::PeriodicFunctionMatrix) where T
-   return eltype(A) == T ? A : PeriodicFunctionMatrix(x -> T.(A.f(T(x))), A.period)
+   return eltype(A) == T ? A : PeriodicFunctionMatrix{:c,T}(x -> T.(A.f(T(x))), A.period, A.dims, A.nperiod, A._isconstant)
 end
 
 function Base.convert(::Type{PeriodicFunctionMatrix{:c,T}}, A::PeriodicSymbolicMatrix) where T
    @variables t
    f = eval(build_function(A.F, t, expression=Val{false})[1])
-   PeriodicFunctionMatrix(x -> f(T(x)), A.period)
+   PeriodicFunctionMatrix{:c,T}(x -> f(T(x)), A.period, size(A), A.nperiod, isconstant(A))
 end
 function Base.convert(::Type{PeriodicFunctionMatrix}, A::PeriodicSymbolicMatrix) where T
    @variables t
    f = eval(build_function(A.F, t, expression=Val{false})[1])
-   PeriodicFunctionMatrix(x -> f(x), A.period)
+   PeriodicFunctionMatrix{:c,Float64}(x -> f(x), A.period, size(A), A.nperiod, isconstant(A))
 end
-# function Base.convert(::Type{PeriodicFunctionMatrix{:c,T}}, A::PeriodicSymbolicMatrix) where T
-#    @variables t
-#    f = eval(build_function(A.F, t, expression=Val{false})[1])
-#    PeriodicFunctionMatrix(x -> f(x), A.period)
-# end
+function Base.convert(::Type{PeriodicFunctionMatrix{:c,T}}, A::PeriodicSymbolicMatrix) where T
+   @variables t
+   f = eval(build_function(A.F, t, expression=Val{false})[1])
+   PeriodicFunctionMatrix{:c,T}(x -> f(x), A.period, size(A), A.nperiod, isconstant(A))
+end
 
 # PeriodicFunctionMatrix(ahr::HarmonicArray, period::Real = ahr.period; exact = true)  = 
 #           PeriodicFunctionMatrix(t::Real -> hreval(ahr,t;exact)[1], period) 
 Base.convert(::Type{PeriodicFunctionMatrix}, ahr::HarmonicArray)  where T = 
-         PeriodicFunctionMatrix(t::Real -> hreval(ahr,t), ahr.period)
+         PeriodicFunctionMatrix{:c,real(eltype(ahr.values))}(t::Real -> hreval(ahr,t), ahr.period, size(ahr), ahr.nperiod, isconstant(ahr))
 Base.convert(::Type{PeriodicFunctionMatrix{:c,T}}, ahr::HarmonicArray)  where T = 
-         PeriodicFunctionMatrix(t::Real -> hreval(ahr,T(t)), ahr.period)
+         PeriodicFunctionMatrix{:c,T}(t::Real -> hreval(ahr,T(t)), ahr.period, size(ahr), ahr.nperiod, isconstant(ahr))
 Base.convert(::Type{PeriodicFunctionMatrix}, At::PeriodicTimeSeriesMatrix)  where T = 
     ts2pfm(At; method = "cubic")
 # function PeriodicFunctionMatrix(A::PeriodicTimeSeriesMatrix; method = "linear")
@@ -471,7 +509,7 @@ Base.convert(::Type{HarmonicArray}, A::PeriodicSymbolicMatrix) = psm2hr(A)
 
 # conversions to PeriodicTimeSeriesMatrix
 Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicFunctionMatrix) = 
-         PeriodicTimeSeriesMatrix(A.f.((0:127)*A.period/128), A.period)
+         PeriodicTimeSeriesMatrix(A.f.((0:127)*A.period/128/A.nperiod), A.period; nperiod = A.nperiod)
 # conversions of discrete-time periodic matrices to continuous-time PeriodicTimeSeriesMatrix
 
 # function PeriodicTimeSeriesMatrix(A::PeriodicMatrix{:d,T}, period::Real = A.period) where {T <: Real}

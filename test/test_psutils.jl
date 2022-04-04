@@ -367,7 +367,6 @@ Ct = PeriodicTimeSeriesMatrix(tC.(time),2*pi);
 @test Chr.values[:,:,1] ≈ [0. 1] && Chr.values[:,:,2] ≈ [im 0] && Chr.values[:,:,3] ≈ [1 0]
 
 nperiod = 24
-#tg1 = collect((0:N-1)*4*pi/N);
 time1 = (0:N-1)*2*pi*nperiod/N;
 At1 = PeriodicTimeSeriesMatrix(tA.(time1),2*pi*nperiod);
 Ahr1 = ts2hr(At1);

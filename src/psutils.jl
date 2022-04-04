@@ -817,7 +817,7 @@ function ts2pfm(A::PeriodicTimeSeriesMatrix; method = "linear")
    else
       error("no such option method = $method")
    end
-   return PeriodicFunctionMatrix(t -> [intparray[i,j](t) for i in 1:n1, j in 1:n2 ], A.period )
+   return PeriodicFunctionMatrix(t -> [intparray[i,j](t) for i in 1:n1, j in 1:n2 ], A.period; nperiod = A.nperiod, isconst = isconstant(A))
 end
 
 """
@@ -925,10 +925,10 @@ where `Δ = T/k` is the sampling period and `k` is the number of samples specifi
 function pfm2hr(A::PeriodicFunctionMatrix; nsample::Int = 128, NyquistFreq::Union{Real,Missing} = missing)   
    isconstant(A) && (return HarmonicArray(A.f(0),A.period))
    nsample > 0 || ArgumentError("nsample must be positive, got $nsaple")
-   ns = ismissing(NyquistFreq) ? nsample : Int(floor(2*abs(NyquistFreq)*A.period))+1
+   ns = ismissing(NyquistFreq) ? nsample : Int(floor(2*abs(NyquistFreq)*A.period/A.nperiod))+1
    Δ = A.period/ns
    ts = (0:ns-1)*Δ
-   return ts2hr(PeriodicTimeSeriesMatrix(A.f.(ts), A.period))
+   return ts2hr(PeriodicTimeSeriesMatrix(A.f.(ts), A.period; nperiod = A.nperiod))
 end
 """
      psm2hr(A::PeriodicSymbolicMatrix; nsample, NyquistFreq) -> Ahr::HarmonicArray
@@ -946,7 +946,7 @@ function psm2hr(A::PeriodicSymbolicMatrix; nsample::Int = 128, NyquistFreq::Unio
    ns = ismissing(NyquistFreq) ? nsample : Int(floor(2*abs(NyquistFreq)*A.period))+1
    Δ = A.period/ns
    ts = (0:ns-1)*Δ
-   return ts2hr(PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,A).f.(ts), A.period))
+   return ts2hr(PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,A).f.(ts), A.period; nperiod = A.nperiod))
 end
 """
      hr2psm(Ahr::HarmonicArray, nrange) -> A::Matrix{Num}
