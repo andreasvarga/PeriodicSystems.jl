@@ -261,6 +261,53 @@ Base.size(A::PeriodicSymbolicMatrix) = size(A.F)
 Base.size(A::AbstractPeriodicArray, d::Integer) = d <= 2 ? size(A)[d] : 1
 Base.eltype(A::PeriodicSymbolicMatrix{:c,T}) where T = T
 
+struct FourierFunctionMatrix{Domain,T} <: AbstractPeriodicArray{Domain,T} 
+   M::Fun
+   period::Float64
+   nperiod::Int
+end
+# additional constructors
+"""
+     FourierFunctionMatrix(Afun, T) -> A::FourierFunctionMatrix
+
+Continuous-time Fourier function matrix representation.
+
+The Fourier function matrix object `A` of period `T` is built using
+the Fourier series representation of a periodic matrix `Afun(t)` of subperiod `T′ = T/k`, 
+where each entry of `Afun(t)` has the form
+
+             p
+      a_0 +  ∑ ( ac_i*cos(i*t*2*π/T′)+as_i*sin(i*2*π*t/T′) ) ,
+            i=1 
+
+where `k ≥ 1` is the number of subperiods (default: `k = 1`).   
+The matrix `Afun` containing the Fourier representation, the period `T` and the 
+number of subperiods `k` can be accessed via `A.M`, `A.period` and `A.nperiod`, respectively.
+"""
+function FourierFunctionMatrix{:c,T}(A::Fun, period::Real) where {T}
+   period > 0 || error("period must be positive") 
+   n, m = size(A,1), size(A,2)
+   sint = domain(A)
+   (sint.a == 0 && sint.b > 0) || error("the domain must be of the form 0..period")
+   ti = rationalize(period/sint.b)
+   denominator(ti) == 1 || error("only integer multiple periods supported")
+   FourierFunctionMatrix{:c,eltype(domain(A))}(m == 1 ? reshape(A,n,m) : A, Float64(period), numerator(ti)) 
+end
+FourierFunctionMatrix(A::Fun, period::Real)  = 
+       FourierFunctionMatrix{:c,eltype(domain(A))}(A::Fun, period::Real) 
+
+function isconstant(A::FourierFunctionMatrix)
+   for i = 1:size(A.M,1)
+       for j = 1: size(A.M,2)
+           ncoefficients(chop(A.M[i,j])) <= 1 || (return false)
+       end
+   end
+   return true
+end
+isperiodic(A::FourierFunctionMatrix) = true
+Base.size(A::FourierFunctionMatrix) = size(A.M)
+Base.eltype(A::FourierFunctionMatrix{:c,T}) where T = T
+
 struct HarmonicArray{Domain,T} <: AbstractPeriodicArray{Domain,T} 
    values::Array{Complex{T},3}
    period::Float64
@@ -331,7 +378,7 @@ The complex matrix containing the harmonic components and the period `T`
 can be accessed via `A.values` and `A.period`, respectively.
 """
 function HarmonicArray(A0::MT, Acos::Union{Vector{MT},Nothing}, 
-                               Asin::Union{Vector{MT},Nothing}, period::Real) where {T <: Real, MT <: VecOrMat{T}}
+                               Asin::Union{Vector{MT},Nothing}, period::Real; nperiod::Int = 1) where {T <: Real, MT <: VecOrMat{T}}
    nc = isnothing(Acos) ? 0 : length(Acos)
    ns = isnothing(Asin) ? 0 : length(Asin)
    nmin = min(nc,ns)
@@ -342,12 +389,12 @@ function HarmonicArray(A0::MT, Acos::Union{Vector{MT},Nothing},
    [ahr[:,:,i+1] = Acos[i] for i in nmin+1:nc]
    [ahr[:,:,i+1] = im*Asin[i] for i in nmin+1:ns]
    #HarmonicArray(ahr, period)
-   HarmonicArray{:c,T}(ahr, period)
+   HarmonicArray{:c,T}(ahr, period, nperiod)
 end
-HarmonicArray(A0::VecOrMat{T}, period::Real) where {T <: Real}  = 
-          HarmonicArray(complex(reshape(A0,size(A0,1),size(A0,2),1)), period) 
-HarmonicArray(A0::VecOrMat{T}, Acos::Vector{MT}, period::Real) where {T <: Real, MT <: VecOrMat{T}}  = 
-          HarmonicArray(A0, Acos, nothing, period) 
+HarmonicArray(A0::VecOrMat{T}, period::Real; nperiod::Int = 1) where {T <: Real}  = 
+          HarmonicArray(complex(reshape(A0,size(A0,1),size(A0,2),1)), period; nperiod) 
+HarmonicArray(A0::VecOrMat{T}, Acos::Vector{MT}, period::Real; nperiod::Int = 1) where {T <: Real, MT <: VecOrMat{T}}  = 
+          HarmonicArray(A0, Acos, nothing, period; nperiod) 
 
 # properties
 isconstant(A::HarmonicArray) = size(A.values,3) <= 1
@@ -443,6 +490,13 @@ function Base.convert(::Type{PeriodicFunctionMatrix{:c,T}}, A::PeriodicFunctionM
    return eltype(A) == T ? A : PeriodicFunctionMatrix{:c,T}(x -> T.(A.f(T(x))), A.period, A.dims, A.nperiod, A._isconstant)
 end
 
+function Base.convert(::Type{PeriodicFunctionMatrix{:c,T}}, A::FourierFunctionMatrix) where T
+   return eltype(A) == T ? A : PeriodicFunctionMatrix{:c,T}(x -> T.(A.M(T(x))), A.period, size(A), A.nperiod, isconstant(A))
+end
+function Base.convert(::Type{PeriodicFunctionMatrix}, A::FourierFunctionMatrix)
+   return PeriodicFunctionMatrix{:c,eltype(A)}(x -> A.M(x), A.period, size(A.M), A.nperiod, isconstant(A))
+end
+
 function Base.convert(::Type{PeriodicFunctionMatrix{:c,T}}, A::PeriodicSymbolicMatrix) where T
    @variables t
    f = eval(build_function(A.F, t, expression=Val{false})[1])
@@ -453,11 +507,11 @@ function Base.convert(::Type{PeriodicFunctionMatrix}, A::PeriodicSymbolicMatrix)
    f = eval(build_function(A.F, t, expression=Val{false})[1])
    PeriodicFunctionMatrix{:c,Float64}(x -> f(x), A.period, size(A), A.nperiod, isconstant(A))
 end
-function Base.convert(::Type{PeriodicFunctionMatrix{:c,T}}, A::PeriodicSymbolicMatrix) where T
-   @variables t
-   f = eval(build_function(A.F, t, expression=Val{false})[1])
-   PeriodicFunctionMatrix{:c,T}(x -> f(x), A.period, size(A), A.nperiod, isconstant(A))
-end
+# function Base.convert(::Type{PeriodicFunctionMatrix{:c,T}}, A::PeriodicSymbolicMatrix) where T
+#    @variables t
+#    f = eval(build_function(A.F, t, expression=Val{false})[1])
+#    PeriodicFunctionMatrix{:c,T}(x -> f(x), A.period, size(A), A.nperiod, isconstant(A))
+# end
 
 # PeriodicFunctionMatrix(ahr::HarmonicArray, period::Real = ahr.period; exact = true)  = 
 #           PeriodicFunctionMatrix(t::Real -> hreval(ahr,t;exact)[1], period) 
@@ -484,6 +538,11 @@ Base.convert(::Type{PeriodicFunctionMatrix}, At::PeriodicTimeSeriesMatrix)  wher
 #       return PeriodicFunctionMatrix(t -> [intparray[i,j](mod(t, A.period)) for i in 1:n1, j in 1:n2 ], A.period )
 #    end
 # end
+
+# conversions to continuous-time Fourier function matrix
+function Base.convert(::Type{FourierFunctionMatrix}, A::PeriodicFunctionMatrix) 
+   return FourierFunctionMatrix{:c,eltype(A)}(Fun(x -> A.f(x), Fourier(0..A.period)), Float64(A.period), A.nperiod)
+end
 
 # conversions to continuous-time PeriodicSymbolicMatrix
 function Base.convert(::Type{PeriodicSymbolicMatrix}, A::PeriodicFunctionMatrix) where T

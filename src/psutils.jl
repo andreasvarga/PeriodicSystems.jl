@@ -807,13 +807,13 @@ function ts2pfm(A::PeriodicTimeSeriesMatrix; method = "linear")
    n1, n2 = size(A.values[1])
    intparray = Array{Any,2}(undef,n1, n2)
    if method == "linear"
-      [intparray[i,j] = scale(extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Linear(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
+      [intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Linear(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
    elseif method == "cubic"      
-      [intparray[i,j] = scale(extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Cubic(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
+      [intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Cubic(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
    elseif method == "quadratic"      
-      [intparray[i,j] = scale(extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Quadratic(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
+      [intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Quadratic(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
    elseif method == "constant"      
-      [intparray[i,j] = scale(extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Constant(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
+      [intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Constant(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
    else
       error("no such option method = $method")
    end
@@ -908,7 +908,7 @@ function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0
       end 
       return HarmonicArray(AHR[:,:,[1;nperiod+1:nperiod:ncur]],A.period;nperiod)
    else
-      return HarmonicArray(AHR[:,:,1:ncur],A.period;nperiod)
+      return HarmonicArray(AHR[:,:,1:max(1,ncur)],A.period;nperiod)
    end       
 
 end
@@ -941,7 +941,7 @@ where `Δ = T/k` is the sampling period and `k` is the number of samples specifi
 `NyquistFreq = f`, then `k` is chosen `k = 2*f*T` to avoid signal aliasing.     
 """
 function psm2hr(A::PeriodicSymbolicMatrix; nsample::Int = 128, NyquistFreq::Union{Real,Missing} = missing)   
-   isconstant(A) && (return HarmonicArray(convert(PeriodicFunctionMatrix,A).f(0),A.period))
+   isconstant(A) && (return HarmonicArray(convert(PeriodicFunctionMatrix,A).f(0),A.period; nperiod = A.nperiod))
    nsample > 0 || ArgumentError("nsample must be positive, got $nsaple")
    ns = ismissing(NyquistFreq) ? nsample : Int(floor(2*abs(NyquistFreq)*A.period))+1
    Δ = A.period/ns
@@ -1181,13 +1181,13 @@ function tvmeval(A::PeriodicTimeSeriesMatrix{:c,T}, t::Union{Real,Vector{<:Real}
    n1, n2 = size(A.values[1])
    intparray = Array{Any,2}(undef,n1, n2)
    if method == "linear"
-      [intparray[i,j] = scale(extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Linear(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
+      [intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Linear(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
    elseif method == "cubic"      
-      [intparray[i,j] = scale(extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Cubic(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
+      [intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Cubic(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
    elseif method == "quadratic"      
-      [intparray[i,j] = scale(extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Quadratic(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
+      [intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Quadratic(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
    elseif method == "constant"      
-      [intparray[i,j] = scale(extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Constant(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
+      [intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Constant(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
    else
       error("no such option method = $method")
    end

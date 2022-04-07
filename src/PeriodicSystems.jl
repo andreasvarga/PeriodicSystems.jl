@@ -16,6 +16,7 @@ using Symbolics
 using OrdinaryDiffEq
 using IRKGaussLegendre
 using Primes
+using ApproxFun
 
 include("SLICOTtools.jl")
 using .SLICOTtools: mb03vd!, mb03vy!, mb03bd!, mb03wd!
@@ -31,8 +32,8 @@ export PeriodicStateSpace, pschur, phess, pschurw, psreduc_reg, psreduc_fast, ch
 export ts2hr, ts2pfm, pfm2hr, hr2psm, psm2hr, pm2pa
 export monodromy, psceig
 export PeriodicArray, PeriodicMatrix
-export PeriodicTimeSeriesMatrix, HarmonicArray, PeriodicFunctionMatrix,  PeriodicSymbolicMatrix
-export isperiodic
+export PeriodicTimeSeriesMatrix, HarmonicArray, FourierFunctionMatrix, PeriodicFunctionMatrix,  PeriodicSymbolicMatrix
+export isperiodic, isconstant
 export mb03vd!, mb03vy!, mb03bd!, mb03wd!
 
 

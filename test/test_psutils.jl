@@ -15,6 +15,8 @@ using Test
 #using StaticArrays
 using IRKGaussLegendre
 using Primes: factor
+using ApproxFun
+#using ApproxFun
 #using BenchmarkTools
 
 println("Test_psutils")
@@ -280,6 +282,12 @@ psys = PeriodicStateSpace(convert(PeriodicFunctionMatrix,A),
                           convert(PeriodicFunctionMatrix,B), 
                           convert(PeriodicFunctionMatrix,C), 
                           convert(PeriodicFunctionMatrix,D));
+print(psys);
+convert(PeriodicStateSpace{PeriodicSymbolicMatrix},psys);
+convert(PeriodicStateSpace{HarmonicArray},psys);
+convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys);
+convert(PeriodicStateSpace{FourierFunctionMatrix},psys);
+
 
 psys = PeriodicStateSpace(convert(PeriodicFunctionMatrix{:c,BigFloat},A), 
                           convert(PeriodicFunctionMatrix{:c,BigFloat},B), 
@@ -290,6 +298,8 @@ psys = PeriodicStateSpace(convert(PeriodicSymbolicMatrix,A),
                           convert(PeriodicSymbolicMatrix,B), 
                           convert(PeriodicSymbolicMatrix,C), 
                           convert(PeriodicSymbolicMatrix,D));
+print(psys);
+convert(PeriodicStateSpace{HarmonicArray},psys);
 
 psys = PeriodicStateSpace(convert(HarmonicArray,A), 
                           convert(HarmonicArray,B), 
@@ -301,6 +311,9 @@ Bt = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,B).f.(ts),B.period)
 Ct = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,C).f.(ts),C.period); 
 Dt = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,D).f.(ts),D.period);
 psys = PeriodicStateSpace(At, Bt, Ct, Dt); 
+print(psys);
+convert(PeriodicStateSpace{HarmonicArray},psys);
+
 
 # constant dimensions
 Ad = PeriodicMatrix([[1. 0; 0 0], [1 1;1 1], [0 1; 1 0]], 3);
@@ -387,9 +400,9 @@ Ahr1 = ts2hr(At1);
 
 # check time values on the grid
 for method in ("constant", "linear", "quadratic", "cubic")
-      @test all(norm.(tvmeval(At,tg).-At.values) .< 1.e-7)
-      @test all(norm.(tvmeval(Bt,tg).-Bt.values) .< 1.e-7)
-      @test all(norm.(tvmeval(Ct,tg).-Ct.values) .< 1.e-7)
+      @test all(norm.(tvmeval(At,tg; method).-At.values) .< 1.e-7)
+      @test all(norm.(tvmeval(Bt,tg; method).-Bt.values) .< 1.e-7)
+      @test all(norm.(tvmeval(Ct,tg; method).-Ct.values) .< 1.e-7)
 end      
 # check interpolated values: time series vs. harmonic
 tt = rand(10)*2pi;
@@ -438,6 +451,30 @@ ev = pseig(Afun; solver = "non-stiff", reltol = 1.e-10, abstol = 1.e-10)
 cvals = log.(complex(ev))/2/pi 
 println("cvals = $cvals  -- No one digit accuracy!!!")
 @test maximum(abs.(ev)) ≈ 1
+
+# using ApproxFun
+s = Fourier(0..2π)
+At = FourierFunctionMatrix(Fun(t -> [0 1; -10*cos(t) -24-10*sin(t)],s), 2pi)
+Atfun = convert(PeriodicFunctionMatrix,At)
+Ahrfun = convert(PeriodicFunctionMatrix,pfm2hr(Afun))
+
+@time cvals = psceig(Afun, 500; solver = "non-stiff", reltol = 1.e-10, abstol = 1.e-10)
+@time cvals1 = psceig(Atfun, 500; solver = "non-stiff", reltol = 1.e-10, abstol = 1.e-10)
+@time cvals2 = psceig(Ahrfun, 500; solver = "non-stiff", reltol = 1.e-10, abstol = 1.e-10)
+@test cvals ≈ cvals1 ≈ cvals2
+Tt = Fun(t -> [12+5*sin(t) 1/2; 1 0],s)
+Tinvt=inv(Tt)
+Atilde=Tt*At.M*Tinvt+Tt'*Tinvt
+Aref = Fun(t -> [0 0; 2 -24-10*sin(t)],s)
+@test norm(Aref-Atilde) < 1.e-10
+
+# example Floquet analysis from ApproxFun.jl
+a=0.15
+at1(t) = -[0 -1 0 0; (2+a*cos(2t)) 0 -1 0; 0 0 0 -1; -1 0 (2+a*cos(2t)) 0]
+Afun1=PeriodicFunctionMatrix(at1,pi);
+ev = pseig(Afun1; solver = "non-stiff", reltol = 1.e-10, abstol = 1.e-10)
+cvals = log.(complex(ev))/pi
+
 
 # full accuracy characteristic exponents
 # solver = "symplectic"
