@@ -462,11 +462,11 @@ Ahrfun = convert(PeriodicFunctionMatrix,pfm2hr(Afun))
 @time cvals1 = psceig(Atfun, 500; solver = "non-stiff", reltol = 1.e-10, abstol = 1.e-10)
 @time cvals2 = psceig(Ahrfun, 500; solver = "non-stiff", reltol = 1.e-10, abstol = 1.e-10)
 @test cvals ≈ cvals1 ≈ cvals2
-Tt = Fun(t -> [12+5*sin(t) 1/2; 1 0],s)
-Tinvt=inv(Tt)
-Atilde=Tt*At.M*Tinvt+Tt'*Tinvt
-Aref = Fun(t -> [0 0; 2 -24-10*sin(t)],s)
-@test norm(Aref-Atilde) < 1.e-10
+# Tt = Fun(t -> [12+5*sin(t) 1/2; 1 0],s)
+# Tinvt=inv(Tt)
+# Atilde=Tt*At.M*Tinvt+Tt'*Tinvt
+# Aref = Fun(t -> [0 0; 2 -24-10*sin(t)],s)
+# @test norm(Aref-Atilde) < 1.e-10
 
 # example Floquet analysis from ApproxFun.jl
 a=0.15
