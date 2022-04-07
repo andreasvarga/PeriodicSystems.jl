@@ -29,7 +29,7 @@ import MatrixPencils: isregular, rmeval
 import Polynomials: AbstractRationalFunction, AbstractPolynomial, poles, isconstant, variable, degree, pqs
 
 export PeriodicStateSpace, pschur, phess, pschurw, psreduc_reg, psreduc_fast, check_psim, mshift, pseig, tvmeval, hreval, tvstm
-export ts2hr, ts2pfm, pfm2hr, hr2psm, psm2hr, pm2pa
+export ts2hr, ts2pfm, ts2ffm, pfm2hr, hr2psm, psm2hr, pm2pa
 export monodromy, psceig
 export PeriodicArray, PeriodicMatrix
 export PeriodicTimeSeriesMatrix, HarmonicArray, FourierFunctionMatrix, PeriodicFunctionMatrix,  PeriodicSymbolicMatrix

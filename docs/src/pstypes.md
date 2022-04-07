@@ -6,6 +6,7 @@
 * **[`PeriodicSymbolicMatrix`](@ref)**   Continuous-time periodic symbolic matrix representation.
 * **[`PeriodicTimeSeriesMatrix`](@ref)**   Continuous-time periodic time series matrix representation.
 * **[`HarmonicArray`](@ref)**   Continuous-time harmonic array representation.
+* **[`FourierFunctionMatrix`](@ref)**   Continuous-time Fourier functin matrix representation.
 
 ```@docs
 PeriodicMatrix
@@ -15,4 +16,5 @@ PeriodicSymbolicMatrix
 PeriodicTimeSeriesMatrix
 HarmonicArray
 HarmonicArray(A0::MT, Acos::Union{Nothing, Vector{MT}}, Asin::Union{Nothing, Vector{MT}}, period::Real) where {T<:Real, MT<:VecOrMat{T}} 
+FourierFunctionMatrix
 ```

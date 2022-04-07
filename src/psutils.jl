@@ -912,6 +912,75 @@ function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0
    end       
 
 end
+# function ts2ffm(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0, n::Union{Int,Missing} = missing, squeeze::Bool = true) where  {T, Ts}
+   
+#    M = length(A.values)
+#    n1, n2 = size(A.values[1])
+   
+#    if ismissing(n)
+#        n = div(M-1,2)
+#        ncur = 0
+#    else
+#        n = min( n, div(M-1,2) ) 
+#        ncur = n
+#    end
+#    n = max(n,0)
+#    s = Fourier(0..A.period)
+#    AFFM = Fun(t -> zeros(T,n1,n2),s)
+#    tol = iszero(atol) ? (iszero(rtol) ? 10*M*eps(maximum(norm.(A.values))) : rtol*maximum(norm.(A.values)) ) : atol
+#    i1 = 2:n+1   
+#    for i = 1:n1
+#        for j = 1:n2
+#            temp = getindex.(A.values, i, j)
+#            i == 1 && j == 1 && (global rfftop = plan_rfft(temp; flags=FFTW.ESTIMATE, timelimit=Inf))
+#            tt = conj(2/M*(rfftop*temp)) 
+#          #   tt[1] = real(tt[1]/2)
+#          #   tt1 = view(tt,i1)
+#            ind = i1[abs.(view(tt,i1)) .> tol]
+#            nc = length(ind); 
+#            nc > 0 && (nc = ind[end])
+#          #   nr = count(abs.(real(tt1)) .> tol)
+#          #   indi = i1[abs.(imag(tt1)) .> tol]
+#          #   ni = length(indi); 
+#          #   ni > 0 && (ni = indi[end])
+#          #   nc = count(view(tt))        
+#          #   AFFM[i,j] = Fun(s,real(tt[indr])
+#          #   AHR[i,j,indi] += im*imag(tt[indi])
+#            i2 = 2:nc
+#            AFFM[i,j] = Fun(s, [[real(tt[1])/2]; transpose([real(tt[i2]) imag(tt[i2])])[:]])
+#        end
+#    end
+#    # nperiod = A.nperiod
+#    # if nc > 2 && squeeze
+#    #    nh = ncur-1
+#    #    s = falses(nh)
+#    #    for i = 1:nh
+#    #        s[i] = any(abs.(view(AHR,:,:,i+1)) .> tol)
+#    #    end  
+#    #    t = Primes.factor(Vector,nh)
+#    #    s1 = copy(s)
+#    #    for i = 1:length(t)
+#    #        #st = falses(0) 
+
+#    #        #k = div(nh,t[i])  # number of possible patterns
+#    #        stry = true
+#    #        for j1 = 1:t[i]:nh
+#    #            stry = stry & all(view(s1,j1:j1+t[i]-2) .== false) 
+#    #            stry || break
+#    #            #st = [st; s1[j1+t[i]-1]]
+#    #        end
+#    #        if stry 
+#    #           nperiod = nperiod*t[i]
+#    #           s1 = s1[t[i]:t[i]:nh]
+#    #           nh = div(nh,t[i])
+#    #        end
+#    #    end 
+#    return FourierFunctionMatrix(AFFM,A.period,A.nperiod)
+#    # else
+#    #    return FourierFunctionMatrix(AHR[:,:,1:max(1,ncur)],A.period;nperiod)
+#    # end       
+
+# end
 """
      pfm2hr(A::PeriodicFunctionMatrix; nsample, NyquistFreq) -> Ahr::HarmonicArray
 

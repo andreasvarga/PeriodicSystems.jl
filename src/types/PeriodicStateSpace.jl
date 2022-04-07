@@ -61,7 +61,7 @@ numerators and denominators up to at most 4 decimal digits).
 All periodic matrix objects must have the same type `PM`, where
 `PM` stays for one of the supported periodic matrix types, i.e., 
 [`PeriodicMatrix`](@ref), [`PeriodicArray`](@ref), [`PeriodicFunctionMatrix`](@ref), [`PeriodicSymbolicMatrix`](@ref),
-[`HarmonicArray`](@ref) or [`PeriodicTimeSeriesMatrix`](@ref). 
+[`HarmonicArray`](@ref), [`FourierFunctionMatrix`](@ref) or [`PeriodicTimeSeriesMatrix`](@ref). 
 """
 function PeriodicStateSpace(A::PFM1, B::PFM2, C::PFM3, D::PFM4) where {PFM1 <: PeriodicFunctionMatrix, PFM2 <: PeriodicFunctionMatrix, PFM3 <: PeriodicFunctionMatrix, PFM4 <: PeriodicFunctionMatrix}
     period = ps_validation(A, B, C, D)
