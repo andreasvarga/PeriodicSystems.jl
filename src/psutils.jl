@@ -1311,8 +1311,8 @@ a linear interpolation based approximation is computed
 The keyword argument `ntrunc` specifies the number of harmonics to be used for evaluation 
 (default: maximum possible number of harmonics). 
 """
-function tvmeval(ahr::HarmonicArray, t::Union{Real,Vector{<:Real}}; ntrunc::Int = size(ahr.values,3), 
-                exact::Bool = true) 
+function tvmeval(ahr::HarmonicArray{:c,T}, t::Union{Real,Vector{<:Real}}; ntrunc::Int = size(ahr.values,3), 
+                exact::Bool = true) where {T}
        
    n = min(size(ahr.values,3)-1,ntrunc);
    
@@ -1330,7 +1330,8 @@ function tvmeval(ahr::HarmonicArray, t::Union{Real,Vector{<:Real}}; ntrunc::Int 
            ht[i] = (sin(x)/x)^2
       end
    end
-   A = similar(Vector{Matrix}, nt)
+   T1 = float(T)
+   A = similar(Vector{Matrix{T}}, nt)
    for j = 1:nt
        A[j] = real(ahr.values[:,:,1])
        tsj = mod(te[j],period)*tscal

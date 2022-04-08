@@ -305,6 +305,11 @@ psys = PeriodicStateSpace(convert(HarmonicArray,A),
                           convert(HarmonicArray,B), 
                           convert(HarmonicArray,C), 
                           convert(HarmonicArray,D));
+print(psys);
+convert(PeriodicStateSpace{PeriodicSymbolicMatrix},psys);
+convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys);
+convert(PeriodicStateSpace{PeriodicFunctionMatrix},psys);
+
 
 At = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,A).f.(ts),A.period);
 Bt = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,B).f.(ts),B.period);
@@ -490,7 +495,6 @@ cvals = log.(complex(ev))/pi
 solver = "non-stiff"
 for solver in ("non-stiff", "stiff", "linear", "symplectic", "noidea")
     @time cvals = psceig(Afun, 500; solver, reltol = 1.e-10, abstol = 1.e-10)
-    #println("solver = $solver svals = $cvals")
     @test isapprox(cvals, [0; -24], atol = 1.e-7)
 end
 
@@ -508,6 +512,7 @@ for solver in ("non-stiff", "stiff", "linear", "symplectic", "noidea")
       @test cvals ≈ [2; -13]
 end  
 
+  
 # #using BenchmarkTools
 # solver = "non-stiff"
 # at1(t) = [0 1; -10*cos(t) -24-10*sin(t)];

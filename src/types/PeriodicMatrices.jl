@@ -569,16 +569,8 @@ Base.convert(::Type{HarmonicArray}, A::PeriodicSymbolicMatrix) = psm2hr(A)
 # conversions to PeriodicTimeSeriesMatrix
 Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicFunctionMatrix) = 
          PeriodicTimeSeriesMatrix(A.f.((0:127)*A.period/128/A.nperiod), A.period; nperiod = A.nperiod)
-# conversions of discrete-time periodic matrices to continuous-time PeriodicTimeSeriesMatrix
-
-# function PeriodicTimeSeriesMatrix(A::PeriodicMatrix{:d,T}, period::Real = A.period) where {T <: Real}
-#    N = length(A.M) 
-#    N <= 1 && (return PeriodicTimeSeriesMatrix(A.M, period))
-#    m, n = size(A.M[1])
-#    (any(size.(A.M,1) .!= m) || any(size.(A.M,2) .!= n)) && 
-#          error("only periodic matrices with constant dimensions supported")
-#    PeriodicTimeSeriesMatrix(A.M, period)
-# end
+Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::HarmonicArray) =
+    PeriodicTimeSeriesMatrix(tvmeval(A, collect((0:127)*A.period/128/A.nperiod)), A.period; nperiod = A.nperiod)
 Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicMatrix) =
     convert(PeriodicTimeSeriesMatrix, pm2pa(A))
 Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicArray) =
