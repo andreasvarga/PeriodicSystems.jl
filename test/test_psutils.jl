@@ -299,7 +299,10 @@ psys = PeriodicStateSpace(convert(PeriodicSymbolicMatrix,A),
                           convert(PeriodicSymbolicMatrix,C), 
                           convert(PeriodicSymbolicMatrix,D));
 print(psys);
+convert(PeriodicStateSpace{PeriodicFunctionMatrix},psys);
 convert(PeriodicStateSpace{HarmonicArray},psys);
+convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys);
+convert(PeriodicStateSpace{FourierFunctionMatrix},psys);
 
 psys = PeriodicStateSpace(convert(HarmonicArray,A), 
                           convert(HarmonicArray,B), 
@@ -309,6 +312,7 @@ print(psys);
 convert(PeriodicStateSpace{PeriodicSymbolicMatrix},psys);
 convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys);
 convert(PeriodicStateSpace{PeriodicFunctionMatrix},psys);
+convert(PeriodicStateSpace{FourierFunctionMatrix},psys);
 
 
 At = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,A).f.(ts),A.period);
@@ -317,8 +321,20 @@ Ct = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,C).f.(ts),C.period)
 Dt = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,D).f.(ts),D.period);
 psys = PeriodicStateSpace(At, Bt, Ct, Dt); 
 print(psys);
+convert(PeriodicStateSpace{PeriodicFunctionMatrix},psys);
+convert(PeriodicStateSpace{PeriodicSymbolicMatrix},psys);
 convert(PeriodicStateSpace{HarmonicArray},psys);
+convert(PeriodicStateSpace{FourierFunctionMatrix},psys);
 
+psys = PeriodicStateSpace(convert(FourierFunctionMatrix,A), 
+                          convert(FourierFunctionMatrix,B), 
+                          convert(FourierFunctionMatrix,C), 
+                          convert(FourierFunctionMatrix,D));
+print(psys);
+convert(PeriodicStateSpace{PeriodicFunctionMatrix},psys);
+convert(PeriodicStateSpace{HarmonicArray},psys); 
+convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys);
+convert(PeriodicStateSpace{PeriodicSymbolicMatrix},psys);
 
 # constant dimensions
 Ad = PeriodicMatrix([[1. 0; 0 0], [1 1;1 1], [0 1; 1 0]], 3);

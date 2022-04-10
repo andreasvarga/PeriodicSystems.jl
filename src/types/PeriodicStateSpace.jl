@@ -226,6 +226,49 @@ Base.show(io::IO, sys::PeriodicStateSpace{PM}) where
     {PM <: Union{PeriodicMatrix,PeriodicArray,PeriodicTimeSeriesMatrix,PeriodicSymbolicMatrix,PeriodicFunctionMatrix,HarmonicArray}} = 
     show(io, MIME("text/plain"), sys)
 
+function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateSpace{<:FourierFunctionMatrix})
+    summary(io, sys); println(io)
+    n = size(sys.A,1) 
+    p, m = size(sys.D)
+    T = eltype(sys)
+    if n > 0
+       nperiod = sys.A.nperiod
+       println(io, "\nState matrix A::$T($n×$n): subperiod: $(sys.A.period/nperiod)    #subperiods: $nperiod ")
+       isconstant(sys.A) ? show(io, mime, sys.A.M(0)) : show(io, mime, sys.A.M)
+       if m > 0 
+          nperiod = sys.B.nperiod
+          println(io, "\n\nInput matrix B::$T($n×$m): $(sys.B.period/nperiod)    #subperiods: $nperiod ") 
+          isconstant(sys.B) ? show(io, mime, sys.B.M(0)) : show(io, mime, sys.B.M)
+       else
+          println(io, "\n\nEmpty input matrix B.")
+       end
+       
+       if p > 0 
+          nperiod = sys.C.nperiod
+          println(io, "\n\nOutput matrix C::$T($p×$n): $(sys.C.period/nperiod)    #subperiods: $nperiod ")
+          isconstant(sys.C) ? show(io, mime, sys.C.M(0)) : show(io, mime, sys.C.M)
+       else 
+          println(io, "\n\nEmpty output matrix C.") 
+       end
+       if m > 0 && p > 0
+          nperiod = sys.D.nperiod
+          println(io, "\n\nFeedthrough matrix D::$T($p×$m): $(sys.D.period/nperiod)    #subperiods: $nperiod ") 
+          isconstant(sys.D) ? show(io, mime, sys.D.M(0)) : show(io, mime, sys.D.M)
+       else
+          println(io, "\n\nEmpty feedthrough matrix D.") 
+       end
+       println(io, "\n\nContinuous-time periodic state-space model.")  
+    elseif m > 0 && p > 0
+       nperiod = sys.D.nperiod
+       println(io, "\nFeedthrough matrix D::$T($p×$m): $(sys.D.period/nperiod)    #subperiods: $nperiod ")
+       isconstant(sys.D) ? show(io, mime, sys.D.M(0)) : show(io, mime, sys.D.M)
+       println(io, "\n\nTime-varying gain.") 
+    else
+       println(io, "\nEmpty state-space model.")
+    end
+end
+
+
 function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateSpace{<:HarmonicArray})
     summary(io, sys); println(io)
     n = sys.nx 

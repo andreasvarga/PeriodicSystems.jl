@@ -881,7 +881,7 @@ function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0
            AHR[i,j,indi] += im*imag(tt[indi])
        end
    end
-   nperiod = 1
+   nperiod = A.nperiod
    if ncur > 2 && squeeze
       nh = ncur-1
       s = falses(nh)
@@ -992,12 +992,12 @@ where `Δ = T/k` is the sampling period and `k` is the number of samples specifi
 `NyquistFreq = f`, then `k` is chosen `k = 2*f*T` to avoid signal aliasing.     
 """
 function pfm2hr(A::PeriodicFunctionMatrix; nsample::Int = 128, NyquistFreq::Union{Real,Missing} = missing)   
-   isconstant(A) && (return HarmonicArray(A.f(0),A.period))
+   #isconstant(A) && (return HarmonicArray(A.f(0),A.period))
    nsample > 0 || ArgumentError("nsample must be positive, got $nsaple")
    ns = ismissing(NyquistFreq) ? nsample : Int(floor(2*abs(NyquistFreq)*A.period/A.nperiod))+1
-   Δ = A.period/ns
+   Δ = A.period/ns/A.nperiod
    ts = (0:ns-1)*Δ
-   return ts2hr(PeriodicTimeSeriesMatrix(A.f.(ts), A.period; nperiod = A.nperiod))
+   return ts2hr(PeriodicTimeSeriesMatrix(A.f.(ts), A.period; nperiod = A.nperiod),squeeze = true)
 end
 """
      psm2hr(A::PeriodicSymbolicMatrix; nsample, NyquistFreq) -> Ahr::HarmonicArray

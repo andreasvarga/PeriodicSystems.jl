@@ -295,6 +295,20 @@ function FourierFunctionMatrix{:c,T}(A::Fun, period::Real) where {T}
 end
 FourierFunctionMatrix(A::Fun, period::Real)  = 
        FourierFunctionMatrix{:c,eltype(domain(A))}(A::Fun, period::Real) 
+function FourierFunctionMatrix{:c,T}(A::FourierFunctionMatrix, period::Real) where {T}
+   period > 0 || error("period must be positive") 
+   Aperiod = A.period
+   r = rationalize(Aperiod/period)
+   n, d = numerator(r), denominator(r)
+   min(n,d) == 1 || error("new period is incommensurate with the old period")
+   if period >= Aperiod
+      FourierFunctionMatrix{:c,T}(A.M, Aperiod*d, A.nperiod*d)
+   elseif period < Aperiod
+      nperiod = div(A.nperiod,n)
+      nperiod < 1 && error("new period is incommensurate with the old period")
+      FourierFunctionMatrix{:c,T}(A.M, Aperiod/n, A.nperiod)
+   end
+end
 
 function isconstant(A::FourierFunctionMatrix)
    for i = 1:size(A.M,1)
@@ -343,7 +357,6 @@ end
 HarmonicArray(Ahr::Array{Complex{T},3}, period::Real; nperiod::Int = 1) where T = HarmonicArray{:c,T}(Ahr, period; nperiod)
 function HarmonicArray{:c,T}(A::HarmonicArray{:c,T1}, period::Real) where {T,T1}
    period > 0 || error("period must be positive") 
-   isconstant(A) && (return HarmonicArray{:c,T}(convert(Array{Complex{T},3},A.values), period; nperiod = 1))
    Aperiod = A.period
    r = rationalize(Aperiod/period)
    n, d = numerator(r), denominator(r)
@@ -541,7 +554,19 @@ Base.convert(::Type{PeriodicFunctionMatrix}, At::PeriodicTimeSeriesMatrix)  wher
 
 # conversions to continuous-time Fourier function matrix
 function Base.convert(::Type{FourierFunctionMatrix}, A::PeriodicFunctionMatrix) 
-   return FourierFunctionMatrix{:c,eltype(A)}(Fun(x -> A.f(x), Fourier(0..A.period)), Float64(A.period), A.nperiod)
+   return FourierFunctionMatrix{:c,eltype(A)}(Fun(x -> A.f(x), Fourier(0..A.period/A.nperiod)), Float64(A.period), A.nperiod)
+end
+function Base.convert(::Type{FourierFunctionMatrix}, A::HarmonicArray) 
+   tA = convert(PeriodicFunctionMatrix,A)
+   return FourierFunctionMatrix{:c,eltype(tA)}(Fun(x -> tA.f(x), Fourier(0..tA.period/tA.nperiod)), Float64(tA.period), tA.nperiod)
+end
+function Base.convert(::Type{FourierFunctionMatrix}, A::PeriodicSymbolicMatrix) 
+   tA = convert(PeriodicFunctionMatrix,A)
+   return FourierFunctionMatrix{:c,eltype(tA)}(Fun(x -> tA.f(x), Fourier(0..tA.period/tA.nperiod)), Float64(tA.period), tA.nperiod)
+end
+function Base.convert(::Type{FourierFunctionMatrix}, A::PeriodicTimeSeriesMatrix) 
+   tA = convert(PeriodicFunctionMatrix,A)
+   return FourierFunctionMatrix{:c,eltype(tA)}(Fun(x -> tA.f(x), Fourier(0..tA.period/tA.nperiod)), Float64(tA.period), tA.nperiod)
 end
 
 # conversions to continuous-time PeriodicSymbolicMatrix
@@ -555,18 +580,23 @@ function Base.convert(::Type{PeriodicSymbolicMatrix{:c,T}}, A::PeriodicFunctionM
 end
 Base.convert(::Type{PeriodicSymbolicMatrix}, ahr::HarmonicArray)  where T = 
    PeriodicSymbolicMatrix(hr2psm(ahr), ahr.period; nperiod = ahr.nperiod)
-# function PeriodicSymbolicMatrix(ahr::HarmonicArray, period::Real = ahr.period)
-#    @variables t
-#    PeriodicSymbolicMatrix(hreval(ahr,t)[1], period)
-# end
+Base.convert(::Type{PeriodicSymbolicMatrix}, A::PeriodicTimeSeriesMatrix) = 
+   PeriodicSymbolicMatrix(hr2psm(convert(HarmonicArray,A)), A.period; nperiod = A.nperiod)
+Base.convert(::Type{PeriodicSymbolicMatrix}, A::FourierFunctionMatrix) =
+   convert(PeriodicSymbolicMatrix,convert(HarmonicArray,A))
 
 
 # conversion to continuous-time HarmonicArray
 Base.convert(::Type{HarmonicArray}, A::PeriodicTimeSeriesMatrix) = ts2hr(A)
 Base.convert(::Type{HarmonicArray}, A::PeriodicFunctionMatrix) = pfm2hr(A)
 Base.convert(::Type{HarmonicArray}, A::PeriodicSymbolicMatrix) = psm2hr(A)
+Base.convert(::Type{HarmonicArray}, A::FourierFunctionMatrix) = pfm2hr(convert(PeriodicFunctionMatrix,A))
 
 # conversions to PeriodicTimeSeriesMatrix
+function Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicSymbolicMatrix)
+    tA = convert(PeriodicFunctionMatrix,A)
+    PeriodicTimeSeriesMatrix(tA.f.((0:127)*tA.period/128/tA.nperiod), tA.period; nperiod = tA.nperiod)
+end
 Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicFunctionMatrix) = 
          PeriodicTimeSeriesMatrix(A.f.((0:127)*A.period/128/A.nperiod), A.period; nperiod = A.nperiod)
 Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::HarmonicArray) =
@@ -575,4 +605,6 @@ Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicMatrix) =
     convert(PeriodicTimeSeriesMatrix, pm2pa(A))
 Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicArray) =
     PeriodicTimeSeriesMatrix([A.M[:,:,i] for i in 1:size(A.M,3)], A.period; nperiod = A.nperiod)
+Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::FourierFunctionMatrix) =
+   convert(PeriodicTimeSeriesMatrix,convert(PeriodicFunctionMatrix,A))
 
