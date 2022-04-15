@@ -1,7 +1,7 @@
 module Test_psutils
 
 using PeriodicSystems
-#using DescriptorSystems
+using DescriptorSystems
 using Interpolations
 #using DifferentialEquations
 using OrdinaryDiffEq
@@ -125,7 +125,7 @@ ev = eigvals(A[:,:,2]*A[:,:,1])
       sort(imag(eigs)) ≈ sort(imag(ev))
 
 A1 = [1.5 -.7 3.5 -.7; 1.  0.  2.  3.; 1.5 -.7 2.5 -.3; 1.  0.  2.  1.]; 
-n = 4; K = 18; 
+n = 4; K = 18;
 A = reshape(hcat([A1 for i in 1:K]...), n, n, K);
 @time H, Z, ihess = phess(A; rev = false);
 @test check_psim(A,Z,H; rev = false) && istriu(H[:,:,ihess],-1) && ihess == 1
@@ -135,6 +135,26 @@ A = reshape(hcat([A1 for i in 1:K]...), n, n, K);
 
 # @time S1, Z1, eigs1, ischur1 = pschurw(A; rev = false);
 # @test check_psim(A,Z1,S1; rev = false)
+
+A1 = [1.5 -.7 3.5 -.7; 1.  0.  2.  3.; 1.5 -.7 2.5 -.3; 1.  0.  2.  1.]; 
+ev1 = eigvals(A1)
+n = 4; K = 18;
+
+k = 1; N = div(K,k)
+Ap = PeriodicArray(reshape(hcat([A1 for i in 1:N]...), n, n, N), K; nperiod = k)
+@time ev = pseig(Ap)
+@test sort(real(ev)) ≈ sort(real(ev1.^K)) && sort(imag(ev)) ≈ sort(imag(ev1.^K))
+
+k = 9; N = div(K,k)
+Ap = PeriodicArray(reshape(hcat([A1 for i in 1:N]...), n, n, N),K; nperiod = k)
+@time ev = pseig(Ap)
+@test sort(real(ev)) ≈ sort(real(ev1.^K)) && sort(imag(ev)) ≈ sort(imag(ev1.^K))
+
+k = 18; N = div(K,k)
+Ap = PeriodicArray(reshape(hcat([A1 for i in 1:N]...), n, n, N),K; nperiod = k)
+@time ev = pseig(Ap)
+@test sort(real(ev)) ≈ sort(real(ev1.^K)) && sort(imag(ev)) ≈ sort(imag(ev1.^K))
+
 
 
 
@@ -278,6 +298,25 @@ K = 100
 Δ = 2*pi/K
 ts = (0:K-1)*Δ
 
+psys = ps(A,B,C,D);
+psys = ps(A,B,C);
+ps(A);
+ps(B);
+ps(C);
+ps(D);
+psys = ps(A,B,C,D,4*pi);
+psys = ps(A,B,C,4*pi);
+psys = ps(HarmonicArray,A,B,C,D,4*pi);
+psys = ps(PeriodicSymbolicMatrix, A,B,C,4*pi);
+
+
+psys = ps(rss(4,3,2),10)
+@test islti(psys)
+psys=ps(rand(2,2),rand(2),rand(3,2),rand(3),10)
+psys=ps(rand(2,2),rand(2),rand(3,2),rand(3),10;Ts = 1)
+psys=ps(rand(2,2),rand(2),rand(3,2),10;Ts = 1)
+
+
 psys = PeriodicStateSpace(convert(PeriodicFunctionMatrix,A), 
                           convert(PeriodicFunctionMatrix,B), 
                           convert(PeriodicFunctionMatrix,C), 
@@ -288,11 +327,20 @@ convert(PeriodicStateSpace{HarmonicArray},psys);
 convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys);
 convert(PeriodicStateSpace{FourierFunctionMatrix},psys);
 
-
 psys = PeriodicStateSpace(convert(PeriodicFunctionMatrix{:c,BigFloat},A), 
                           convert(PeriodicFunctionMatrix{:c,BigFloat},B), 
                           convert(PeriodicFunctionMatrix{:c,BigFloat},C), 
                           convert(PeriodicFunctionMatrix{:c,BigFloat},D));
+
+psys = ps(convert(PeriodicFunctionMatrix,A), 
+          convert(PeriodicFunctionMatrix,B), 
+          convert(PeriodicFunctionMatrix,C), 
+          convert(PeriodicFunctionMatrix,D));
+
+psys = ps(convert(PeriodicFunctionMatrix,A), 
+          convert(PeriodicFunctionMatrix,B), 
+          convert(PeriodicFunctionMatrix,C));
+
 
 psys = PeriodicStateSpace(convert(PeriodicSymbolicMatrix,A), 
                           convert(PeriodicSymbolicMatrix,B), 
@@ -304,6 +352,16 @@ convert(PeriodicStateSpace{HarmonicArray},psys);
 convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys);
 convert(PeriodicStateSpace{FourierFunctionMatrix},psys);
 
+psys = ps(convert(PeriodicSymbolicMatrix,A), 
+          convert(PeriodicSymbolicMatrix,B), 
+          convert(PeriodicSymbolicMatrix,C), 
+          convert(PeriodicSymbolicMatrix,D));
+
+psys = ps(convert(PeriodicSymbolicMatrix,A), 
+          convert(PeriodicSymbolicMatrix,B), 
+          convert(PeriodicSymbolicMatrix,C));
+
+
 psys = PeriodicStateSpace(convert(HarmonicArray,A), 
                           convert(HarmonicArray,B), 
                           convert(HarmonicArray,C), 
@@ -313,6 +371,16 @@ convert(PeriodicStateSpace{PeriodicSymbolicMatrix},psys);
 convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys);
 convert(PeriodicStateSpace{PeriodicFunctionMatrix},psys);
 convert(PeriodicStateSpace{FourierFunctionMatrix},psys);
+
+psys = ps(convert(HarmonicArray,A), 
+          convert(HarmonicArray,B), 
+          convert(HarmonicArray,C), 
+          convert(HarmonicArray,D));
+
+psys = ps(convert(HarmonicArray,A), 
+          convert(HarmonicArray,B), 
+          convert(HarmonicArray,C));
+
 
 
 At = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,A).f.(ts),A.period);
@@ -326,6 +394,10 @@ convert(PeriodicStateSpace{PeriodicSymbolicMatrix},psys);
 convert(PeriodicStateSpace{HarmonicArray},psys);
 convert(PeriodicStateSpace{FourierFunctionMatrix},psys);
 
+psys = ps(At, Bt, Ct, Dt);
+psys = ps(At, Bt, Ct);
+
+
 psys = PeriodicStateSpace(convert(FourierFunctionMatrix,A), 
                           convert(FourierFunctionMatrix,B), 
                           convert(FourierFunctionMatrix,C), 
@@ -336,6 +408,18 @@ convert(PeriodicStateSpace{HarmonicArray},psys);
 convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys);
 convert(PeriodicStateSpace{PeriodicSymbolicMatrix},psys);
 
+psys = ps(convert(FourierFunctionMatrix,A), 
+          convert(FourierFunctionMatrix,B), 
+          convert(FourierFunctionMatrix,C), 
+          convert(FourierFunctionMatrix,D));
+psys = ps(convert(FourierFunctionMatrix,A), 
+          convert(FourierFunctionMatrix,B), 
+          convert(FourierFunctionMatrix,C));
+
+psys = ps(FourierFunctionMatrix,A,B,C,D);                          
+
+
+
 # constant dimensions
 Ad = PeriodicMatrix([[1. 0; 0 0], [1 1;1 1], [0 1; 1 0]], 3);
 Bd = PeriodicMatrix( [[ 1; 0 ], [ 1; 1]] ,2);
@@ -344,6 +428,9 @@ Dd = PeriodicMatrix( [[ 1 ]], 1);
 psys = PeriodicStateSpace(Ad,Bd,Cd,Dd); 
 convert(PeriodicStateSpace{PeriodicArray},psys);
 convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys);
+
+psys = ps(Ad,Bd,Cd,Dd);
+psys = ps(Ad,Bd,Cd); 
 
 
 Ad = PeriodicMatrix([[1. 0], [1;1]],2);
@@ -355,6 +442,9 @@ print(psys);
 convert(PeriodicStateSpace{PeriodicArray},psys);
 convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys);
 
+psys = ps(Ad,Bd,Cd,Dd);
+psys = ps(Ad,Bd,Cd); 
+
 
 Ad = PeriodicArray(rand(Float32,2,2,10),10);
 Bd = PeriodicArray(rand(2,1,2),2);
@@ -364,6 +454,11 @@ psys = PeriodicStateSpace(Ad,Bd,Cd,Dd);
 print(psys);
 convert(PeriodicStateSpace{PeriodicMatrix},psys)
 convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys)
+
+psys = ps(Ad,Bd,Cd,Dd);
+psys = ps(Ad,Bd,Cd); 
+psys = ps(convert(PeriodicMatrix,Ad), Bd, convert(PeriodicMatrix,Cd), Dd); 
+psys = ps(convert(PeriodicMatrix,Ad), Bd, convert(PeriodicMatrix,Cd)); 
 
 
 # symbolic periodic 
@@ -495,8 +590,15 @@ Ahrfun = convert(PeriodicFunctionMatrix,pfm2hr(Afun))
 a=0.15
 at1(t) = -[0 -1 0 0; (2+a*cos(2t)) 0 -1 0; 0 0 0 -1; -1 0 (2+a*cos(2t)) 0]
 Afun1=PeriodicFunctionMatrix(at1,pi);
-ev = pseig(Afun1; solver = "non-stiff", reltol = 1.e-10, abstol = 1.e-10)
-cvals = log.(complex(ev))/pi
+ev1 = pseig(Afun1; solver = "non-stiff", reltol = 1.e-10, abstol = 1.e-10)
+cvals1 = log.(complex(ev1))/pi
+
+a=0.15
+at2(t) = -[0 -1 0 0; (2+a*cos(2t)) 0 -1 0; 0 0 0 -1; -1 0 (2+a*cos(2t)) 0]
+Afun2=PeriodicFunctionMatrix(at2,2*pi;nperiod=2);
+ev2 = pseig(Afun2; solver = "non-stiff", reltol = 1.e-10, abstol = 1.e-10)
+cvals2 = log.(complex(ev2))/(2pi)
+@test ev1.^2 ≈ ev2 && real(cvals1) ≈ real(cvals2)
 
 
 # full accuracy characteristic exponents

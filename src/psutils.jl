@@ -88,13 +88,14 @@ end
 
 Compute the monodromy matrix for a linear ODE with periodic time-varying coefficients. 
 
-For the given square periodic function matrix `A(t)` of period `T`, 
-the monodromy matrix `Ψ = Φ(T,0)` is computed, where `Φ(t,τ)` is the state transition matrix satisfying the homogeneous linear ODE 
+For the given square periodic function matrix `A(t)` of period `T` and subperiod `T′ = T/k`, where 
+`k` is the number of subperiods,  
+the monodromy matrix `Ψ = Φ(T′,0)` is computed, where `Φ(t,τ)` is the state transition matrix satisfying the homogeneous linear ODE 
 
     dΦ(t,τ)/dt = A(t)Φ(t,τ),  Φ(τ,τ) = I. 
 
-If `K > 1`, then `Ψ = Φ(T,0)` is determined as a product of `K` matrices 
-`Ψ = Ψ_K*...*Ψ_1`, where for `Δ := T/K`, `Ψ_i = Φ(iΔ,(i-1)Δ)` is the 
+If `K > 1`, then `Ψ = Φ(T′,0)` is determined as a product of `K` matrices 
+`Ψ = Ψ_K*...*Ψ_1`, where for `Δ := T′/K`, `Ψ_i = Φ(iΔ,(i-1)Δ)` is the 
 state transition matrix on the time interval `[(i-1)Δ,iΔ]`. 
 
 The state transition matrices `Φ(iΔ,(i-1)Δ)`
@@ -103,7 +104,7 @@ The ODE solver to be employed can be
 specified using the keyword argument `solver`, together with
 the required relative accuracy `reltol` (default: `reltol = 1.e-3`), 
 absolute accuracy `abstol` (default: `abstol = 1.e-7`) and/or 
-the fixed step length `dt` (default: `dt = min(Δ, Δ*K/100)`) (see [`tvstm`](@ref)). 
+the fixed step length `dt` (default: `dt = min(Δ, Δ*K′/100)`) (see [`tvstm`](@ref)). 
 For large values of `K`, parallel computation of factors can be alternatively performed 
 by starting Julia with several execution threads. 
 The number of execution threads is controlled either by using the `-t/--threads` command line argument 
@@ -112,23 +113,25 @@ or by using the `JULIA_NUM_THREADS` environment variable.
 function monodromy(A::PeriodicFunctionMatrix{:c,T}, K::Int = 1; solver = "non-stiff", reltol = 1e-3, abstol = 1e-7, dt = at.period/max(K,100)) where T
    n = A.dims[1]
    n == A.dims[2] || error("the function matrix must be square")
-   Ts = A.period/K
+   nperiod = A.nperiod
+   Ts = A.period/K/nperiod
    M = Array{T,3}(undef, n, n, K) 
 
    # compute the matrix exponential for K = 1 and constant matrix
-   K == 1 && isconstant(A) && ( M[:,:,1] = exp(A.f(0)*Ts); return M )
+   K == 1 && isconstant(A) && ( M[:,:,1] = exp(A.f(0)*Ts); return PeriodicArray(M, A.period; nperiod) )
 
-   K >= 100 ? dt = Ts : dt = Ts*K/100
+   K >= 100 ? dt = Ts : dt = Ts*K/100/nperiod
 
    Threads.@threads for i = 1:K
        @inbounds M[:,:,i] = tvstm(A, i*Ts, (i-1)*Ts; solver = solver, reltol = reltol, abstol = abstol, dt = dt) 
    end
-   return PeriodicArray(M,A.period)
+   return PeriodicArray(M,A.period; nperiod)
 end
 """
      pseig(A, K = 1; lifting = false, solver, reltol, abstol, dt) -> ev
 
 Compute the characteristic multipliers of a continuous-time periodic matrix. 
+
 For the given square periodic matrix `A(t)` of period `T`, 
 the characteristic multipliers `ev` are the eigenvalues of 
 the monodromy matrix `Ψ = Φ(T,0)`, where `Φ(t,τ)` is the state transition matrix satisfying the homogeneous linear ODE 
@@ -139,7 +142,7 @@ If `lifting = false`, `Ψ` is computed as a product of `K` state transition matr
 `Ψ = Ψ_K*...*Ψ_1` (see [`monodromy`](@ref) with the associated keyword arguments). 
 The eigenvalues are computed using the periodic Schur decomposition method of [1].
 
-If `lifting = true`, `Ψ` is determined as `Ψ = inv(N)*M`, where `M-λN` is a regular
+If `lifting = true`, `Ψ` is (implicitly) expressed as `Ψ = inv(N)*M`, where `M-λN` is a regular
 pencil with `N` invertible and  
 the eigenvalues of `M-λN` are the same as those of the matrix product
 `Ψ := Ψ_K*...*Ψ_1`. 
@@ -158,12 +161,12 @@ _References_
     Systems and Control Letters, 50:371-381, 2003.
 
 """
-function pseig(at::PeriodicFunctionMatrix{:c,T}, K::Int = 1; lifting::Bool = false, solver = "non-stiff", reltol = 1e-3, abstol = 1e-7, dt = at.period/100) where T
+function pseig(at::PeriodicFunctionMatrix{:c,T}, K::Int = 1; lifting::Bool = false, solver = "non-stiff", reltol = 1e-3, abstol = 1e-7, dt = at.period/100/at.nperiod) where T
    n = at.dims[1]
    n == at.dims[2] || error("the function matrix must be square")
-
+   nperiod = at.nperiod
    t = 0  
-   Ts = at.period/K
+   Ts = at.period/K/nperiod
    if lifting 
       if K == 1
          ev = eigvals(tvstm(at, at.period, 0; solver, reltol, abstol, dt)) 
@@ -185,8 +188,9 @@ function pseig(at::PeriodicFunctionMatrix{:c,T}, K::Int = 1; lifting::Bool = fal
    else
       M = monodromy(at, K; solver, reltol, abstol, dt) 
       ev = K == 1 ? eigvals(view(M.M,:,:,1)) : pschur(M.M; withZ = false)[3]
-      return isreal(ev) ? real(ev) : ev
+      isreal(ev) && (ev = real(ev))
    end
+   return nperiod == 1 ? ev : ev.^nperiod
 end
 pseig(at::PeriodicSymbolicMatrix{:c,T}, K::Int = 1; kwargs...) where T = 
     pseig(convert(PeriodicFunctionMatrix,at),K; kwargs...)
@@ -237,7 +241,7 @@ function pseig(A::Array{Float64,3}; rev::Bool = true, fast::Bool = false) where 
       return ev
    end
 end
-pseig(A::PeriodicArray{T}; fast::Bool = false) where T = pseig(A.M; fast)
+pseig(A::PeriodicArray{T}; fast::Bool = false) where T = pseig(A.M; fast).^(A.nperiod)
 """
      ev = pseig(A::PeriodicArray; rev = true, fast = false, istart = 1) 
 
@@ -304,7 +308,8 @@ function pseig(A::Vector{Matrix{T}}; rev::Bool = true, fast::Bool = false, istar
       return ev[1:nev]
    end
 end
-pseig(A::PeriodicMatrix{T}; fast::Bool = false, istart::Int = 1) where T = pseig(A.M; fast, istart)
+pseig(A::PeriodicMatrix{T}; fast::Bool = false, istart::Int = 1) where T = 
+      pseig(A.M; fast, istart).^(A.nperiod)
 """
      pcseig(A, K = 1; lifting = false, solver, reltol, abstol, dt) -> ce
 
@@ -1331,7 +1336,7 @@ function tvmeval(ahr::HarmonicArray{:c,T}, t::Union{Real,Vector{<:Real}}; ntrunc
       end
    end
    T1 = float(T)
-   A = similar(Vector{Matrix{T}}, nt)
+   A = similar(Vector{Matrix{T1}}, nt)
    for j = 1:nt
        A[j] = real(ahr.values[:,:,1])
        tsj = mod(te[j],period)*tscal

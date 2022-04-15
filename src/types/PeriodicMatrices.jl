@@ -49,6 +49,22 @@ function PeriodicMatrix{:d,T}(A::PeriodicMatrix{:d,T1}, period::Real) where {T,T
       PeriodicMatrix{:d,T}([T.(A.M[i]) for i in 1:length(A)], Aperiod/n, nperiod)
    end
 end
+set_period(A::AbstractVecOrMat,period::Real) = A
+function set_period(A::AbstractPeriodicArray{:d,T}, period::Real) where T
+   period > 0 || error("period must be positive") 
+   Aperiod = A.period
+   r = rationalize(Aperiod/period)
+   n, d = numerator(r), denominator(r)
+   min(n,d) == 1 || error("new period is incommensurate with the old period")
+   if period >= Aperiod
+      PeriodicMatrix{:d,T}(A.M, Aperiod*d, A.nperiod*d)
+   elseif period < Aperiod
+      nperiod = div(A.nperiod,n)
+      nperiod < 1 && error("new period is incommensurate with the old period")
+      PeriodicMatrix{:d,T}(A.M, Aperiod/n, nperiod)
+   end
+end
+
 
 # function PeriodicMatrix{:d,T}(A::Vector{Matrix{T1}}, period::Real) where {T,T1}
 #     PeriodicMatrix([T.(A[i]) for i in 1:length(A)], period)
@@ -115,6 +131,7 @@ function PeriodicArray{:d,T}(A::PeriodicArray{:d,T1}, period::Real) where {T,T1}
       PeriodicArray{:d,T}(convert(Array{T,3},A.M), Aperiod/n; nperiod)
    end
 end
+
 #PeriodicArray{:d,T}(M::Array{T1,3}, period::Real; nperiod::Int = 1) where {T,T1} = PeriodicArray(T.(M), period; nperiod)
 PeriodicArray(M::Array{T,3}, period::Real; nperiod::Int = 1) where {T <: Real} = PeriodicArray{:d,T}(M, period, nperiod)
 PeriodicArray(M::VecOrMat{T}, period::Real; nperiod::Int = 1) where T = PeriodicArray(reshape(M,size(M,1),size(M,2),1), period; nperiod)
@@ -133,7 +150,9 @@ Base.size(A::PeriodicArray) = (size(A.M,1),size(A.M,2))
 Base.size(A::PeriodicArray, d::Integer) = size(A.M,d)
 Base.length(A::PeriodicArray) = A.dperiod
 Base.eltype(A::PeriodicArray{:d,T}) where T = T
-
+iscontinuous(A::AbstractPeriodicArray) = typeof(A).parameters[1] == :c 
+#iscontinuous(A) = typeof(A).parameters[1] == :c 
+iscontinuous(A::Type) = A.parameters[1] == :c 
 """
     PeriodicFunctionMatrix(f, T; nperiod = k) -> A::PeriodicFunctionMatrix
 
@@ -167,9 +186,15 @@ function PeriodicFunctionMatrix{:c,Tf}(f::Function, period::Real; isconst::Bool 
 end
 PeriodicFunctionMatrix(f::F, period::Real; isconst::Bool = false, nperiod::Int = 1) where {F<:Function}  = 
              PeriodicFunctionMatrix{:c,eltype(f(period))}(f, period; isconst, nperiod)
-PeriodicFunctionMatrix(A::VecOrMat{T}, period::Real) where {T <: Real}  = 
-          PeriodicFunctionMatrix{:c,T}(t -> reshape(A,size(A,1),size(A,2)), period; isconst = true) 
-# period change
+function PeriodicFunctionMatrix(A::VecOrMat{T}, period::Real) where {T <: Real}
+   if T == Num
+      @variables t
+      f = eval(build_function(reshape(A,size(A,1),size(A,2)), t, expression=Val{false})[1])
+      PeriodicFunctionMatrix{:c,Float64}(t -> f(t), period; isconst = true)
+   else
+      PeriodicFunctionMatrix{:c,T}(t -> reshape(A,size(A,1),size(A,2)), period; isconst = true)
+   end
+end
 function PeriodicFunctionMatrix{:c,T}(at::PeriodicFunctionMatrix, period::Real) where {T}
    period > 0 || error("period must be positive") 
    Aperiod = at.period
@@ -184,6 +209,8 @@ function PeriodicFunctionMatrix{:c,T}(at::PeriodicFunctionMatrix, period::Real) 
       PeriodicFunctionMatrix{:c,T}(at.f, Aperiod/n, at.dims, at.nperiod, at._isconstant)
    end
 end
+#set_period(A::PeriodicFunctionMatrix, period::Real) = PeriodicFunctionMatrix{:c,eltype(A)}(A,period)
+
 # function PeriodicFunctionMatrix(at::PeriodicFunctionMatrix, period::Real = at.period; isconst::Bool = isconstant(at))
 #    # at.period = period
 #    # at._isconstant = isconst
@@ -231,8 +258,12 @@ function  PeriodicSymbolicMatrix{:c,T}(F::VecOrMat{T}, period::Real; nperiod::In
    any(length.(Symbolics.get_variables.(Ft)) .> 0 ) && error("t must be the only variable in F")
    PeriodicSymbolicMatrix{:c,T}(n == 1 ? reshape(F,m,n) : F, Float64(period), nperiod) 
 end
-PeriodicSymbolicMatrix(F::VecOrMat{T}, period::Real; nperiod::Int = 1) where {T <: Num} = 
-    PeriodicSymbolicMatrix{:c,T}(F, period; nperiod)
+PeriodicSymbolicMatrix(F::VecOrMat{T}, period::Real; nperiod::Int = 1) where {T <: Union{Num,Real}} = 
+    PeriodicSymbolicMatrix{:c,Num}(Num.(F), period; nperiod)
+# PeriodicSymbolicMatrix(F::VecOrMat{T}, period::Real; nperiod::Int = 1) where {T <: Real} = 
+#     PeriodicSymbolicMatrix{:c,Num}(Num.(F), Float64(period), nperiod)
+# PeriodicSymbolicMatrix{:c,Num}(F::VecOrMat{T}, period::Real; nperiod::Int = 1) where {T <: Number} = 
+#     PeriodicSymbolicMatrix{:c,Num}(Num.(F), Float64(period), nperiod)
 function PeriodicSymbolicMatrix{:c,T}(A::PeriodicSymbolicMatrix, period::Real) where {T}
    period > 0 || error("period must be positive") 
    Aperiod = A.period
@@ -247,6 +278,7 @@ function PeriodicSymbolicMatrix{:c,T}(A::PeriodicSymbolicMatrix, period::Real) w
       PeriodicSymbolicMatrix{:c,T}(A.F, Aperiod/n, A.nperiod)
    end
 end
+set_period(A::PM, period::Real) where {T, PM <: AbstractPeriodicArray{:c,T}} = PM(A,period)
 
 # properties 
 isconstant(A::PeriodicSymbolicMatrix) = all(length.(Symbolics.get_variables.(A.F)) .== 0)

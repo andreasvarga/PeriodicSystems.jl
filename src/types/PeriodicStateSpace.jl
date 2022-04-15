@@ -1,20 +1,25 @@
 # Base.promote_rule(PeriodicFunctionMatrix, PeriodicSymbolicMatrix) = PeriodicFunctionMatrix{:c,T}
 # Base.promote_rule(PeriodicFunctionMatrix, HarmonicArray) = PeriodicFunctionMatrix
 function promote_period(PM1,args...; ndigits = 4)
-    period = PM1.period
-    nlim = 2^ndigits
-    isconst = isconstant(PM1)
-    for a in args
-        isconstant(a) && continue
-        isconst && (isconst = false; period = a.period; continue)
-        peri = a.period
-        r = rationalize(period/peri)
-        num = numerator(r)
-        den = denominator(r)
-        (num <= nlim && den <= nlim) || error("incommensurate periods")
-        period = period*den
-    end
-    return period
+   nlim = 2^ndigits
+   if typeof(PM1) <: AbstractVecOrMat 
+      period = nothing 
+      isconst = true
+   else
+      period = PM1.period
+      isconst = isconstant(PM1)
+   end
+   for a in args
+       (typeof(a) <: AbstractVecOrMat || isconstant(a)) && continue
+       isconst && (isconst = false; period = a.period; continue)
+       peri = a.period
+       r = rationalize(period/peri)
+       num = numerator(r)
+       den = denominator(r)
+       (num <= nlim && den <= nlim) || error("incommensurate periods")
+       period = period*den
+   end
+   return period
 end
 function promote_Ts(PM1,args...)
     Ts = PM1.Ts
@@ -111,13 +116,12 @@ end
 
 function ps_validation(A::PM1, B::PM2, C::PM3, D::PM4) where {T1, T2, T3, T4, PM1 <: AbstractPeriodicArray{:c,T1}, PM2 <: AbstractPeriodicArray{:c,T2}, PM3 <: AbstractPeriodicArray{:c,T3}, PM4 <: AbstractPeriodicArray{:c,T4}}
     nx = size(A,1)
-    nx == size(A,2) || DimensionMismatch("matrix A(t) is not square")
+    nx == size(A,2) || error("matrix A(t) is not square")
     (ny, nu) = size(D)
-    # validate dimensions
-    size(B,1) == nx ||  DimensionMismatch("B(t) must have the same row size as A(t)")
-    size(C,2) == nx ||  DimensionMismatch("C(t) must have the same column size as A(t)")
-    nu == size(B,2) ||  DimensionMismatch("D(t) must have the same column size as B(t)")
-    ny == size(C,1) ||  DimensionMismatch("D(t) must have the same row size as C(t)")
+    size(B,1) == nx ||  error("B(t) must have the same row size as A(t)")
+    size(C,2) == nx ||  error("C(t) must have the same column size as A(t)")
+    nu == size(B,2) ||  error("D(t) must have the same column size as B(t)")
+    ny == size(C,1) ||  error("D(t) must have the same row size as C(t)")
     # validate sampling time
     period = promote_period(A, B, C, D)
     return period
@@ -367,7 +371,7 @@ function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateS
           println("cos($(i*ts)t) factor")
           display(mime, real(sys.D.values[:,:,i+1]))
           println("sin($(i*ts)t) factor")
-          display(mime, imag(sys.C.values[:,:,i+1]))
+          display(mime, imag(sys.D.values[:,:,i+1]))
           i == 4 && nharmonics > 4 && println("⋮")
        end
        println(io, "\n\nPeriod:      $(sys.period) second(s).")
@@ -408,11 +412,13 @@ function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateS
        else
           println(io, "\n\nEmpty feedthrough matrix D.") 
        end
-       println(io, "\n\nContinuous-time periodic state-space model.")  
+       println(io, "\n\nPeriod:      $(sys.period) second(s).")
+       println(io, "Continuous-time periodic state-space model.")  
     elseif m > 0 && p > 0
        nperiod = sys.D.nperiod
        println(io, "\nFeedthrough matrix D::$T($p×$m): $(sys.D.period/nperiod)    #subperiods: $nperiod ")
        isconstant(sys.D) ? show(io, mime, sys.D.f(0)) : show(io, mime, sys.D.f)
+       println(io, "Period:      $(sys.period) second(s).")
        println(io, "\n\nTime-varying gain.") 
     else
        println(io, "\nEmpty state-space model.")
@@ -449,12 +455,14 @@ function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateS
        else
           println(io, "\n\nEmpty feedthrough matrix D.") 
        end
-       println(io, "\n\nContinuous-time periodic state-space model.")  
+       println(io, "\n\nPeriod:      $(sys.period) second(s).")
+       println(io, "Continuous-time periodic state-space model.")  
     elseif m > 0 && p > 0
        nperiod = sys.D.nperiod
        println(io, "\nFeedthrough matrix D: $(sys.D.period/nperiod)    #subperiods: $nperiod ")
        show(io, mime, sys.D.F)
-       println(io, "\n\nTime-varying gain.") 
+       println(io, "\n\nPeriod:      $(sys.period) second(s).")
+       println(io, "Time-varying gain.") 
     else
        println(io, "\nEmpty state-space model.")
     end
