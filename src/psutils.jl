@@ -110,7 +110,7 @@ by starting Julia with several execution threads.
 The number of execution threads is controlled either by using the `-t/--threads` command line argument 
 or by using the `JULIA_NUM_THREADS` environment variable.  
 """
-function monodromy(A::PeriodicFunctionMatrix{:c,T}, K::Int = 1; solver = "non-stiff", reltol = 1e-3, abstol = 1e-7, dt = at.period/max(K,100)) where T
+function monodromy(A::PeriodicFunctionMatrix{:c,T}, K::Int = 1; solver = "non-stiff", reltol = 1e-3, abstol = 1e-7, dt = A.period/max(K,100)) where T
    n = A.dims[1]
    n == A.dims[2] || error("the function matrix must be square")
    nperiod = A.nperiod

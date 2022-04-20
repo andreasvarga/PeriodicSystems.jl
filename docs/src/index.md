@@ -30,9 +30,16 @@ The targeted functionality of this package is described in [1] and will cover bo
 
 **Building periodic system state-space models**
 
+* **[`PeriodicStateSpace`](@ref)**   Periodic state space system representation.
+* **[`ps`](@ref)**  Construction of periodic state-space models.
+
 **Basic operations on periodic system models**
 
 **Basic conversions on periodic system models**
+
+* **[`psaverage`](@ref)**  Computation of the averaged LTI system of a periodic system.
+* **[`psc2d`](@ref)**  Discretization of a continuous-time periodic system. 
+* **[`psmrc2d`](@ref)**  Discretization/resampling of a multirate LTI system. 
 
 **Solving periodic matrix equations**
 

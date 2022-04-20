@@ -13,6 +13,8 @@ makedocs(
           "pstypes.md",
           "ps.md"
           ],
+          "Basic conversions" => 
+          ["psconversions.md"],
    #      "operations.md",
    #      "operations_rtf.md",
    #      "conversions.md",

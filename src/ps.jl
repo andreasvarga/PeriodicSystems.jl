@@ -148,12 +148,16 @@ function ps(D::PM) where {PM <: AbstractPeriodicArray}
 end
 function ps(sys::DST, period::Real) where {DST <: DescriptorStateSpace}
     sys.E == I || error("only standard state-spece models supported")
-    if sys.Ts == 0
+    Ts = sys.Ts
+    if Ts == 0
        ps(PeriodicFunctionMatrix(sys.A,period), PeriodicFunctionMatrix(sys.B,period),
           PeriodicFunctionMatrix(sys.C,period),PeriodicFunctionMatrix(sys.D,period))
     else
-       ps(PeriodicMatrix(sys.A,period), PeriodicMatrix(sys.B,period),
-          PeriodicMatrix(sys.C,period),PeriodicMatrix(sys.D,period))
+      r = rationalize(period/abs(Ts))
+      denominator(r) == 1 || error("incommensurate period and sample time")
+      d = Ts == -1 ? 1 : numerator(r)
+      ps(PeriodicMatrix(sys.A, period; nperiod = d), PeriodicMatrix(sys.B,period; nperiod = d), 
+         PeriodicMatrix(sys.C,period; nperiod = d), PeriodicMatrix(sys.D,period; nperiod = d))
     end
 end
 islti(psys::PeriodicStateSpace) = isconstant(psys.A) && isconstant(psys.B) && isconstant(psys.C) && isconstant(psys.D) 

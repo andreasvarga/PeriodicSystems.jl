@@ -36,7 +36,7 @@ export PeriodicTimeSeriesMatrix, HarmonicArray, FourierFunctionMatrix, PeriodicF
 export isperiodic, isconstant, iscontinuous, islti, set_period
 export mb03vd!, mb03vy!, mb03bd!, mb03wd!
 export ps
-
+export psaverage, psc2d, psmrc2d
 
 abstract type AbstractDynamicalSystem end
 abstract type AbstractLTISystem <: AbstractDynamicalSystem end
@@ -49,5 +49,6 @@ abstract type AbstractPeriodicArray{Domain,T} end
 include("types/PeriodicMatrices.jl")
 include("types/PeriodicStateSpace.jl")
 include("ps.jl")
+include("conversions.jl")
 include("psutils.jl")
 end

@@ -190,7 +190,7 @@ function PeriodicFunctionMatrix(A::VecOrMat{T}, period::Real) where {T <: Real}
    if T == Num
       @variables t
       f = eval(build_function(reshape(A,size(A,1),size(A,2)), t, expression=Val{false})[1])
-      PeriodicFunctionMatrix{:c,Float64}(t -> f(t), period; isconst = true)
+      PeriodicFunctionMatrix{:c,Float64}(t -> f(t), period; isconst = false)
    else
       PeriodicFunctionMatrix{:c,T}(t -> reshape(A,size(A,1),size(A,2)), period; isconst = true)
    end

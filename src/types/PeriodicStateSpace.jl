@@ -575,7 +575,8 @@ function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateS
           subperiod = period/nperiod
           println(io, "\n\nInput matrix B: subperiod: $subperiod    #subperiods: $nperiod ") 
           println(io, "time values: t[1:$dperiod]")
-          for i = 1:dperiod
+          for i in [1:min(4,dperiod); dperiod-2:dperiod]
+              i <= 0 && break
               println("t[$i] = $(i*Ts)")
               display(mime, sys.B.M[i])
               i == 4 && dperiod > 4 && println("   ⋮")
