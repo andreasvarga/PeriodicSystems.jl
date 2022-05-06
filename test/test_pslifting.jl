@@ -7,6 +7,17 @@ using Test
 using LinearAlgebra
 using ApproxFun
 
+println("Test_liftings")
+
+# selected sequence to illustrate failure
+Af = Fun(t -> [0 1; -10*cos(t) -24-10*sin(t)],Fourier(0..2π));
+D = Derivative(domain(Af));
+ND = [D 0I; 0I D];
+#Aop = Af - DiagDerOp(D,n)
+Aop = Af - ND;
+NA = 322
+RW = Aop[1:NA,1:NA];
+
 # using Floquet based approach
 At = PeriodicFunctionMatrix(t -> [0 1; -10*cos(t) -24-10*sin(t)],2pi);
 @time ev = psceig(At; reltol = 1.e-10)
@@ -15,7 +26,7 @@ At = PeriodicFunctionMatrix(t -> [0 1; -10*cos(t) -24-10*sin(t)],2pi);
 
 # using Fourier series
 Afun = FourierFunctionMatrix(Fun(t -> [0 1; -10*cos(t) -24-10*sin(t)],Fourier(0..2π)))
-ev1 = psceig(Afun)
+ev1 = psceig(Afun,50)
 @test sort(real(ev)) ≈ sort(real(ev1)) && norm(imag(ev1)) < 1.e-10
 
 ev3 = psceig(Afun,60)
@@ -169,7 +180,6 @@ ev = psceig(psysc.A)
 sys = ps2frls(psysc,60);
 p = gpole(sys,atol=1.e-7);  p = p[sortperm(imag(p),by=abs)][1:2]
 @test sort(real(p)) ≈ sort(real(ev))  && norm(imag(p)) < 1.e-10
-
 
 z = gzero(sys,atol=1.e-7); z = z[isfinite.(z)]; #  Question: Why there are infinite zeros ? 
 z = z[sortperm(imag(z),by=abs)][1]
