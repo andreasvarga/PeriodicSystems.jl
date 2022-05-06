@@ -180,9 +180,10 @@ function PeriodicFunctionMatrix{:c,Tf}(f::Function, period::Real; isconst::Bool 
    nperiod > 0 || error("number of subperiods must be positive") 
    F0 = f(period)
    nd = ndims(F0)
-   nd == 2 || error("two-dimensional function array expected, got an $nd -dimensional array")
-   eltype(F0) == Tf ? PeriodicFunctionMatrix{:c,Tf}(t -> f(t), Float64(period), size(F0), nperiod, isconst) :
-                      PeriodicFunctionMatrix{:c,Tf}(t -> convert(Matrix{Tf},f(Tf(t))), Float64(period), size(F0), nperiod, isconst)
+   nd <= 2 || error("two-dimensional function array expected, got an $nd -dimensional array")
+   m, n = size(F0,1),size(F0,2)
+   eltype(F0) == Tf ? PeriodicFunctionMatrix{:c,Tf}(t -> n == 1 ? reshape(f(t),m,n) : f(t), Float64(period), (m,n), nperiod, isconst) :
+                      PeriodicFunctionMatrix{:c,Tf}(t -> n == 1 ? convert(Matrix{Tf},reshape(f(Tf(t)),m,n)) : convert(Matrix{Tf},f(Tf(t))), Float64(period), (m,n), nperiod, isconst)
 end
 PeriodicFunctionMatrix(f::F, period::Real; isconst::Bool = false, nperiod::Int = 1) where {F<:Function}  = 
              PeriodicFunctionMatrix{:c,eltype(f(period))}(f, period; isconst, nperiod)
@@ -327,6 +328,7 @@ function FourierFunctionMatrix{:c,T}(A::Fun, period::Real) where {T}
 end
 FourierFunctionMatrix(A::Fun, period::Real)  = 
        FourierFunctionMatrix{:c,eltype(domain(A))}(A::Fun, period::Real) 
+FourierFunctionMatrix(A::Fun)  = FourierFunctionMatrix{:c,eltype(domain(A))}(A::Fun, domain(A).b) 
 function FourierFunctionMatrix{:c,T}(A::FourierFunctionMatrix, period::Real) where {T}
    period > 0 || error("period must be positive") 
    Aperiod = A.period
@@ -341,7 +343,8 @@ function FourierFunctionMatrix{:c,T}(A::FourierFunctionMatrix, period::Real) whe
       FourierFunctionMatrix{:c,T}(A.M, Aperiod/n, A.nperiod)
    end
 end
-
+FourierFunctionMatrix(A0::VecOrMat{T}, period::Real) where {T <: Real}  = 
+    FourierFunctionMatrix{:c,float(T)}(Fun(t->float(T).(A0),Fourier(0..period)), period) 
 function isconstant(A::FourierFunctionMatrix)
    for i = 1:size(A.M,1)
        for j = 1: size(A.M,2)
@@ -380,14 +383,15 @@ for `i = 1, ..., p` contain the coefficient matrices `Ac_i` and `As_i`, respecti
 The complex matrix `Ahr` containing the harmonic components, the period `T` and the 
 number of subperiods `k` can be accessed via `A.values`, `A.period` and `A.nperiod`, respectively.
 """
-function HarmonicArray{:c,T}(Ahr::Array{Complex{T1},3}, period::Real; nperiod::Int = 1) where {T,T1}
+function HarmonicArray{:c,T}(Ahr::Array{<:Complex,3}, period::Real; nperiod::Int = 1) where {T}
    period > 0 || error("period must be positive") 
    nperiod > 0 || error("number of subperiods must be positive") 
    (size(Ahr,3) > 0 && iszero(imag(view(Ahr,:,:,1)))) || error("imaginary part of constant term must be zero")
    HarmonicArray{:c,T}(convert(Array{Complex{T},3},Ahr), Float64(period), nperiod) 
 end
 HarmonicArray(Ahr::Array{Complex{T},3}, period::Real; nperiod::Int = 1) where T = HarmonicArray{:c,T}(Ahr, period; nperiod)
-function HarmonicArray{:c,T}(A::HarmonicArray{:c,T1}, period::Real) where {T,T1}
+# change period and type
+function HarmonicArray{:c,T}(A::HA, period::Real) where {HA <: HarmonicArray} where {T}
    period > 0 || error("period must be positive") 
    Aperiod = A.period
    r = rationalize(Aperiod/period)
@@ -448,19 +452,20 @@ Base.size(A::HarmonicArray) = (size(A.values,1),size(A.values,2))
 Base.eltype(A::HarmonicArray{:c,T}) where T = T
 
 """
-    PeriodicTimeSeriesMatrix(At, T) -> A::PeriodicTimeSeriesMatrix
+    PeriodicTimeSeriesMatrix(At, T; nperiod = k) -> A::PeriodicTimeSeriesMatrix
 
 Continuous-time periodic time series matrix representation.
 
-The continuous-time periodic time series matrix object `A` is built from a 
-`p`-vector `At` of real matrices and the associated time period `T`. 
+The continuous-time periodic time series matrix object `A` of period `T` is built from a 
+`p`-vector `At` of real matrices and the associated subperiod `T′ = T/k`, where
+`k ≥ 1` is the number of subperiods (default: `k = 1`). 
 `At` contains the cyclic component matrices `At[i]`, `i = 1,..., p`, 
 where `At[i]` represents the value `A(Δ(i-1))` of a time periodic matrix `A(t)`
-of period `T`, with `Δ := T/p`, the associated sampling time.
-It is assumed that `At[k] := At[mod(k-1,p)+1]` for arbitrary `k`. 
+of period `T′`, with `Δ := T′/p`, the associated sampling time.
+It is assumed that `At[i] := At[mod(i-1,p)+1]` for arbitrary `i`. 
 All component matrices must have the same dimensions.
-The component matrices `At` and the period `T` 
-can be accessed via `A.values` and `A.period`, respectively. 
+The component matrices `At`, the period `T` and the number of subperiods `k`
+can be accessed via `A.values`, `A.period`, and `A.nperiod`, respectively. 
 """
 struct PeriodicTimeSeriesMatrix{Domain,T} <: AbstractPeriodicArray{Domain,T} 
    values::Vector{Array{T,2}}
@@ -586,7 +591,8 @@ Base.convert(::Type{PeriodicFunctionMatrix}, At::PeriodicTimeSeriesMatrix)  wher
 
 # conversions to continuous-time Fourier function matrix
 function Base.convert(::Type{FourierFunctionMatrix}, A::PeriodicFunctionMatrix) 
-   return FourierFunctionMatrix{:c,eltype(A)}(Fun(x -> A.f(x), Fourier(0..A.period/A.nperiod)), Float64(A.period), A.nperiod)
+   T = float(eltype(A))
+   return FourierFunctionMatrix{:c,T}(Fun(x -> T.(A.f(x)), Fourier(0..A.period/A.nperiod)), Float64(A.period), A.nperiod)
 end
 function Base.convert(::Type{FourierFunctionMatrix}, A::HarmonicArray) 
    tA = convert(PeriodicFunctionMatrix,A)
@@ -622,7 +628,8 @@ Base.convert(::Type{PeriodicSymbolicMatrix}, A::FourierFunctionMatrix) =
 Base.convert(::Type{HarmonicArray}, A::PeriodicTimeSeriesMatrix) = ts2hr(A)
 Base.convert(::Type{HarmonicArray}, A::PeriodicFunctionMatrix) = pfm2hr(A)
 Base.convert(::Type{HarmonicArray}, A::PeriodicSymbolicMatrix) = psm2hr(A)
-Base.convert(::Type{HarmonicArray}, A::FourierFunctionMatrix) = pfm2hr(convert(PeriodicFunctionMatrix,A))
+#Base.convert(::Type{HarmonicArray}, A::FourierFunctionMatrix) = pfm2hr(convert(PeriodicFunctionMatrix,A))
+Base.convert(::Type{HarmonicArray}, A::FourierFunctionMatrix) = ffm2hr(A)
 
 # conversions to PeriodicTimeSeriesMatrix
 function Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicSymbolicMatrix)

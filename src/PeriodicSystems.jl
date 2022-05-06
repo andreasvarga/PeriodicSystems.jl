@@ -29,7 +29,7 @@ import MatrixPencils: isregular, rmeval
 import Polynomials: AbstractRationalFunction, AbstractPolynomial, poles, isconstant, variable, degree, pqs
 
 export PeriodicStateSpace, pschur, phess, pschurw, psreduc_reg, psreduc_fast, check_psim, mshift, pseig, tvmeval, hreval, tvstm
-export ts2hr, ts2pfm, ts2ffm, pfm2hr, hr2psm, psm2hr, pm2pa
+export ts2hr, ts2pfm, ts2ffm, pfm2hr, hr2psm, psm2hr, pm2pa, ffm2hr
 export monodromy, psceig
 export PeriodicArray, PeriodicMatrix
 export PeriodicTimeSeriesMatrix, HarmonicArray, FourierFunctionMatrix, PeriodicFunctionMatrix,  PeriodicSymbolicMatrix
@@ -37,6 +37,7 @@ export isperiodic, isconstant, iscontinuous, islti, set_period
 export mb03vd!, mb03vy!, mb03bd!, mb03wd!
 export ps
 export psaverage, psc2d, psmrc2d
+export ps2fls, hr2bt, hr2btupd, phasemat, ps2frls, DiagDerOp
 
 abstract type AbstractDynamicalSystem end
 abstract type AbstractLTISystem <: AbstractDynamicalSystem end
@@ -50,5 +51,6 @@ include("types/PeriodicMatrices.jl")
 include("types/PeriodicStateSpace.jl")
 include("ps.jl")
 include("conversions.jl")
+include("pslifting.jl")
 include("psutils.jl")
 end

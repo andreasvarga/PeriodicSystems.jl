@@ -31,6 +31,23 @@ function promote_Ts(PM1,args...)
     end
     return Ts
 end
+function promote_nperiod(PM1,args...)
+   if typeof(PM1) <: AbstractVecOrMat 
+      nperiod = nothing 
+      isconst = true
+   else
+      nperiod = PM1.nperiod
+      isconst = isconstant(PM1)
+   end
+   for a in args
+       (typeof(a) <: AbstractVecOrMat || isconstant(a)) && continue
+       isconst && (isconst = false; period = a.nperiod; continue)
+       nperiod = gcd(a.nperiod,nperiod)
+       nperiod == 1 && break
+   end
+   return nperiod
+end
+
 
 struct PeriodicStateSpace{PM} <: AbstractPeriodicStateSpace
     A::PM
@@ -199,6 +216,10 @@ end
 
 #  conversions
 function Base.convert(::Type{PeriodicStateSpace{PM}}, psys::PeriodicStateSpace) where {PM <: AbstractPeriodicArray}
+   convert(PM,psys.A)
+   convert(PM,psys.B)
+   convert(PM,psys.C)
+   convert(PM,psys.D)
     PeriodicStateSpace(convert(PM,psys.A), convert(PM,psys.B), convert(PM,psys.C), convert(PM,psys.D))
 end
 # properties

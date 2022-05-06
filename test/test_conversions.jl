@@ -2,20 +2,9 @@ module Test_conversions
 
 using PeriodicSystems
 using DescriptorSystems
-using Interpolations
-#using DifferentialEquations
-using OrdinaryDiffEq
 using Symbolics
-using FFTW
-#using SLICOTMath
-#using SLICOTtools
-using LinearAlgebra
-using LinearAlgebra: BlasInt
 using Test
-#using StaticArrays
-using IRKGaussLegendre
-using Primes: factor
-using ApproxFun
+using LinearAlgebra
 
 println("Test_conversions")
 

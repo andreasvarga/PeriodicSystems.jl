@@ -1,7 +1,7 @@
 # Index
 
 ```@index
-Pages = [ "pstypes.md", "ps.md", "psconversions.md", "pstools.md", "psconv.md", "slicot.md" ]
+Pages = [ "pstypes.md", "ps.md", "psconversions.md", "pslifting.md", "pstools.md", "psconv.md", "slicot.md" ]
 Module = ["PeriodicSystems"]
 Order = [:type, :function]
 ```

@@ -2,21 +2,11 @@ module Test_psutils
 
 using PeriodicSystems
 using DescriptorSystems
-using Interpolations
-#using DifferentialEquations
-using OrdinaryDiffEq
 using Symbolics
-using FFTW
-#using SLICOTMath
-#using SLICOTtools
+using Test
 using LinearAlgebra
 using LinearAlgebra: BlasInt
-using Test
-#using StaticArrays
-using IRKGaussLegendre
-using Primes: factor
 using ApproxFun
-#using ApproxFun
 #using BenchmarkTools
 
 println("Test_psutils")
@@ -418,7 +408,9 @@ psys = ps(convert(FourierFunctionMatrix,A),
 
 psys = ps(FourierFunctionMatrix,A,B,C,D);                          
 
-
+# #new tests
+# AF = ffm2hr(psys.A)
+# convert(PeriodicSymbolicMatrix,AF) 
 
 # constant dimensions
 Ad = PeriodicMatrix([[1. 0; 0 0], [1 1;1 1], [0 1; 1 0]], 3);

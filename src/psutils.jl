@@ -198,7 +198,6 @@ pseig(at::HarmonicArray{:c,T}, K::Int = 1; kwargs...) where T =
     pseig(convert(PeriodicFunctionMatrix,at),K; kwargs...)
 pseig(at::PeriodicTimeSeriesMatrix{:c,T}, K::Int = 1; kwargs...) where T = 
     pseig(convert(PeriodicFunctionMatrix,at),K; kwargs...)
-
 """
      ev = pseig(A::PeriodicMatrix; rev = true, fast = false) 
 
@@ -322,11 +321,108 @@ For available options see [`pseig(::PeriodicFunctionMatrix)`](@ref).
 For a given square discrete-time periodic matrix `A(t)` of discrete period `N`,  
 the characteristic exponents `ce` are computed as `ev.^-N`. 
 """
-function psceig(at::AbstractPeriodicArray{:c}, K::Int = 1; kwargs...) where T
+function psceig(at::Union{PeriodicSymbolicMatrix, PeriodicTimeSeriesMatrix}, K::Int = 1; kwargs...) 
    ce = log.(complex(pseig(convert(PeriodicFunctionMatrix,at), K; kwargs...)))/at.period
    return isreal(ce) ? real(ce) : ce
 end
-function psceig(at::AbstractPeriodicArray{:d}) where T
+function psceig(at::PeriodicFunctionMatrix, K::Int = 1; kwargs...) 
+   ce = log.(complex(pseig(at, K; kwargs...)))/at.period
+   return isreal(ce) ? real(ce) : ce
+end
+"""
+    pcseig(Ahr::HarmonicArray[, N]; P, nperiod, shift, atol) -> ce
+
+Compute the characteristic exponents of a continuous-time periodic matrix in _Harmonic Array_ representation. 
+
+For a given square continuous-time periodic function matrix `Ahr(t)` of period `T` 
+in a  _Harmonic Array_ representation, 
+the characteristic exponents `ce` are computed as the eigenvalues of a truncated harmonic state operator `A(N)-E(N)` lying in the 
+fundamental strip `-ω/2 <  Im(λ) ≤ ω/2`, where `ω = 2π/T`. If `Ahr(t)` has the harmonic components `A_0`, `A_1`, ..., `A_p`, then 
+for `N ≥ p`, `P = 1` and `nperiod = 1`, the matrices `A(N)` and `E(N)` are built as
+
+
+           ( A_0  A_{-1} …  A_{-p}        0    )           ( -im*ϕ_{-N}I                                 0        )
+           ( A_1   A_0             ⋱           )           (     ⋮       ⋱                                        )
+           (  ⋮         ⋱            ⋱         )           (               -im*ϕ_{-1}*I                           )
+    A(N) = ( A_p             ⋱          A_{-p} ) , E(N) =  (                           -im*ϕ_{0}*I                )
+           (        ⋱           ⋱         ⋮    )           (     ⋮                                  ⋱              )
+           (  0        A_p      …         A_0  )           (     0                                   -im*ϕ_{N}I   )
+
+with ϕ_{i} := shift+i*ω. If `N < p`, then a truncated _full_ block Toeplitz matrix A(N) is built using the first `N` harmonic components. 
+           
+Generally, for given `P ≥ 1` and  `nperiod ≥ 1`, the block Toeplitz matrix `A(N)` (and also `E(N)`) is constructed with `(2N*np+1)×(2N*np+1)` blocks,
+with `np = P*nperiod`, such that each `A_i` is preceeded in its column by `np-1` zero blocks, 
+each `A_{-i}` is preceeded in its row by `np-1` zero blocks and all diagonal blocks are equal to`A_0`.  
+
+The keyword argument `atol` (default: `atol = 1.e-10`) is a tolerance on the magnitude of the trailing components of the 
+associated eigenvectors used to validate their asymptotic (exponential) decay. 
+Only eigenvalues satisfying this check are returned in `ce`. 
+
+_References_
+
+[1] J. Zhou, T. Hagiwara, and M. Araki. 
+    Spectral characteristics and eigenvalues computation of the harmonic state operators in continuous-time periodic systems. 
+    Systems and Control Letters, 53:141–155, 2004.
+"""
+function psceig(Ahr::HarmonicArray{:c,T}, N::Int = 20*max(1,size(Ahr.values,3)-1); P::Int = 1, nperiod::Int = Ahr.nperiod, shift::Real = 0, atol::Real = 1.e-10) where T
+   n = size(Ahr,1)
+   n == size(Ahr,2) || error("the periodic matrix must be square") 
+   isconstant(Ahr) && (return eigvals(real(Ahr.values[:,:,1])))
+   ev, V = eigen!(hr2btupd(Ahr, N; P, shift, nperiod));
+   ind = sortperm(imag(ev),by=abs); 
+   ωhp2 = pi/P/Ahr.period/Ahr.nperiod*nperiod
+   ne = count(abs.(imag(ev[ind[1:min(4*n,length(ind))]])) .<=  ωhp2*(1+sqrt(eps(T))))
+   ev = ev[ind[1:ne]]
+   # return only validated eigenvalues
+   σ = Complex{T}[]
+   for i = 1:ne
+       norm(V[end-3:end,ind[i]]) < atol  && push!(σ,ev[i])
+   end
+   nv = length(σ)
+   nv < n && @warn "number of eigenvalues is less than the order of matrix, try again with increased number of harmonics"
+   return nv > n ? σ[sortperm(imag(σ),rev=true)][1:n] : σ[1:nv]
+end
+"""
+    pcseig(A::FourierFunctionMatrix[, N]; P, atol) -> ce
+
+Compute the characteristic exponents of a continuous-time periodic matrix in _Fourier Function Matrix_ representation. 
+
+For a given square continuous-time periodic function matrix `A(t)` of period `T` 
+in a  _Fourier Function Matrix_ representation, 
+the characteristic exponents `ce` are computed as the eigenvalues of the state operator `A(t)-D*I` lying in the 
+fundamental strip `-ω/2 <  Im(λ) ≤ ω/2`, where `ω = 2π/T`. A finite dimensional truncated matrix of order `n*(2*N*P+1)` 
+is built to approximate `A(t)-D*I`, where `n` is the order of `A(t)`,  `N` is the number of selected harmonic components
+in the Fourier representation (see [`FourierFunctionMatrix`](@ref)) and `P` is the period multiplication number (default: `P = 1`).
+
+The keyword argument `atol` (default: `atol = 1.e-10`) is a tolerance on the magnitude of the trailing components of the 
+associated eigenvectors used to validate their asymptotic (exponential) decay. Only eigenvalues satisfying this check are returned in `ce`. 
+"""
+function psceig(Afun::FourierFunctionMatrix{:c,T}, N::Int = 20*max(1,maximum(ncoefficients.(Matrix(Afun.M)))); P::Int = 1, atol::Real = 1.e-10) where T
+   n = size(Afun,1)
+   n == size(Afun,2) || error("the periodic matrix must be square") 
+   isconstant(Afun) && (return eigvals(getindex.(coefficients.(Matrix(Afun.M)),1)))
+   Af = P == 1 ? Afun :  FourierFunctionMatrix(Fun(t -> Afun.M(t),Fourier(0..2*Afun.period)))
+   D = Derivative(domain(Af.M))
+
+   Aop = Af.M - DiagDerOp(D,n)
+   NA = n*(2*N*P+1)
+   ev, V = eigen!(Matrix(Aop[1:NA,1:NA]))
+
+   ind = sortperm(imag(ev),by=abs) 
+   ωhp2 = pi/Af.period/Af.nperiod
+   ne = count(abs.(imag(ev[ind[1:min(4*n,length(ind))]])) .<=  ωhp2*(1+sqrt(eps(T))))
+   ev = ev[ind[1:ne]]
+   # return only validated eigenvalues
+   σ = Complex{T}[]
+   for i = 1:ne
+       norm(V[end-3:end,ind[i]]) < atol  && push!(σ,ev[i])
+   end
+   nv = length(σ)
+   nv < n && @warn "number of eigenvalues is less than the order of matrix, try again with increased number of harmonics"
+   return nv > n ? σ[sortperm(imag(σ),rev=true)][1:n] : σ[1:nv]
+end
+
+function psceig(at::AbstractPeriodicArray{:d,T}) where T
    ce = (complex(pseig(convert(PeriodicMatrix,at)))).^-(at.dperiod) 
    return isreal(ce) ? real(ce) : ce
 end
@@ -826,7 +922,7 @@ function ts2pfm(A::PeriodicTimeSeriesMatrix; method = "linear")
 end
 
 """
-     ts2hr(A::PeriodicTimeSeriesMatrix; atol = 0, rtol = √ϵ, n) -> Ahr::HarmonicArray
+     ts2hr(A::PeriodicTimeSeriesMatrix; atol = 0, rtol = √ϵ, n, squeeze = true) -> Ahr::HarmonicArray
 
 Compute the harmonic (Fourier) approximation of a periodic matrix specified by a time series matrix. 
 The periodic matrix `A(t)` is specified as a continuous-time periodic time series matrix `A`, 
@@ -851,7 +947,7 @@ are `atol = 0` and `rtol = √ϵ`, where `ϵ` is the working machine precision.
 The resulting harmonic approximation `Ahr(t)` is returned in the harmonic array object `Ahr` 
 (see [`HarmonicArray`](@ref)). 
 """
-function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0, n::Union{Int,Missing} = missing, squeeze::Bool = true) where  {T, Ts}
+function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0, n::Union{Int,Missing} = missing, squeeze::Bool = true) where  {T}
    
    M = length(A.values)
    n1, n2 = size(A.values[1])
@@ -868,9 +964,10 @@ function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0
    AHR = zeros(ComplexF64, n1, n2, n+1)
    tol = iszero(atol) ? (iszero(rtol) ? 10*M*eps(maximum(norm.(A.values))) : rtol*maximum(norm.(A.values)) ) : atol
    i1 = 1:n+1   
+   T1 = promote_type(Float64,T)
    for i = 1:n1
        for j = 1:n2
-           temp = getindex.(A.values, i, j)
+           temp = T1.(getindex.(A.values, i, j))
            i == 1 && j == 1 && (global rfftop = plan_rfft(temp; flags=FFTW.ESTIMATE, timelimit=Inf))
            tt = conj(2/M*(rfftop*temp)) 
            tt[1] = real(tt[1]/2)
@@ -896,14 +993,10 @@ function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0
       t = Primes.factor(Vector,nh)
       s1 = copy(s)
       for i = 1:length(t)
-          #st = falses(0) 
-
-          #k = div(nh,t[i])  # number of possible patterns
           stry = true
           for j1 = 1:t[i]:nh
               stry = stry & all(view(s1,j1:j1+t[i]-2) .== false) 
               stry || break
-              #st = [st; s1[j1+t[i]-1]]
           end
           if stry 
              nperiod = nperiod*t[i]
@@ -913,10 +1006,95 @@ function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0
       end 
       return HarmonicArray(AHR[:,:,[1;nperiod+1:nperiod:ncur]],A.period;nperiod)
    else
-      return HarmonicArray(AHR[:,:,1:max(1,ncur)],A.period;nperiod)
+      return HarmonicArray(AHR[:,:,1:max(1,ncur+1)],A.period;nperiod)
    end       
 
 end
+"""
+     ffm2hr(A::FourierFunctionMatrix; atol = 0, rtol = √ϵ, squeeze = true) -> Ahr::HarmonicArray
+
+Compute the harmonic (Fourier) representation of a Fourier periodic matrix object. 
+
+The Fourier function matrix object `A` of period `T` is built using
+the Fourier series representation of a periodic matrix `Afun(t)` of subperiod `T′ = T/k`, 
+where each entry of `Afun(t)` has the form
+
+             p
+      a_0 +  ∑ ( ac_i*cos(i*t*2*π/T′)+as_i*sin(i*2*π*t/T′) ) ,
+            i=1 
+
+where `k ≥ 1` is the number of subperiods (default: `k = 1`).   
+The resulting harmonic approximation `Ahr(t)` of `Afun(t)` has the form
+
+The harmonic array object `A` of period `T` is built using
+the harmonic representation of a periodic matrix `Ahr(t)` of subperiod `T′′ = T/k′` in the form
+                     p′
+     Ahr(t) = A_0 +  ∑ ( Ac_i*cos(i*t*2*π/T′′)+As_i*sin(i*2*π*t/T′′) ) ,
+                    i=1 
+
+where `k′ ≥ 1` is the number of subperiods.                   
+                     p
+     Ahr(t) = A_0 +  ∑ ( Ac_i*cos(i*t*2*π/T)+As_i*sin(i*2*π*t/T) ) 
+                    i=1 
+`p′` is the maximum index `j`, such that `Ac_j` and/or `As_j` are nonzero.
+The tolerance used to assess nonzero elements is `tol = max(atol, rtol*maxnorm)`, where 
+`maxnorm` is the maximum absolute value of the coefficients `ac_i` and `as_i` in `Afun(t)`. The default values of tolerances
+are `atol = 0` and `rtol = √ϵ`, where `ϵ` is the working machine precision.
+The resulting harmonic approximation `Ahr(t)` is returned in the harmonic array object `Ahr` 
+(see [`HarmonicArray`](@ref)). 
+"""
+function ffm2hr(A::FourierFunctionMatrix{:c,T}; atol::Real = 0, rtol::Real = 0, squeeze::Bool = true) where  {T}
+   lens = length.(coefficients.(Matrix(A.M)))
+   n = max(div(maximum(lens)-1,2),0)
+   n1, n2 = size(A)
+
+   ncur = n
+   AHR = zeros(complex(T), n1, n2, n+1)
+   tol = iszero(atol) ? (iszero(rtol) ? 10*n*eps(maximum(norm.(coefficients.(Matrix(A.M)),Inf))) : rtol*maximum(norm.(coefficients.(Matrix(A.M)),Inf)) ) : atol
+   for i = 1:n1
+       for j = 1:n2
+           tt = coefficients(A.M[i,j])
+           tt[abs.(tt) .<= tol] .= zero(T)
+           lentt = lens[i,j]
+           if lentt > 0
+              AHR[i,j,1] = tt[1] 
+              k = 1
+              for k1 = 2:2:lentt-1
+                  k += 1
+                  AHR[i,j,k] = tt[k1+1] + im*tt[k1]
+              end
+              isodd(lentt) || (AHR[i,j,k+1] = im*tt[end])
+           end
+       end
+   end
+   nperiod = A.nperiod
+   if ncur > 2 && squeeze
+      nh = ncur-1
+      s = falses(nh)
+      for i = 1:nh
+          s[i] = any(abs.(view(AHR,:,:,i+1)) .> tol)
+      end  
+      t = Primes.factor(Vector,nh)
+      s1 = copy(s)
+      for i = 1:length(t)
+          stry = true
+          for j1 = 1:t[i]:nh
+              stry = stry & all(view(s1,j1:j1+t[i]-2) .== false) 
+              stry || break
+          end
+          if stry 
+             nperiod = nperiod*t[i]
+             s1 = s1[t[i]:t[i]:nh]
+             nh = div(nh,t[i])
+          end
+      end 
+      return HarmonicArray(AHR[:,:,[1;nperiod+1:nperiod:ncur]],A.period;nperiod)
+   else
+      return HarmonicArray(AHR[:,:,1:max(1,ncur+1)],A.period;nperiod)
+   end       
+
+end
+
 # function ts2ffm(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0, n::Union{Int,Missing} = missing, squeeze::Bool = true) where  {T, Ts}
    
 #    M = length(A.values)
@@ -997,7 +1175,7 @@ where `Δ = T/k` is the sampling period and `k` is the number of samples specifi
 `NyquistFreq = f`, then `k` is chosen `k = 2*f*T` to avoid signal aliasing.     
 """
 function pfm2hr(A::PeriodicFunctionMatrix; nsample::Int = 128, NyquistFreq::Union{Real,Missing} = missing)   
-   #isconstant(A) && (return HarmonicArray(A.f(0),A.period))
+   isconstant(A) && (return HarmonicArray(A.f(0),A.period; nperiod = A.nperiod))
    nsample > 0 || ArgumentError("nsample must be positive, got $nsaple")
    ns = ismissing(NyquistFreq) ? nsample : Int(floor(2*abs(NyquistFreq)*A.period/A.nperiod))+1
    Δ = A.period/ns/A.nperiod
