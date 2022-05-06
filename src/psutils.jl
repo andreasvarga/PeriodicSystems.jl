@@ -48,18 +48,18 @@ function tvstm(A::PeriodicFunctionMatrix{:c,T}, tf::Real, t0::Real = 0; solver =
    if solver == "stiff" 
       if reltol > 1.e-4  
          # standard stiff
-         sol = solve(prob, Rodas4(); reltol, abstol, save_evrystep = false)
+         sol = solve(prob, Rodas4(); reltol, abstol, save_everystep = false)
       else
          # high accuracy stiff
-         sol = solve(prob, KenCarp58(); reltol, abstol, save_evrystep = false)
+         sol = solve(prob, KenCarp58(); reltol, abstol, save_everystep = false)
       end
    elseif solver == "non-stiff" 
       if reltol > 1.e-4  
          # standard non-stiff
-         sol = solve(prob, Tsit5(); reltol, abstol, save_evrystep = false)
+         sol = solve(prob, Tsit5(); reltol, abstol, save_everystep = false)
       else
          # high accuracy non-stiff
-         sol = solve(prob, Vern9(); reltol, abstol, save_evrystep = false)
+         sol = solve(prob, Vern9(); reltol, abstol, save_everystep = false)
       end
    elseif solver == "linear" 
       function update_func!(A,u,p,t)
@@ -67,17 +67,18 @@ function tvstm(A::PeriodicFunctionMatrix{:c,T}, tf::Real, t0::Real = 0; solver =
       end
       DEop = DiffEqArrayOperator(ones(T,n,n),update_func=update_func!)     
       prob = ODEProblem(DEop, u0, tspan, A.f)
-      sol = solve(prob,MagnusGL6(), dt = dt, save_evrystep = false)
+      sol = solve(prob,MagnusGL6(), dt = dt, save_everystep = false)
    elseif solver == "symplectic" 
       # high accuracy symplectic
-      sol = solve(prob, IRKGaussLegendre.IRKGL16(); reltol, abstol, save_evrystep = false)
+      sol = solve(prob, IRKGaussLegendre.IRKGL16(); reltol, abstol, save_everystep = false)
    else 
       if reltol > 1.e-4  
          # low accuracy automatic selection
-         sol = solve(prob, AutoTsit5(Rosenbrock23()) ; reltol, abstol, save_evrystep = false)
+         sol = solve(prob, AutoTsit5(Rosenbrock23()) ; reltol, abstol, save_everystep = false)
       else
          # high accuracy automatic selection
-         sol = solve(prob, AutoVern9(Rodas5()); nonstifftol = 11/10, reltol, abstol, save_evrystep = false)
+         #sol = solve(prob, AutoVern9(Rodas5()); nonstifftol = 11/10, reltol, abstol, save_everystep = false)
+         sol = solve(prob, AutoVern9(Rodas5()); reltol, abstol, save_everystep = false)
       end
    end
 
