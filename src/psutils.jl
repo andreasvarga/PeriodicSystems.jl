@@ -407,7 +407,10 @@ function psceig(Afun::FourierFunctionMatrix{:c,T}, N::Int = 20*max(1,maximum(nco
 
    Aop = Af.M - DiagDerOp(D,n)
    NA = n*(2*N*P+1)
-   ev, V = eigen!(Matrix(Aop[1:NA,1:NA]))
+   println("N = $N NA = $NA")
+   RW = Aop[1:NA,1:NA]
+   W = Matrix(RW)
+   ev, V = eigen(W)
 
    ind = sortperm(imag(ev),by=abs) 
    ωhp2 = pi/Af.period/Af.nperiod
