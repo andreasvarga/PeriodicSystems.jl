@@ -18,8 +18,11 @@ jobs:
         version:
           - '1.7' 
           # - '1' 
-          - 'nightly' 
-        os:  [ubuntu-latest]
+          - '^1.8.0-0'
+          # - 'nightly' 
+        os:  
+          - ubuntu-latest
+          - windows-latest
         arch:
           - x64
     steps:
