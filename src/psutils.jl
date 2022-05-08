@@ -77,8 +77,7 @@ function tvstm(A::PeriodicFunctionMatrix{:c,T}, tf::Real, t0::Real = 0; solver =
          sol = solve(prob, AutoTsit5(Rosenbrock23()) ; reltol, abstol, save_everystep = false)
       else
          # high accuracy automatic selection
-         #sol = solve(prob, AutoVern9(Rodas5()); nonstifftol = 11/10, reltol, abstol, save_everystep = false)
-         sol = solve(prob, AutoVern9(Rodas5()); reltol, abstol, save_everystep = false)
+         sol = solve(prob, AutoVern9(Rodas5(),nonstifftol = 11/10); reltol, abstol, save_everystep = false)
       end
    end
 
@@ -1554,3 +1553,14 @@ function tvmeval(A::PeriodicFunctionMatrix, t::Union{Real,Vector{<:Real}} )
    te = isa(t,Real) ? [mod(t,A.period)] : mod.(t,A.period)
    return (A.f).(te)
 end
+"""
+    pmaverage(A) -> Am 
+
+Compute for the continuous-time periodic matrix `A(t)` 
+the corresponding time averaged matrix `Am` over one period.  
+"""
+function pmaverage(A::PM) where {PM <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,PeriodicTimeSeriesMatrix}} 
+   return real(convert(HarmonicArray,A).values[:,:,1])
+end
+pmaverage(A::HarmonicArray) = real(A.values[:,:,1])
+pmaverage(A::FourierFunctionMatrix) = getindex.(coefficients.(Matrix(A.M)),1)

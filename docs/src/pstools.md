@@ -9,6 +9,7 @@
 * **[`psreduc_reg`](@ref)**  Fast reduction of a lifted regular pencil corresponding to a product of matrices. 
 * **[`tvmeval`](@ref)**  Time response evaluation of a continuous-time periodic matrix. 
 * **[`hreval`](@ref)**  Evaluation of a harmonic array for a numerical or symbolic time value. 
+* **[`pmaverage`](@ref)**  Evaluation of the time averaged matrix of a continuous-time periodic matrix. 
 
 
 ```@docs
@@ -21,4 +22,5 @@ tvstm
 psreduc_reg
 tvmeval
 hreval
+pmaverage
 ```

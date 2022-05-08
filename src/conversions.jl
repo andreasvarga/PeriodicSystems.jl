@@ -5,16 +5,7 @@ Compute for the continuous-time periodic system `psysc = (A(t),B(t),C(t),D(t))`
 the corresponding time averaged LTI system `sys = (Am,Bm,Cm,Dm)` over one period.  
 """
 function psaverage(psysc::PeriodicStateSpace{PM}) where {T,PM <: AbstractPeriodicArray{:c,T}}
-    islti(psysc) && (return dss(psysc.A.f(0),psysc.B.f(0),psysc.C.f(0),psysc.D.f(0)))
-    psyschr = convert(PeriodicStateSpace{HarmonicArray},psysc)
-    return dss(real(psyschr.A.values[:,:,1]),real(psyschr.B.values[:,:,1]),real(psyschr.C.values[:,:,1]),real(psyschr.D.values[:,:,1]))
-end
-function psaverage(psysc::PeriodicStateSpace{HarmonicArray{:c,T}}) where {T}
-    return dss(real(psysc.A.values[:,:,1]),real(psysc.B.values[:,:,1]),real(psysc.C.values[:,:,1]),real(psysc.D.values[:,:,1]))
-end
-function psaverage(psysc::PeriodicStateSpace{FourierFunctionMatrix{:c,T}}) where {T}
-    return dss(getindex.(coefficients.(Matrix(psysc.A.M)),1), getindex.(coefficients.(Matrix(psysc.B.M)),1),
-               getindex.(coefficients.(Matrix(psysc.C.M)),1), getindex.(coefficients.(Matrix(psysc.D.M)),1))
+    return dss(pmaverage(psysc.A), pmaverage(psysc.B), pmaverage(psysc.C), pmaverage(psysc.D))
 end
 """
      psmrc2d(sys, Ts; ki, ko) -> psys::PeriodicStateSpace{PeriodicMatrix}
