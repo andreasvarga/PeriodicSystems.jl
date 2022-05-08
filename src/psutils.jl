@@ -401,12 +401,11 @@ function psceig(Afun::FourierFunctionMatrix{:c,T}, N::Int = 20*max(1,maximum(nco
    n = size(Afun,1)
    n == size(Afun,2) || error("the periodic matrix must be square") 
    isconstant(Afun) && (return eigvals(getindex.(coefficients.(Matrix(Afun.M)),1)))
-   Af = P == 1 ? Afun :  FourierFunctionMatrix(Fun(t -> Afun.M(t),Fourier(0..2*Afun.period)))
+   Af = P == 1 ? Afun :  FourierFunctionMatrix(Fun(t -> Afun.M(t),Fourier(0..P*Afun.period)))
    D = Derivative(domain(Af.M))
 
    Aop = Af.M - DiagDerOp(D,n)
    NA = n*(2*N*P+1)
-   println("N = $N NA = $NA")
    RW = Aop[1:NA,1:NA]
    W = Matrix(RW)
    ev, V = eigen(W)

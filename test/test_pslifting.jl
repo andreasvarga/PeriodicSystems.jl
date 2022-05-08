@@ -10,13 +10,14 @@ using ApproxFun
 println("Test_liftings")
 
 # selected sequence to illustrate failure
+using LinearAlgebra
+using ApproxFun
 Af = Fun(t -> [0 1; -10*cos(t) -24-10*sin(t)],Fourier(0..2π));
 D = Derivative(domain(Af));
 ND = [D 0I; 0I D];
-#Aop = Af - DiagDerOp(D,n)
 Aop = Af - ND;
 NA = 322
-RW = Aop[1:NA,1:NA];
+RW = Aop[1:NA,1:NA]
 
 # using Floquet based approach
 At = PeriodicFunctionMatrix(t -> [0 1; -10*cos(t) -24-10*sin(t)],2pi);
@@ -156,8 +157,10 @@ z = z[sortperm(imag(z),by=abs)][1:4];
 # Zhou-Hagiwara Automatica 2002 
 β = 0.5
 a1 = PeriodicFunctionMatrix(t -> [-1-sin(2*t)^2 2-0.5*sin(4*t); -2-0.5*sin(4*t) -1-cos(2*t)^2],pi);
-γ(t) = mod(t,pi) < pi/2 ? sin(2*t) : 0 
+#γ(t) = mod(t,pi) < pi/2 ? sin(2*t) : 0 
+γ = chop(Fun(t -> mod(t,pi) < pi/2 ? sin(2*t) : 0, Fourier(0..pi)),1.e-7);
 b1 = PeriodicFunctionMatrix(t ->  [0; 1-2*β*(mod(t,float(pi)) < pi/2 ? sin(2*t) : 0 )], pi); 
+b1 = PeriodicFunctionMatrix(t ->  [0; 1-2*β*γ(t)], pi); 
 c = [1 1]; d = [0];
 
 # using Harmonic Array based lifting
@@ -181,7 +184,7 @@ sys = ps2frls(psysc,60);
 p = gpole(sys,atol=1.e-7);  p = p[sortperm(imag(p),by=abs)][1:2]
 @test sort(real(p)) ≈ sort(real(ev))  && norm(imag(p)) < 1.e-10
 
-z = gzero(sys,atol=1.e-7); z = z[isfinite.(z)]; #  Question: Why there are infinite zeros ? 
+z = gzero(sys,atol=1.e-7); z = z[isfinite.(z)]; #  Question: How to handle infinite zeros?
 z = z[sortperm(imag(z),by=abs)][1]
 @test z[1] ≈ -3.5
 
