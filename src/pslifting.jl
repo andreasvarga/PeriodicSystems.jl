@@ -78,6 +78,7 @@ of subperiod `T′ = T/k` is in the form
 
 where `k ≥ 1` is the number of subperiods. `Ahr(t)` can be equivalently expressed in the Fourier series
 representation form
+
                 p
      Ahr(t) =   ∑ A_i*exp(im*i*ωh*t) ,
                i=-p

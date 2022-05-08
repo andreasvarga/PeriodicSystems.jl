@@ -1013,11 +1013,11 @@ function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0
 
 end
 """
-     ffm2hr(A::FourierFunctionMatrix; atol = 0, rtol = √ϵ, squeeze = true) -> Ahr::HarmonicArray
+     ffm2hr(Afun::FourierFunctionMatrix; atol = 0, rtol = √ϵ, squeeze = true) -> Ahr::HarmonicArray
 
 Compute the harmonic (Fourier) representation of a Fourier periodic matrix object. 
 
-The Fourier function matrix object `A` of period `T` is built using
+The Fourier function matrix object `Afun` of period `T` is built using
 the Fourier series representation of a periodic matrix `Afun(t)` of subperiod `T′ = T/k`, 
 where each entry of `Afun(t)` has the form
 
@@ -1026,19 +1026,15 @@ where each entry of `Afun(t)` has the form
             i=1 
 
 where `k ≥ 1` is the number of subperiods (default: `k = 1`).   
-The resulting harmonic approximation `Ahr(t)` of `Afun(t)` has the form
 
-The harmonic array object `A` of period `T` is built using
+The harmonic array object `Ahr` of period `T` is built using
 the harmonic representation of a periodic matrix `Ahr(t)` of subperiod `T′′ = T/k′` in the form
+
                      p′
      Ahr(t) = A_0 +  ∑ ( Ac_i*cos(i*t*2*π/T′′)+As_i*sin(i*2*π*t/T′′) ) ,
                     i=1 
 
-where `k′ ≥ 1` is the number of subperiods.                   
-                     p
-     Ahr(t) = A_0 +  ∑ ( Ac_i*cos(i*t*2*π/T)+As_i*sin(i*2*π*t/T) ) 
-                    i=1 
-`p′` is the maximum index `j`, such that `Ac_j` and/or `As_j` are nonzero.
+where `p′` is the maximum index `j`, such that `Ac_j` and/or `As_j` are nonzero.
 The tolerance used to assess nonzero elements is `tol = max(atol, rtol*maxnorm)`, where 
 `maxnorm` is the maximum absolute value of the coefficients `ac_i` and `as_i` in `Afun(t)`. The default values of tolerances
 are `atol = 0` and `rtol = √ϵ`, where `ϵ` is the working machine precision.

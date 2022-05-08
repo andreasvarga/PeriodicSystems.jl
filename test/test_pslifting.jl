@@ -9,7 +9,7 @@ using ApproxFun
 
 println("Test_liftings")
 
-# selected sequence to illustrate failure
+# selected sequence to illustrate failure of BlockMatrices.jl v0.16.16
 using LinearAlgebra
 using ApproxFun
 Af = Fun(t -> [0 1; -10*cos(t) -24-10*sin(t)],Fourier(0..2π));
@@ -28,8 +28,6 @@ At = PeriodicFunctionMatrix(t -> [0 1; -10*cos(t) -24-10*sin(t)],2pi);
 # using Fourier series
 Afun = FourierFunctionMatrix(Fun(t -> [0 1; -10*cos(t) -24-10*sin(t)],Fourier(0..2π)))
 ev1 = psceig(Afun,50)
-println(sort(real(ev)) - sort(real(ev1)))
-println("ev1 = $ev1")
 @test isapprox(sort(real(ev)),sort(real(ev1)),atol=1.e-6) && norm(imag(ev1)) < 1.e-10
 
 ev3 = psceig(Afun,60)
