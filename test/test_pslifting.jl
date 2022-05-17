@@ -9,15 +9,15 @@ using ApproxFun
 
 println("Test_liftings")
 
-# selected sequence to illustrate failure of BlockMatrices.jl v0.16.16
-using LinearAlgebra
-using ApproxFun
-Af = Fun(t -> [0 1; -10*cos(t) -24-10*sin(t)],Fourier(0..2π));
-D = Derivative(domain(Af));
-ND = [D 0I; 0I D];
-Aop = Af - ND;
-NA = 322
-RW = Aop[1:NA,1:NA]
+# # selected sequence to illustrate failure of BlockMatrices.jl v0.16.16
+# using LinearAlgebra
+# using ApproxFun
+# Af = Fun(t -> [0 1; -10*cos(t) -24-10*sin(t)],Fourier(0..2π));
+# D = Derivative(domain(Af));
+# ND = [D 0I; 0I D];
+# Aop = Af - ND;
+# NA = 322
+# RW = Aop[1:NA,1:NA]
 
 # using Floquet based approach
 At = PeriodicFunctionMatrix(t -> [0 1; -10*cos(t) -24-10*sin(t)],2pi);
@@ -28,7 +28,7 @@ At = PeriodicFunctionMatrix(t -> [0 1; -10*cos(t) -24-10*sin(t)],2pi);
 # using Fourier series
 Afun = FourierFunctionMatrix(Fun(t -> [0 1; -10*cos(t) -24-10*sin(t)],Fourier(0..2π)))
 ev1 = psceig(Afun,50)
-@test isapprox(sort(real(ev)),sort(real(ev1)),atol=1.e-6) && norm(imag(ev1)) < 1.e-10
+@test isapprox(sort(real(ev)),sort(real(ev1)),rtol=1.e-6) && norm(imag(ev1)) < 1.e-10
 
 ev3 = psceig(Afun,60)
 @test isapprox(sort(real(ev)),sort(real(ev3)),rtol=1.e-6) && norm(imag(ev3)) < 1.e-10
@@ -205,5 +205,50 @@ z = z[sortperm(imag(z),by=abs)][1]
 
 # N = 5; ev1 = eigvals(hr2bt1(Ahr,N,2)-phasemat1(Ahr,N,2))
 # ev1[sortperm(imag(ev1),by=abs)][1:2]
+
+# discrete liftings
+Ad = PeriodicMatrix([[1. 0; 0 0], [1 1;1 1], [0 1; 1 0]], 6, nperiod = 2);
+Bd = PeriodicMatrix( [[ 1; 0 ], [ 1; 1]] ,2);
+Cd = PeriodicMatrix( [[ 1 1 ], [ 1 0]] ,2);
+Dd = PeriodicMatrix( [[ 1 ]], 1);
+psys = PeriodicStateSpace(Ad,Bd,Cd,Dd); 
+sys = ps2ls(psys)
+sys1 = ps2ls(psys, kstart = 7, ss = true)
+@test iszero(sys-sys1)
+
+Ad = PeriodicMatrix([[1. 0], [1;1]],2);
+Bd = PeriodicMatrix( [[ 1 ], [ 1; 1]] ,2);
+Cd = PeriodicMatrix( [[ 1 1 ], [ 1 ]] ,2);
+Dd = PeriodicMatrix( [[ 1 ]], 1); 
+psys = PeriodicStateSpace(Ad,Bd,Cd,Dd);
+sys = ps2ls(psys)
+sys1 = ps2ls(psys, kstart = 7, ss = true)
+@test iszero(sys-sys1)
+
+sys = ps2ls(psys, kstart = 2)
+sys1 = ps2ls(psys, kstart = 8, ss = true)
+@test iszero(sys-sys1)
+
+sys = ps2ls(psys, cyclic = true)
+sys1 = ps2ls(psys, cyclic = true, kstart = 3)
+@test iszero(sys-sys1)
+
+
+Ad = PeriodicArray(rand(Float32,2,2,10),10);
+Bd = PeriodicArray(rand(2,1,2),2);
+Cd = PeriodicArray(rand(1,2,3),3);
+Dd = PeriodicArray(rand(1,1,1), 1);
+psys = PeriodicStateSpace(Ad,Bd,Cd,Dd); 
+sys = ps2ls(psys)
+sys1 = ps2ls(psys, ss = true)
+@test iszero(sys-sys1)
+
+sys = ps2ls(psys, kstart = 2)
+sys1 = ps2ls(psys, kstart =2, ss = true)
+@test iszero(sys-sys1)
+
+sys = ps2ls(psys, cyclic = true)
+sys1 = ps2ls(psys, cyclic = true, kstart = 31)
+@test iszero(sys-sys1)
 
 end # module
