@@ -45,13 +45,13 @@ The targeted functionality of this package is described in [1] and will cover bo
 * **[`psaverage`](@ref)**  Computation of the averaged LTI system of a periodic system.
 * **[`ps2fls`](@ref)**  Computation of a complex LTI frequency-lifted representation of a continuous-time periodic system. 
 * **[`ps2frls`](@ref)**  Computation of a real LTI frequency-lifted representation of a continuous-time periodic system. 
+* **[`ps2ls`](@ref)**  Computation of a LTI time-lifted representation of a discrete-time periodic system. 
 
+**Periodic system analysis**
 
 **Solving periodic matrix equations**
 
 **Simplification of periodic system models**
-
-**Periodic system analysis**
 
 **Periodic output and state feedback controller design** 
 
