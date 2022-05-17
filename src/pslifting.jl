@@ -1,4 +1,154 @@
 """
+     ps2ls(psys::PeriodicStateSpace; kstart, ss = false, cyclic = false) -> sys::DescriptorStateSpace 
+
+Build the discrete-time lifted LTI system equivalent to a discrete-time periodic system. 
+
+For a discrete-time periodic system `psys = (A(t),B(t),C(t),D(t))` with period `T` and sample time `Ts`, 
+the equivalent stacked (see [1]) LTI descriptor state-space representation 
+`sys = (A-λE,B,C,D)` is built, with the input, state and output vectors defined over time intervals of length `T` (instead `Ts`).  
+The keyword argument `kstart = k`, specifies a desired time `k` to start the sequence of periodic matrices.
+If `ss = true` (default: `ss = false`), then all non-dynamic modes are elliminated and 
+a standard state-space realization (with `E = I`) is determined, which corresponds to the lifting techniques of [2], where
+only the input and output vectors are defined over time intervals of length `T`. 
+
+If cyclic = true, the cyclic reformulation of [3] is used to build a lifted standard system with 
+the input, state and output vectors defined over time intervals of length `T` (instead `Ts`).
+
+_Note:_ The determination of the standard lifted representation involves forming matrix products 
+(e.g., by explicitly forming the monodromy matrix) and therefore is potentially less suited for numerical computations.  
+
+_References_
+
+[1] O. M. Grasselli and S. Longhi. Finite zero structure of linear periodic discrete-time systems. 
+    Int. J. Systems Sci. 22, 1785–1806,  1991.
+
+[2] R. A. Meyer and C. S. Burrus. A unified analysis of multirate and periodically time-varying
+    digital filters”, IEEE Transactions on Circuits and Systems, Vol. 22, pp. 162–167, 1975.
+
+[3] D. S. Flamm. A new shift-invariant representation for periodic systems, 
+    Systems and Control Letters, Vol. 17, No. 1, pp. 9–14, 1991.
+"""
+function ps2ls(psys::PeriodicStateSpace{PeriodicMatrix{:d,T}}; kstart::Int = 1, ss::Bool = false, cyclic::Bool = false) where {T}
+    pa = psys.A.dperiod
+    na = psys.A.nperiod
+    ndx, nx = size(psys.A)
+    Ts = psys.A.Ts
+    K = pa*na  # number of blocks
+    N = sum(nx)*na  # dimension of lifted state vector 
+    pb = psys.B.dperiod
+    nb = psys.B.nperiod
+    pc = psys.C.dperiod
+    nc = psys.C.nperiod
+    pd = psys.D.dperiod
+    nd = psys.D.nperiod
+    m = psys.nu[1]
+    M = K*m
+    p = psys.ny[1]
+    P = K*p
+    B = zeros(T, N, M) 
+    jfin = mod(kstart+pb-2,pb)+1
+    n = ndx[jfin]
+    copyto!(view(B,1:n,M-m+1:M),psys.B.M[jfin])
+    i1 = n+1
+    j1 = 1
+    pbc = pb
+    for i = 1:nb
+        k = kstart
+        i == nb && (pbc = pb-1)
+        for j = 1:pbc
+            jj = mod(k-1,pb)+1
+            i2 = i1+ndx[jj]-1
+            j2 = j1+m-1
+            copyto!(view(B,i1:i2,j1:j2),psys.B.M[jj])
+            k += 1
+            i1 = i2+1
+            j1 = j2+1 
+        end
+    end
+    C = zeros(T, P, N) 
+    i1 = 1
+    j1 = 1
+    for i = 1:nc
+        k = kstart
+        for j = 1:pc
+            jj = mod(k-1,pc)+1
+            i2 = i1+p-1
+            j2 = j1+nx[jj]-1
+            copyto!(view(C,i1:i2,j1:j2),psys.C.M[jj])
+            k += 1
+            i1 = i2+1
+            j1 = j2+1 
+        end
+    end
+    D = zeros(T, P, M) 
+    i1 = 1
+    j1 = 1
+    for i = 1:nd
+        k = kstart
+        for j = 1:pd
+            i2 = i1+p-1
+            j2 = j1+m-1
+            copyto!(view(D,i1:i2,j1:j2),psys.D.M[mod(k-1,pd)+1])
+            k += 1
+            i1 = i2+1
+            j1 = j2+1 
+        end
+    end
+    A = zeros(T, N, N) 
+    jafin = mod(kstart+pa-2,pa)+1
+    nf = nx[jafin]   
+    copyto!(view(A,1:n,N-nf+1:N),psys.A.M[jafin])
+    i1 = n+1
+    j1 = 1
+    pac = pa
+    U = cyclic ? 0I : -I
+    for i = 1:na
+        k = kstart
+        i == na && (pac = pa-1)
+        for j = 1:pac
+            jj = mod(k-1,pa)+1
+            jj1 = mod(k,pa)+1
+            i2 = i1+ndx[jj]-1
+            j2 = j1+nx[jj]-1
+            copyto!(view(A,i1:i2,j1:j2),psys.A.M[jj])
+            copyto!(view(A,i1:i2,j2+1:j2+nx[jj1]),U)
+            k += 1
+            i1 = i2+1
+            j1 = j2+1 
+        end
+    end
+    cyclic && (return dss(A, B, C, D; Ts))
+    if ss 
+       # generate the standard lifted system using residualization formulas for E = [I 0; 0 0]
+       i1 = 1:n; i2 = n+1:N
+       A11 = view(A,i1,i1)
+       A12 = view(A,i1,i2)
+       A21 = view(A,i2,i1)
+       A22 = LowerTriangular(view(A,i2,i2))
+       B1 = view(B,i1,:)
+       B2 = view(B,i2,:)
+       C1 = view(C,:,i1)
+       C2 = view(C,:,i2)
+       # make A22 = I
+       ldiv!(A22,A21)
+       ldiv!(A22,B2)
+       # apply simplified residualization formulas
+       mul!(D, C2, B2, -1, 1)
+       mul!(B1, A12, B2, -1, 1)
+       mul!(C1, C2, A21, -1, 1)
+       mul!(A11, A12, A21, -1, 1)
+       return dss(A11, B1, C1, D; Ts)
+    else
+       # generate the stacked lifted descriptor system of (Grasselli and Longhi, 1991)
+       E = zeros(T, N, N) 
+       copyto!(view(E,1:n,1:n),I)
+       return dss(A, E, B, C, D; Ts)
+    end
+end
+ps2ls(psys::PeriodicStateSpace{PeriodicArray{:d,T}}; kwargs...) where {T} = 
+      ps2ls(convert(PeriodicStateSpace{PeriodicMatrix},psys); kwargs...)
+
+"""
      ps2frls(psysc::PeriodicStateSpace, N) -> sys::DescriptorStateSpace 
 
 Build the real frequency-lifted representation of a continuous-time periodic system.

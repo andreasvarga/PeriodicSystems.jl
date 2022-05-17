@@ -156,7 +156,7 @@ end
 
 function ps_validation(A::PM1, B::PM2, C::PM3, D::PM4) where {T1, T2, T3, T4, PM1 <: PeriodicMatrix{:d,T1}, PM2 <: PeriodicMatrix{:d,T2}, PM3 <: PeriodicMatrix{:d,T3}, PM4 <: PeriodicMatrix{:d,T4}}
     period = promote_period(A, B, C, D)
-    max(length(A),length(B),length(C),length(D)) == 0 && (return 0, 0, Int[], period)
+    max(length(A),length(B),length(C),length(D)) == 0 && (return period)
 
     # Validate dimensions
     ny = size(D,1)
@@ -173,8 +173,8 @@ function ps_validation(A::PM1, B::PM2, C::PM3, D::PM4) where {T1, T2, T3, T4, PM
        any(size(C, 1) .!= ny[1]) && DimensionMismatch("all matrices C[i] and D[i] must have the same row size")
        any(size(B, 2) .!= nu[1]) && DimensionMismatch("all matrices B[i] and D[i] must have the same column size")
     else     
-       N = A.nperiod
-       (N != B.nperiod || N != C.nperiod) && DimensionMismatch("the number of component matrices of A, B and C must be the same ")
+       N = A.dperiod
+       (N != B.dperiod || N != C.dperiod) && DimensionMismatch("the number of component matrices of A, B and C must be the same ")
        for i = 1:N
            i == N && ndx[i] != nx[1] && DimensionMismatch("the number of columns of A[i+1] must be equal to the number of rows of A[i]")
            i != N && ndx[i] != nx[i+1] && DimensionMismatch("the number of columns of A[i+1] must be equal to the number of rows of A[i]")
@@ -198,7 +198,7 @@ function PeriodicStateSpace(A::PA1, B::PA2, C::PA3, D::PA4) where {PA1 <: Period
 end
 function ps_validation(A::PA1, B::PA2, C::PA3, D::PA4) where {T1, T2, T3, T4, PA1 <: PeriodicArray{:d,T1}, PA2 <: PeriodicArray{:d,T2}, PA3 <: PeriodicArray{:d,T3}, PA4 <: PeriodicArray{:d,T4}}
     period = promote_period(A, B, C, D)
-    max(length(A),length(B),length(C),length(D)) == 0 && (return 0, 0, Int[], period)
+    max(length(A),length(B),length(C),length(D)) == 0 && (return period)
 
     # Validate dimensions
     ny = size(D,1)
@@ -220,7 +220,7 @@ function Base.convert(::Type{PeriodicStateSpace{PM}}, psys::PeriodicStateSpace) 
    convert(PM,psys.B)
    convert(PM,psys.C)
    convert(PM,psys.D)
-    PeriodicStateSpace(convert(PM,psys.A), convert(PM,psys.B), convert(PM,psys.C), convert(PM,psys.D))
+   PeriodicStateSpace(convert(PM,psys.A), convert(PM,psys.B), convert(PM,psys.C), convert(PM,psys.D))
 end
 # properties
 Base.size(sys::PeriodicStateSpace) = maximum.(size(sys.D))

@@ -37,7 +37,7 @@ export isperiodic, isconstant, iscontinuous, islti, set_period
 export mb03vd!, mb03vy!, mb03bd!, mb03wd!
 export ps
 export psaverage, psc2d, psmrc2d
-export ps2fls, hr2bt, hr2btupd, phasemat, ps2frls, DiagDerOp
+export ps2fls, hr2bt, hr2btupd, phasemat, ps2frls, DiagDerOp, ps2ls
 
 abstract type AbstractDynamicalSystem end
 abstract type AbstractLTISystem <: AbstractDynamicalSystem end

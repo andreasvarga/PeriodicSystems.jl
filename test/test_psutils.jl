@@ -413,7 +413,7 @@ psys = ps(FourierFunctionMatrix,A,B,C,D);
 # convert(PeriodicSymbolicMatrix,AF) 
 
 # constant dimensions
-Ad = PeriodicMatrix([[1. 0; 0 0], [1 1;1 1], [0 1; 1 0]], 3);
+Ad = PeriodicMatrix([[1. 0; 0 0], [1 1;1 1], [0 1; 1 0]], 6, nperiod = 2);
 Bd = PeriodicMatrix( [[ 1; 0 ], [ 1; 1]] ,2);
 Cd = PeriodicMatrix( [[ 1 1 ], [ 1 0]] ,2);
 Dd = PeriodicMatrix( [[ 1 ]], 1);
