@@ -7,6 +7,7 @@ using Test, PeriodicSystems
 include("test_psutils.jl")
 include("test_conversions.jl")
 include("test_pslifting.jl")
+include("test_psanalysis.jl")
 end
 
 end

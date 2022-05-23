@@ -1,9 +1,12 @@
 # Release Notes
 
+## Version 0.3 (WIP)
+
+This minor version includes new functions for the computation of poles and zeros of periodic systems. 
 
 ## Version 0.2
 
-This minor release includes new functions for the computaton of characteristic exponents of continuous-time periodic state matrices using frequency-lifting based on Harmonic Array and Fourier Function Matrix representations. 
+This minor release includes new functions for the computation of characteristic exponents of continuous-time periodic state matrices using frequency-lifting based on Harmonic Array and Fourier Function Matrix representations. 
 For continuous-time periodic systems two functions have been implemented to build truncated 
 Toeplitz operators based frequency lifted LTI systems (complex and real). 
 For discrete-time periodic systems a function has been implemented to build several types of lifted LTI representations.

@@ -47,6 +47,46 @@ function promote_nperiod(PM1,args...)
    end
    return nperiod
 end
+function promote_cpmtype(PM1,args...)
+   # promote continuous-time periodic matrix type
+   if typeof(PM1) <: AbstractVecOrMat 
+      pmtype = nothing 
+      isconst = true
+   else
+      pmtype = typeof(PM1).name.wrapper
+      isconst = isconstant(PM1)
+      iscontinuous(PM1) || error("only continuous-time or constant matrices supported")
+   end
+   for a in args
+       (typeof(a) <: AbstractVecOrMat || isconstant(a)) && continue
+       iscontinuous(a) || error("only continuous-time or constant matrices supported")
+       isconst && (isconst = false; pmtype = typeof(a).name.wrapper; continue)
+       typeof(a).name.wrapper == pmtype && continue
+       pmtype = PeriodicFunctionMatrix
+       break
+   end
+   return isnothing(pmtype) ? PeriodicFunctionMatrix : pmtype
+end
+function promote_dpmtype(PM1,args...)
+   # promote discrete-time periodic matrix type
+   if typeof(PM1) <: AbstractVecOrMat 
+      pmtype = nothing 
+      isconst = true
+   else
+      pmtype = typeof(PM1).name.wrapper
+      isconst = isconstant(PM1)
+      iscontinuous(PM1) && error("only discrete-time or constant matrices supported")
+   end
+   for a in args
+       (typeof(a) <: AbstractVecOrMat || isconstant(a)) && continue
+       iscontinuous(a) && error("only discrete-time or constant matrices supported")
+       isconst && (isconst = false; pmtype = typeof(a).name.wrapper; continue)
+       typeof(a).name.wrapper == pmtype && continue
+       pmtype = PeriodicMatrix
+       break
+   end
+   return isnothing(pmtype) ? PeriodicMatrix : pmtype
+end
 
 
 struct PeriodicStateSpace{PM} <: AbstractPeriodicStateSpace

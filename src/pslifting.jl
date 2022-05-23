@@ -1,12 +1,12 @@
 """
-     ps2ls(psys::PeriodicStateSpace; kstart, ss = false, cyclic = false) -> sys::DescriptorStateSpace 
+     ps2ls(psys::PeriodicStateSpace[, kstart]; ss = false, cyclic = false) -> sys::DescriptorStateSpace 
 
 Build the discrete-time lifted LTI system equivalent to a discrete-time periodic system. 
 
 For a discrete-time periodic system `psys = (A(t),B(t),C(t),D(t))` with period `T` and sample time `Ts`, 
 the equivalent stacked (see [1]) LTI descriptor state-space representation 
 `sys = (A-λE,B,C,D)` is built, with the input, state and output vectors defined over time intervals of length `T` (instead `Ts`).  
-The keyword argument `kstart = k`, specifies a desired time `k` to start the sequence of periodic matrices.
+The optional argument `kstart` specifies a desired time to start the sequence of periodic matrices (default: `kstart = 1`).
 
 If `ss = true` (default: `ss = false`), then all non-dynamic modes are elliminated and 
 a standard state-space realization (with `E = I`) is determined, which corresponds to the lifting techniques of [2], where
@@ -29,7 +29,7 @@ _References_
 [3] D. S. Flamm. A new shift-invariant representation for periodic systems, 
     Systems and Control Letters, 17:9–14, 1991.
 """
-function ps2ls(psys::PeriodicStateSpace{PeriodicMatrix{:d,T}}; kstart::Int = 1, ss::Bool = false, cyclic::Bool = false) where {T}
+function ps2ls(psys::PeriodicStateSpace{PeriodicMatrix{:d,T}}, kstart::Int = 1; ss::Bool = false, cyclic::Bool = false) where {T}
     pa = psys.A.dperiod
     na = psys.A.nperiod
     ndx, nx = size(psys.A)
@@ -146,8 +146,8 @@ function ps2ls(psys::PeriodicStateSpace{PeriodicMatrix{:d,T}}; kstart::Int = 1, 
        return dss(A, E, B, C, D; Ts)
     end
 end
-ps2ls(psys::PeriodicStateSpace{PeriodicArray{:d,T}}; kwargs...) where {T} = 
-      ps2ls(convert(PeriodicStateSpace{PeriodicMatrix},psys); kwargs...)
+ps2ls(psys::PeriodicStateSpace{PeriodicArray{:d,T}}, k::Int = 1; kwargs...) where {T} = 
+      ps2ls(convert(PeriodicStateSpace{PeriodicMatrix},psys), k; kwargs...)
 
 """
      ps2frls(psysc::PeriodicStateSpace, N) -> sys::DescriptorStateSpace 
@@ -162,18 +162,24 @@ are truncated block Toeplitz matrices and `Nt` is a block diagonal matrix.
 _Note:_ This is an experimental implementation based on the operator representation of periodic matrices
 in the [ApproxFun.jl](https://github.com/JuliaApproximation/ApproxFun.jl) package. 
 """
-function ps2frls(psysc::PeriodicStateSpace{PM}, N::Int) where {T,PM <: AbstractPeriodicArray{:c,T}}
+function ps2frls(psysc::PeriodicStateSpace{PM}, N::Int; P::Int= 1) where {T,PM <: AbstractPeriodicArray{:c,T}}
     psyscfr = typeof(psysc) <: PeriodicStateSpace{FourierFunctionMatrix} ? psysc :
-             convert(PeriodicStateSpace{FourierFunctionMatrix},psysc)
-    N >= 0 || error("number of selected harmonics must be nonnegative, got $N")         
-    n, m = size(psyscfr.B); p = size(psyscfr.C,1);
-    D = Derivative(domain(psyscfr.A.M))
+              convert(PeriodicStateSpace{FourierFunctionMatrix},psysc)
+    N >= 0 || error("number of selected harmonics must be nonnegative, got $N")   
+    (Af, Bf, Cf, Df) = P == 1 ? (psyscfr.A, psyscfr.B, psyscfr.C, psyscfr.D) :
+                                (FourierFunctionMatrix(Fun(t -> psyscfr.A.M(t),Fourier(0..P*psyscfr.A.period))), 
+                                 FourierFunctionMatrix(Fun(t -> psyscfr.B.M(t),Fourier(0..P*psyscfr.B.period))), 
+                                 FourierFunctionMatrix(Fun(t -> psyscfr.C.M(t),Fourier(0..P*psyscfr.C.period))),
+                                 FourierFunctionMatrix(Fun(t -> psyscfr.D.M(t),Fourier(0..P*psyscfr.D.period))))
+     
+    n, m = size(Bf); p = size(Cf,1);
+    D = Derivative(domain(Af.M))
     ND = DiagDerOp(D,n)
-    Aop = psyscfr.A.M - ND
-    Cop = Multiplication(psyscfr.C.M,domainspace(ND))
+    Aop = Af.M - ND
+    Cop = Multiplication(Cf.M,domainspace(ND))
     sdu = domainspace(DiagDerOp(0*D,m))
-    Bop = Multiplication(psyscfr.B.M,sdu)
-    Dop = Multiplication(psyscfr.D.M,sdu)
+    Bop = Multiplication(Bf.M,sdu)
+    Dop = Multiplication(Df.M,sdu)
     Ntx = 2*n*(2*N+1)
     Ntu = m*(2*N+1)
     Nty = p*(2*N+1)

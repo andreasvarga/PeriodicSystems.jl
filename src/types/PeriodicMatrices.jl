@@ -345,6 +345,8 @@ function FourierFunctionMatrix{:c,T}(A::FourierFunctionMatrix, period::Real) whe
 end
 FourierFunctionMatrix(A0::VecOrMat{T}, period::Real) where {T <: Real}  = 
     FourierFunctionMatrix{:c,float(T)}(Fun(t->float(T).(A0),Fourier(0..period)), period) 
+FourierFunctionMatrix{:c,T}(A0::VecOrMat, period::Real) where {T <: Real}  = 
+    FourierFunctionMatrix{:c,float(T)}(Fun(t->float(T).(A0),Fourier(0..period)), period) 
 function isconstant(A::FourierFunctionMatrix)
    for i = 1:size(A.M,1)
        for j = 1: size(A.M,2)

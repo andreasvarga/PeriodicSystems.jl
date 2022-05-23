@@ -242,8 +242,8 @@ A = [A1, A2, A3];
 @test sort(real(eigs)) ≈ sort(real(ev)) && 
       isapprox(sort(imag(eigs)),sort(imag(ev)), atol = 1.e-7)
 
-@time eigs = pseig(A; rev = false, istart = 2); 
-@time ev = pseig(A; fast = true, rev = false, istart = 2);
+@time eigs = pseig(A, 2; rev = false); 
+@time ev = pseig(A, 2; fast = true, rev = false);
 @test sort(real(eigs)) ≈ sort(real(ev)) && 
       isapprox(sort(imag(eigs)),sort(imag(ev)), atol = 1.e-7)
 

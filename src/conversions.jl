@@ -8,6 +8,15 @@ function psaverage(psysc::PeriodicStateSpace{PM}) where {T,PM <: AbstractPeriodi
     return dss(pmaverage(psysc.A), pmaverage(psysc.B), pmaverage(psysc.C), pmaverage(psysc.D))
 end
 """
+    psteval(psysc,tval) -> sys::DescriptorStateSpace
+
+Compute for the continuous-time periodic system `psysc = (A(t),B(t),C(t),D(t))` and a time value `tval`, 
+the LTI system `sys = (A(tval),B(tval),C(tval),D(tval))`.  
+"""
+function psteval(psysc::PeriodicStateSpace{PM}, tval::Real = 0) where {T,PM <: AbstractPeriodicArray{:c,T}}
+    return dss(tvmeval(psysc.A, tval)[1], tvmeval(psysc.B, tval)[1], tvmeval(psysc.C, tval)[1], tvmeval(psysc.D, tval)[1])
+end
+"""
      psmrc2d(sys, Ts; ki, ko) -> psys::PeriodicStateSpace{PeriodicMatrix}
 
 Perform the multirate discretization of a linear time-invariant system.

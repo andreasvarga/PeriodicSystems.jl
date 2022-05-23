@@ -42,12 +42,16 @@ The targeted functionality of this package is described in [1] and will cover bo
 
 # Conversions to LTI representations
 
-* **[`psaverage`](@ref)**  Computation of the averaged LTI system of a periodic system.
-* **[`ps2fls`](@ref)**  Computation of a complex LTI frequency-lifted representation of a continuous-time periodic system. 
-* **[`ps2frls`](@ref)**  Computation of a real LTI frequency-lifted representation of a continuous-time periodic system. 
-* **[`ps2ls`](@ref)**  Computation of a LTI time-lifted representation of a discrete-time periodic system. 
+* **[`psaverage`](@ref)**  Computation of the averaged LTI system of a continuous-time periodic system.
+* **[`psteval`](@ref)**  Computation of the time evaluated LTI system of a continuous-time periodic system.
+* **[`ps2fls`](@ref)**  Computation of a complex frequency-lifted LTI representation of a continuous-time periodic system. 
+* **[`ps2frls`](@ref)**  Computation of a real frequency-lifted LTI representation of a continuous-time periodic system. 
+* **[`ps2ls`](@ref)**  Computation of a time-lifted LTI representation of a discrete-time periodic system. 
 
 **Periodic system analysis**
+
+* **[`pspole`](@ref)**  Computation of the poles of a periodic system.
+* **[`pszero`](@ref)**  Computation of the zeros of a periodic system.
 
 **Solving periodic matrix equations**
 

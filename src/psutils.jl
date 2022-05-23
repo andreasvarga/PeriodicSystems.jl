@@ -199,7 +199,7 @@ pseig(at::HarmonicArray{:c,T}, K::Int = 1; kwargs...) where T =
 pseig(at::PeriodicTimeSeriesMatrix{:c,T}, K::Int = 1; kwargs...) where T = 
     pseig(convert(PeriodicFunctionMatrix,at),K; kwargs...)
 """
-     ev = pseig(A::PeriodicMatrix; rev = true, fast = false) 
+     ev = pseig(A::PeriodicArray; rev = true, fast = false) 
 
 Compute the eigenvalues of a product of `p` square matrices 
 `A(p)...*A(2)*A(1)`, if `rev = true` (default) (also called characteristic multipliers) or 
@@ -220,7 +220,10 @@ _References_
     Systems and Control Letters, 50:371-381, 2003.
 
 """
-function pseig(A::Array{Float64,3}; rev::Bool = true, fast::Bool = false) where T
+function pseig(A::PeriodicArray{:d,T}; fast::Bool = false) where T
+   pseig(A.M; fast).^(A.nperiod)
+end
+function pseig(A::Array{T,3}; rev::Bool = true, fast::Bool = false) where T
    n = size(A,1)
    n == size(A,2) || error("A must have equal first and second dimensions") 
    p = size(A,3)
@@ -235,19 +238,19 @@ function pseig(A::Array{Float64,3}; rev::Bool = true, fast::Bool = false) where 
       sorteigvals!(ev)
       return sort!(ev,by=abs,rev=true)
    else
-      ev = pschur(A; rev, withZ = false)[3]
+      T1 = promote_type(Float64,T)
+      ev = pschur(T1.(A); rev, withZ = false)[3]
       isreal(ev) && (ev = real(ev))
       return ev
    end
 end
-pseig(A::PeriodicArray{T}; fast::Bool = false) where T = pseig(A.M; fast).^(A.nperiod)
 """
-     ev = pseig(A::PeriodicArray; rev = true, fast = false, istart = 1) 
+     ev = pseig(A::PeriodicMatrix[, k = 1]; rev = true, fast = false) 
 
 Compute the eigenvalues of a square cyclic product of `p` matrices 
 `A(k-1)...*A(2)*A(1)*A(p)...*A(k)`, if `rev = true` (default) or 
 `A(k)*A(k+1)*...A(p)*A(1)...A(k-1)` if `rev = false`, without evaluating the product. 
-The keyword argument `istart = k` specifies the starting index (default: `k = 1`). 
+The argument `k` specifies the starting index (default: `k = 1`). 
 The matrices `A(1)`, `...`, `A(p)` are contained in the `p`-vector of matrices `A` 
 such that the `i`-th matrix  `A(i)`, of dimensions `m(i)×n(i)`, is contained in `A[i]`.
 If `fast = false` (default) then the eigenvalues are computed using an approach
@@ -270,9 +273,12 @@ _References_
     Systems and Control Letters, 50:371-381, 2003.
 
 """
-function pseig(A::Vector{Matrix{T}}; rev::Bool = true, fast::Bool = false, istart::Int = 1) where T
+function pseig(A::PeriodicMatrix{:d,T}, k::Int = 1; fast::Bool = false) where T
+   pseig(A.M, k; fast).^(A.nperiod)
+end
+function pseig(A::Vector{Matrix{T}}, k::Int = 1; rev::Bool = true, fast::Bool = false) where T
    p = length(A)
-   istart = mod(istart-1,p)+1
+   istart = mod(k-1,p)+1
    nev = rev ? size(A[istart],2) : size(A[istart],1)
    # check dimensions
    m, n = size.(A,1), size.(A,2)
@@ -307,12 +313,11 @@ function pseig(A::Vector{Matrix{T}}; rev::Bool = true, fast::Bool = false, istar
       return ev[1:nev]
    end
 end
-pseig(A::PeriodicMatrix{T}; fast::Bool = false, istart::Int = 1) where T = 
-      pseig(A.M; fast, istart).^(A.nperiod)
 """
-     pcseig(A, K = 1; lifting = false, solver, reltol, abstol, dt) -> ce
+     pcseig(A::PeriodicFunctionMatrix[, K = 1]; lifting = false, solver, reltol, abstol, dt) -> ce
 
 Compute the characteristic exponents of a periodic matrix.
+
 For a given square continuous-time periodic function matrix `A(t)` of period `T`, 
 the characteristic exponents `ce` are computed as `log.(ev)/T`, 
 where  `ev` are the characteristic
@@ -321,12 +326,12 @@ For available options see [`pseig(::PeriodicFunctionMatrix)`](@ref).
 For a given square discrete-time periodic matrix `A(t)` of discrete period `N`,  
 the characteristic exponents `ce` are computed as `ev.^-N`. 
 """
-function psceig(at::Union{PeriodicSymbolicMatrix, PeriodicTimeSeriesMatrix}, K::Int = 1; kwargs...) 
-   ce = log.(complex(pseig(convert(PeriodicFunctionMatrix,at), K; kwargs...)))/at.period
-   return isreal(ce) ? real(ce) : ce
-end
 function psceig(at::PeriodicFunctionMatrix, K::Int = 1; kwargs...) 
    ce = log.(complex(pseig(at, K; kwargs...)))/at.period
+   return isreal(ce) ? real(ce) : ce
+end
+function psceig(at::Union{PeriodicSymbolicMatrix, PeriodicTimeSeriesMatrix}, K::Int = 1; kwargs...) 
+   ce = log.(complex(pseig(convert(PeriodicFunctionMatrix,at), K; kwargs...)))/at.period
    return isreal(ce) ? real(ce) : ce
 end
 """
@@ -348,7 +353,8 @@ for `N ≥ p`, `P = 1` and `nperiod = 1`, the matrices `A(N)` and `E(N)` are bui
            (        ⋱           ⋱         ⋮    )           (     ⋮                                  ⋱              )
            (  0        A_p      …         A_0  )           (     0                                   -im*ϕ_{N}I   )
 
-with ϕ_{i} := shift+i*ω. If `N < p`, then a truncated _full_ block Toeplitz matrix A(N) is built using the first `N` harmonic components. 
+with `ϕ_{i} := shift+i*ω`. If `N < p`, then a truncated _full_ block Toeplitz matrix A(N) is built using the first `N` harmonic components. 
+The default value used for `N` is `N = max(10,p-1)`. 
            
 Generally, for given `P ≥ 1` and  `nperiod ≥ 1`, the block Toeplitz matrix `A(N)` (and also `E(N)`) is constructed with `(2N*np+1)×(2N*np+1)` blocks,
 with `np = P*nperiod`, such that each `A_i` is preceeded in its column by `np-1` zero blocks, 
@@ -364,10 +370,10 @@ _References_
     Spectral characteristics and eigenvalues computation of the harmonic state operators in continuous-time periodic systems. 
     Systems and Control Letters, 53:141–155, 2004.
 """
-function psceig(Ahr::HarmonicArray{:c,T}, N::Int = 20*max(1,size(Ahr.values,3)-1); P::Int = 1, nperiod::Int = Ahr.nperiod, shift::Real = 0, atol::Real = 1.e-10) where T
+function psceig(Ahr::HarmonicArray{:c,T}, N::Int = max(10,size(Ahr.values,3)-1); P::Int = 1, nperiod::Int = Ahr.nperiod, shift::Real = 0, atol::Real = 1.e-10) where T
    n = size(Ahr,1)
    n == size(Ahr,2) || error("the periodic matrix must be square") 
-   isconstant(Ahr) && (return eigvals(real(Ahr.values[:,:,1])))
+   (N == 0 || isconstant(Ahr)) && (return eigvals(real(Ahr.values[:,:,1])))
    ev, V = eigen!(hr2btupd(Ahr, N; P, shift, nperiod));
    ind = sortperm(imag(ev),by=abs); 
    ωhp2 = pi/P/Ahr.period/Ahr.nperiod*nperiod
@@ -392,15 +398,16 @@ in a  _Fourier Function Matrix_ representation,
 the characteristic exponents `ce` are computed as the eigenvalues of the state operator `A(t)-D*I` lying in the 
 fundamental strip `-ω/2 <  Im(λ) ≤ ω/2`, where `ω = 2π/T`. A finite dimensional truncated matrix of order `n*(2*N*P+1)` 
 is built to approximate `A(t)-D*I`, where `n` is the order of `A(t)`,  `N` is the number of selected harmonic components
-in the Fourier representation (see [`FourierFunctionMatrix`](@ref)) and `P` is the period multiplication number (default: `P = 1`).
+in the Fourier representation and `P` is the period multiplication number (default: `P = 1`).
+The default value used for `N` is `N = max(10,p-1)`, where `p` the number of harmonics terms of `A(t)` (see [`FourierFunctionMatrix`](@ref)). 
 
 The keyword argument `atol` (default: `atol = 1.e-10`) is a tolerance on the magnitude of the trailing components of the 
 associated eigenvectors used to validate their asymptotic (exponential) decay. Only eigenvalues satisfying this check are returned in `ce`. 
 """
-function psceig(Afun::FourierFunctionMatrix{:c,T}, N::Int = 20*max(1,maximum(ncoefficients.(Matrix(Afun.M)))); P::Int = 1, atol::Real = 1.e-10) where T
+function psceig(Afun::FourierFunctionMatrix{:c,T}, N::Int = max(10,maximum(ncoefficients.(Matrix(Afun.M)))); P::Int = 1, atol::Real = 1.e-10) where T
    n = size(Afun,1)
    n == size(Afun,2) || error("the periodic matrix must be square") 
-   isconstant(Afun) && (return eigvals(getindex.(coefficients.(Matrix(Afun.M)),1)))
+   (N == 0 || isconstant(Afun)) && (return eigvals(getindex.(coefficients.(Matrix(Afun.M)),1)))
    Af = P == 1 ? Afun :  FourierFunctionMatrix(Fun(t -> Afun.M(t),Fourier(0..P*Afun.period)))
    D = Derivative(domain(Af.M))
 
@@ -423,9 +430,26 @@ function psceig(Afun::FourierFunctionMatrix{:c,T}, N::Int = 20*max(1,maximum(nco
    nv < n && @warn "number of eigenvalues is less than the order of matrix, try again with increased number of harmonics"
    return nv > n ? σ[sortperm(imag(σ),rev=true)][1:n] : σ[1:nv]
 end
+"""
+    pcseig(A::AbstractPeriodicArray[, k]; kwargs...) -> ce
 
-function psceig(at::AbstractPeriodicArray{:d,T}) where T
-   ce = (complex(pseig(convert(PeriodicMatrix,at)))).^-(at.dperiod) 
+Compute the characteristic exponents of a cyclic matrix product of `p` matrices.
+
+The characteristic exponents of a product of `p` matrices are computed as the `p`th roots of the 
+characteristic multipliers. These are computed as the eigenvalues of the square 
+cyclic product of `p` matrices `A(k-1)...*A(2)*A(1)*A(p)...*A(k)`, if `rev = true` (default) or 
+`A(k)*A(k+1)*...A(p)*A(1)...A(k-1)` if `rev = false`, without evaluating the product. 
+The argument `k` specifies the starting index (default: `k = 1`). 
+The matrices `A(1)`, `...`, `A(p)` are contained in the `p`-vector of matrices `A` 
+such that the `i`-th matrix  `A(i)`, of dimensions `m(i)×n(i)`, is contained in `A[i]`.
+The keyword arguments `kwargs` are those of  [`pseig(::PeriodicMatrix)`](@ref).  
+
+_Note:_ The first `nmin` components of `ce` contains the _core characteristic exponents_ of the appropriate matrix product,
+where `nmin` is the minimum row dimensions of matrices `A[i]`, for `i = 1, ..., p`, 
+while the last components of `ce` are zero. 
+"""
+function psceig(at::AbstractPeriodicArray{:d,T}, k::Int = 1; kwargs...) where T
+   ce = (complex(pseig(convert(PeriodicMatrix,at), k; kwargs...))).^(1/at.dperiod/at.nperiod) 
    return isreal(ce) ? real(ce) : ce
 end
 
@@ -491,8 +515,7 @@ function pschur(A::AbstractVector{Matrix{T}}; rev::Bool = true, withZ::Bool = tr
 
    #  use ilo = 1 and ihi = n for the reduction to the periodic Hessenberg form
    ilo = 1; ihi = n
-   
-   St = zeros(T, n, n, p)
+   St = zeros(Float64, n, n, p)
    TAUt = Array{Float64,2}(undef, max(n-1,1), p)
    if withZ 
       Zt = Array{Float64,3}(undef, n, n, p) 
@@ -964,9 +987,9 @@ function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0
    n = max(n,0)
    
    AHR = zeros(ComplexF64, n1, n2, n+1)
-   tol = iszero(atol) ? (iszero(rtol) ? 10*M*eps(maximum(norm.(A.values))) : rtol*maximum(norm.(A.values)) ) : atol
-   i1 = 1:n+1   
    T1 = promote_type(Float64,T)
+   tol = iszero(atol) ? (iszero(rtol) ? 10*M*sqrt(eps(T1))*maximum(norm.(A.values)) : rtol*maximum(norm.(A.values)) ) : atol
+   i1 = 1:n+1   
    for i = 1:n1
        for j = 1:n2
            temp = T1.(getindex.(A.values, i, j))
@@ -974,7 +997,7 @@ function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0
            tt = conj(2/M*(rfftop*temp)) 
            tt[1] = real(tt[1]/2)
            tt1 = view(tt,i1)
-           indr = i1[abs.(real(tt1)) .> tol]
+          indr = i1[abs.(real(tt1)) .> tol]
            nr = length(indr); 
            nr > 0 && (nr = indr[end])
            indi = i1[abs.(imag(tt1)) .> tol]
@@ -986,7 +1009,7 @@ function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0
        end
    end
    nperiod = A.nperiod
-   if ncur > 2 && squeeze
+   if ncur >= 2 && squeeze
       nh = ncur-1
       s = falses(nh)
       for i = 1:nh
@@ -1548,6 +1571,19 @@ function tvmeval(A::PeriodicFunctionMatrix, t::Union{Real,Vector{<:Real}} )
    te = isa(t,Real) ? [mod(t,A.period)] : mod.(t,A.period)
    return (A.f).(te)
 end
+"""
+     tvmeval(A::FourierFunctionMatrix, t) -> Aval::Vector{Matrix}
+
+Evaluate the time response of a periodic function matrix.
+
+For the periodic matrix `A(t)`, in a Fourier Function Matrix representation, and the vector of time values `t`, 
+`Aval[i] = A(t[i])` is evaluated for each time value `t[i]`. 
+"""
+function tvmeval(A::FourierFunctionMatrix, t::Union{Real,Vector{<:Real}} )
+   te = isa(t,Real) ? [mod(t,A.period)] : mod.(t,A.period)
+   return (A.M).(te)
+end
+
 """
     pmaverage(A) -> Am 
 

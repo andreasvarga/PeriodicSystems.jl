@@ -63,53 +63,27 @@ to construct a `PeriodicStateSpace` object with a desired `period` for a quadrup
 (`sys.E = I` is assumed).
 """
 function ps(A::APMorVM, B::APMorVM, C::APMorVM, D::APMorVM) 
-   cont = nothing 
    PMT = (typeof(A),typeof(B),typeof(C),typeof(D)) 
    PMTM = trues(4)
-   nmat = 0
-   npmat = 0
+   cont = nothing 
    for i = 1:4
-       if PMT[i] <: AbstractVecOrMat 
-          nmat += 1
+       PMT[i] <: AbstractVecOrMat && continue
+       PMTM[i] = false
+       t = PMT[i].parameters[1] == :c
+       if isnothing(cont) 
+          cont = t
        else
-          PMTM[i] = false
-          npmat += 1
-          t = PMT[i].parameters[1] == :c
-          if isnothing(cont) 
-             cont = t
-          else
-             cont == t ||  error("all matrix objects must be either continuous or discrete")
-          end
+          cont == t ||  error("all matrix objects must be either continuous or discrete")
        end
    end
    all(PMTM) && error("period and sample time must be specified in the case of only matrix inputs")
-   PMTA = PMT[1].name.wrapper
-   if !any(PMTM) 
-      # all inputs are periodic matrices
-      if all(PMT[2:4] .<: PMTA)
-         return PeriodicStateSpace(A,B,C,D)
-      elseif cont 
-         return PeriodicStateSpace(convert(PeriodicFunctionMatrix,A), convert(PeriodicFunctionMatrix,B), 
-                  convert(PeriodicFunctionMatrix,C), convert(PeriodicFunctionMatrix,D))
-      else 
-         return PeriodicStateSpace(convert(PeriodicMatrix,A), convert(PeriodicMatrix,B), 
-                                 convert(PeriodicMatrix,C), convert(PeriodicMatrix,D));
-      end
-   else
-      # some inputs are matrices to be appropriately converted to periodic matrix objects
-      period = promote_period(A,B,C,D)
-      if cont
-         return PeriodicStateSpace(PMTM[1] ? PeriodicFunctionMatrix(A,period) : convert(PeriodicFunctionMatrix,A), 
-                                   PMTM[2] ? PeriodicFunctionMatrix(B,period) : convert(PeriodicFunctionMatrix,B),
-                                   PMTM[3] ? PeriodicFunctionMatrix(C,period) : convert(PeriodicFunctionMatrix,C),
-                                   PMTM[4] ? PeriodicFunctionMatrix(D,period) : convert(PeriodicFunctionMatrix,D))
-      else 
-         return PeriodicStateSpace(PMTM[1] ? PeriodicMatrix(A,period) : convert(PeriodicMatrix,A), 
-                                   PMTM[2] ? PeriodicMatrix(B,period) : convert(PeriodicMatrix,B),
-                                   PMTM[3] ? PeriodicMatrix(C,period) : convert(PeriodicMatrix,C),
-                                   PMTM[4] ? PeriodicMatrix(D,period) : convert(PeriodicMatrix,D))
-      end
-   end
+   period = promote_period(A,B,C,D)
+   PMTS = cont ? promote_cpmtype(A,B,C,D) : promote_dpmtype(A,B,C,D)
+   return PeriodicStateSpace(PMTM[1] ? PMTS(A,period) : (PMT[1] <: PMTS ? A : convert(PMTS,A)), 
+                             PMTM[2] ? PMTS(B,period) : (PMT[2] <: PMTS ? B : convert(PMTS,B)),
+                             PMTM[3] ? PMTS(C,period) : (PMT[3] <: PMTS ? C : convert(PMTS,C)),
+                             PMTM[4] ? PMTS(D,period) : (PMT[4] <: PMTS ? D : convert(PMTS,D)))
+
 end
 function ps(PMT::Type, A::APMorVM, B::APMorVM, C::APMorVM, D::APMorVM)
     period = promote_period(A,B,C,D)
@@ -177,3 +151,5 @@ function ps(A::AbstractVecOrMat, B::AbstractVecOrMat, C::AbstractVecOrMat, D::Ab
 end
 ps(A::AbstractVecOrMat, B::AbstractVecOrMat, C::AbstractVecOrMat, period::Real; Ts::Union{Real,Missing} = missing) =
    ps(A, B, C, zeros(size(C,1),size(B,2)), period; Ts)
+isct(psys::PeriodicStateSpace) = iscontinuous(psys.A)
+isdt(psys::PeriodicStateSpace) = !iscontinuous(psys.A)

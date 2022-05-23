@@ -1,7 +1,7 @@
 name = "PeriodicSystems"
 uuid = "5decd0d0-8a5f-11ec-2edd-87b25cbcd17e"
 authors = ["Andreas Varga <varga.andreas@gmail.com>"]
-version = "0.2"
+version = "0.3"
 
 [deps]
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
@@ -27,7 +27,7 @@ IRKGaussLegendre = "0.1"
 LinearMaps = "3.3"
 MatrixEquations = "2.2"
 MatrixPencils = "1.7"
-OrdinaryDiffEq = "5, 6"
+OrdinaryDiffEq = "v5.72.2, 6"
 Polynomials = "3"
 SLICOT_jll = "5.7"
 Symbolics = "4"

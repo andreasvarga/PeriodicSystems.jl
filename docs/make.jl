@@ -20,7 +20,7 @@ makedocs(
    #      "operations_rtf.md",
    #      "conversions.md",
    #      "order_reduction.md",
-   #      "analysis.md",
+          "psanalysis.md",
    #      "factorizations.md",
    #      "advanced_operations.md",
    #      "model_matching.md"

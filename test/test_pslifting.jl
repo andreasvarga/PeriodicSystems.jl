@@ -19,6 +19,8 @@ println("Test_liftings")
 # NA = 322
 # RW = Aop[1:NA,1:NA]
 
+@testset "test_liftings" begin
+
 # using Floquet based approach
 At = PeriodicFunctionMatrix(t -> [0 1; -10*cos(t) -24-10*sin(t)],2pi);
 @time ev = psceig(At; reltol = 1.e-10)
@@ -128,7 +130,7 @@ c = [0 1]; d = [0];
 
 # using Harmonic Array based lifting
 psyschr = ps(HarmonicArray,a,b,c,d)
-ev = psceig(psyschr.A)
+ev = psceig(psyschr.A,20)
 
 syshr = ps2fls(psyschr,20)
 p = gpole(syshr,atol=1.e-7);  p = p[sortperm(imag(p),by=abs)][1:2];
@@ -143,7 +145,7 @@ Z = convert(HarmonicArray,PeriodicFunctionMatrix(t -> [(-2+3*sin(t))/(2-sin(t))]
 
 # using Fourier Function Matrix based lifting
 psysc = ps(FourierFunctionMatrix,a,b,c,d);
-ev1 = psceig(psysc.A)
+ev1 = psceig(psysc.A,30)
 
 sys = ps2frls(psysc,20);
 p = gpole(sys,atol=1.e-7);  p = p[sortperm(imag(p),by=abs)][1:4]; 
@@ -213,7 +215,7 @@ Cd = PeriodicMatrix( [[ 1 1 ], [ 1 0]] ,2);
 Dd = PeriodicMatrix( [[ 1 ]], 1);
 psys = PeriodicStateSpace(Ad,Bd,Cd,Dd); 
 sys = ps2ls(psys)
-sys1 = ps2ls(psys, kstart = 7, ss = true)
+sys1 = ps2ls(psys, 7, ss = true)
 @test iszero(sys-sys1)
 
 Ad = PeriodicMatrix([[1. 0], [1;1]],2);
@@ -222,15 +224,15 @@ Cd = PeriodicMatrix( [[ 1 1 ], [ 1 ]] ,2);
 Dd = PeriodicMatrix( [[ 1 ]], 1); 
 psys = PeriodicStateSpace(Ad,Bd,Cd,Dd);
 sys = ps2ls(psys)
-sys1 = ps2ls(psys, kstart = 7, ss = true)
+sys1 = ps2ls(psys, 7, ss = true)
 @test iszero(sys-sys1)
 
-sys = ps2ls(psys, kstart = 2)
-sys1 = ps2ls(psys, kstart = 8, ss = true)
+sys = ps2ls(psys, 2)
+sys1 = ps2ls(psys, 8, ss = true)
 @test iszero(sys-sys1)
 
 sys = ps2ls(psys, cyclic = true)
-sys1 = ps2ls(psys, cyclic = true, kstart = 3)
+sys1 = ps2ls(psys, 3, cyclic = true)
 @test iszero(sys-sys1)
 
 
@@ -243,12 +245,14 @@ sys = ps2ls(psys)
 sys1 = ps2ls(psys, ss = true)
 @test iszero(sys-sys1)
 
-sys = ps2ls(psys, kstart = 2)
-sys1 = ps2ls(psys, kstart =2, ss = true)
+sys = ps2ls(psys, 2)
+sys1 = ps2ls(psys, 2, ss = true)
 @test iszero(sys-sys1)
 
 sys = ps2ls(psys, cyclic = true)
-sys1 = ps2ls(psys, cyclic = true, kstart = 31)
+sys1 = ps2ls(psys, 31, cyclic = true)
 @test iszero(sys-sys1)
+
+end # test
 
 end # module
