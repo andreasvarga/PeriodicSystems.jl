@@ -18,80 +18,15 @@ function pspole(psys::PeriodicStateSpace, K::Int; kwargs...)
     return psceig(psys.A,K; kwargs...)
 end
 pspole(psys::PeriodicStateSpace; kwargs...) = psceig(psys.A; kwargs...)
-# """
-#     val = pszero(psys::PeriodicStateSpace{PM}[,K]; kwargs...) 
-
-# Return for the periodic system `psys = (A(t),B(t),C(t),D(t))` the complex vector `val` containing the 
-# finite and infinite zeros of the system.   
-
-# Depending on the underlying periodic matrix type `PM`, the optional argument `K` and keyword arguments `kwargs` may have the following values:
-
-# - if `PM = PeriodicFunctionMatrix`, or `PM = PeriodicSymbolicMatrix`, or `PM = PeriodicTimeSeriesMatrix`, then `K` is the number of factors used to express the monodromy matrix of `A(t)` (default: `K = 1`)  and `kwargs` are the keyword arguments of  [`pseig(::PeriodicFunctionMatrix)`](@ref); 
-
-# - if `PM = HarmonicArray`, then `K` is the number of harmonic components used to represent the Fourier series of `A(t)` (default: `K = max(20,nh-1)`, `nh` is the number of harmonics terms of `A(t)`)  and `kwargs` are the keyword arguments of  [`psceig(::HarmonicArray)`](@ref); 
-
-# - if `PM = FourierFunctionMatrix`, then `K` is the number of harmonic components used to represent the Fourier series of `A(t)` (default: `K = max(20,nh-1)`, `nh` is the number of harmonics terms of `A(t)`)  and `kwargs` are the keyword arguments of  [`psceig(::FourierFunctionMatrix)`](@ref); 
-
-# - if `PM = PeriodicMatrix` or `PM = PeriodicArray`, then `K` is the starting sample time (default: `K = 1`, `nh` is the number of harmonics terms of `A(t)`)  and `kwargs` are the keyword arguments of  [`psceig(::PeriodicMatrix)`](@ref); 
-# """
-# function pszero(psys::PeriodicStateSpace, K::Int; kwargs...)
-#     return pszero(psys.A, psys.B, psys.C, psys.D, K; kwargs...)
-# end
-# pszero(psys::PeriodicStateSpace; kwargs...) = pszero(psys.A, psys.B, psys.C, psys.D; kwargs...)
-# function pszero(A::PM, B::PM, C::PM, D::PM, N::Union{Int,Missing} = missing; P::Int= 1, fast::Bool = true, atol::Real = 0, rtol::Real = 0) where {PM <: HarmonicArray}
-# # function pszero(psys::PeriodicStateSpace{PM}, N::Union{Int,Missing} = missing; P::Int= 1, fast::Bool = true, atol::Real = 0, rtol::Real = 0) where {PM <: HarmonicArray}
-# #     (A, B, C, D) = (psys.A, psys.B, psys.C, psys.D)
-#     ismissing(N) && (N = max(20, max(size(A.values,3),size(B.values,3),size(C.values,3),size(D.values,3))-1))
-#     if N == 0 || (isconstant(A) && isconstant(B) && isconstant(C) && isconstant(D))
-#         (AM, BM, CM, DM) = (real(A.values[:,:,1]), real(B.values[:,:,1]), real(C.values[:,:,1]), real(D.values[:,:,1])) 
-#         return spzeros(AM, I, BM, CM, DM; fast, atol1 = atol, atol2 = atol, rtol)[1] 
-#     end
-#     ωhp2 = pi/P/A.period
-#     n = size(A,1)
-#     T = promote_type(Float64, eltype(A))
-#     (PA, PB, PC, PD ) = (A.nperiod, B.nperiod, C.nperiod, D.nperiod)
-#     K = lcm(PA,PB,PC,PD)
-#     # employ heuristics to determine fix finite zeros by comparing two sets of computed zeros
-#     z = spzeros(hr2btupd(A, N; P, nperiod = K), I, hr2bt(B, N; P, nperiod = K),
-#                 hr2bt(C, N; P, nperiod = K), hr2bt(D, N; P, nperiod = K); fast, atol1 = atol, atol2 = atol, rtol)[1] 
-#     zf = z[isfinite.(z)]
-#     ind = sortperm(imag(zf),by=abs); 
-#     nf = count(abs.(imag(zf[ind[1:min(4*n,length(ind))]])) .<=  ωhp2*(1+sqrt(eps(T))))
-#     zf = zf[ind[1:nf]]
-#     z2 = spzeros(hr2btupd(A, N+2; P, nperiod = K), I, hr2bt(B, N+2; P, nperiod = K),
-#                 hr2bt(C, N+2; P, nperiod = K), hr2bt(D, N+2; P, nperiod = K); fast, atol1 = atol, atol2 = atol, rtol)[1] 
-#     zf2 = z2[isfinite.(z2)]
-#     ind = sortperm(imag(zf2),by=abs); 
-#     nf2 = count(abs.(imag(zf2[ind[1:min(4*n,length(ind))]])) .<=  ωhp2*(1+sqrt(eps(T))))
-#     zf2 = zf2[ind[1:nf2]]
-#     σf = Complex{T}[]
-#     nf < nf2 || ((zf, zf2) = (zf2, zf))
-#     atol > 0 || (norms = max(norm(A.values,Inf),norm(B.values,Inf),norm(C.values,Inf),norm(D.values,Inf)))
-#     tol = atol > 0 ? atol : (rtol > 0 ? rtol*norms : sqrt(eps(T))*norms)
-#     for i = 1:nf
-#         minimum(abs.(zf2 .- zf[i])) < tol  && push!(σf,zf[i])
-#     end
-#     isreal(σf) && (σf = real(σf))
-#     if any(isinf.(z)) 
-#        # Conjecture: number of infinite zeros is the same as that of the time-evaluated system 
-#        t = rand()
-#        (AM, BM, CM, DM) = (tvmeval(A, t)[1], tvmeval(B, t)[1], tvmeval(C, t)[1], tvmeval(D, t)[1])  
-#        zm = spzeros(AM, I, BM, CM, DM; fast, atol1 = atol, atol2 = atol, rtol)[1] 
-#        return [σf; zm[isinf.(zm)]]
-#     else
-#        return σf
-#     end
-# end
 """
     pszero(psys::PeriodicStateSpece{HarmonicArray}[, N]; P, atol, rtol, fast) -> val
 
-Compute the zeros of a continuous-time periodic system `psys = (Ahr(t), Bhr(t), Chr(t), Dhr(t))` in `val`, 
+Compute the finite in infinite zeros of a continuous-time periodic system `psys = (Ahr(t), Bhr(t), Chr(t), Dhr(t))` in `val`, 
 where the periodic system matrices `Ahr(t)`, `Bhr(t)`, `Chr(t)`, and `Dhr(t)` are in a _Harmonic Array_ representation. 
 `N` is the number of selected harmonic components in the Fourier series of the system matrices (default: `N = max(20,nh-1)`, 
 where `nh` is the maximum number of harmonics terms) and the keyword parameter `P` is the number of full periods 
 to be considered (default: `P = 1`) to build 
 a frequency-lifted LTI representation based on truncated block Toeplitz matrices (see [`ps2fls`](@ref)). 
-
 """
 function pszero(psys::PeriodicStateSpace{PM}, N::Union{Int,Missing} = missing; P::Int= 1, fast::Bool = true, atol::Real = 0, rtol::Real = 0) where {PM <: HarmonicArray}
     ismissing(N) && (N = max(20, max(size(psys.A.values,3),size(psys.B.values,3),size(psys.C.values,3),size(psys.D.values,3))-1))
@@ -130,7 +65,7 @@ end
 """
     pszero(psys::PeriodicStateSpece{FourierFunctionMatrix}[, N]; P, atol, rtol, fast) -> val
 
-Compute the zeros of a continuous-time periodic system `psys = (Af(t), Bf(t), Cf(t), Df(t))` in `val`, 
+Compute the finite in infinite zeros of a continuous-time periodic system `psys = (Af(t), Bf(t), Cf(t), Df(t))` in `val`, 
 where the periodic system matrices `Af(t)`, `Bf(t)`, `Cf(t)`, and `Df(t)` are in a _Fourier Function Matrix_ representation. 
 `N` is the number of selected harmonic components in the Fourier series of the system matrices (default: `N = max(20,nh-1)`, 
 where `nh` is the maximum number of harmonics terms) and the keyword parameter `P` is the number of full periods 
@@ -146,41 +81,15 @@ function pszero(psys::PeriodicStateSpace{PM}, N::Union{Int,Missing} = missing; P
     # employ heuristics to determine fix finite zeros by comparing two sets of computed zeros
     z = spzeros(dssdata(ps2frls(psys, N; P))...; fast, atol1 = atol, atol2 = atol, rtol)[1] 
 
-    # Af = P == 1 ? A :  FourierFunctionMatrix(Fun(t -> A.M(t),Fourier(0..P*A.period)))
-    # Bf = P == 1 ? B :  FourierFunctionMatrix(Fun(t -> B.M(t),Fourier(0..P*B.period)))
-    # Cf = P == 1 ? C :  FourierFunctionMatrix(Fun(t -> C.M(t),Fourier(0..P*C.period)))
-    # Df = P == 1 ? D :  FourierFunctionMatrix(Fun(t -> D.M(t),Fourier(0..P*D.period)))
-
     ωhp2 = pi/P/psys.A.period
     n = size(psys.A,1)
     T = promote_type(Float64, eltype(psys.A))
-    # n, m = size(Bf); p = size(Cf,1);
-    # T = promote_type(Float64, eltype(A))
-    # Der = Derivative(domain(Af.M))
-    # ND = DiagDerOp(Der,n)
-    # Aop = Af.M - ND
-    # Cop = Multiplication(Cf.M,domainspace(ND))
-    # sdu = domainspace(DiagDerOp(0*Der,m))
-    # Bop = Multiplication(Bf.M,sdu)
-    # Dop = Multiplication(Df.M,sdu)
-    # Ntx = 2*n*(2*N+1)
-    # Ntu = m*(2*N+1)
-    # Nty = p*(2*N+1)
-
-    # z = spzeros(Matrix(Aop[1:Ntx,1:Ntx]), I, Matrix(Bop[1:Ntx,1:Ntu]), Matrix(Cop[1:Nty,1:Ntx]), Matrix(Dop[1:Nty,1:Ntu]);
-    #             fast, atol1 = atol, atol2 = atol, rtol)[1] 
     zf = z[isfinite.(z)]
     ind = sortperm(imag(zf),by=abs); 
     nf = count(abs.(imag(zf[ind[1:min(4*n,length(ind))]])) .<=  ωhp2*(1+sqrt(eps(T))))
     zf = zf[ind[1:nf]]
 
     z2 = spzeros(dssdata(ps2frls(psys, N+2; P))...; fast, atol1 = atol, atol2 = atol, rtol)[1] 
-
-    # Ntx = 2*n*(2*N+3)
-    # Ntu = m*(2*N+3)
-    # Nty = p*(2*N+3)
-    # z2 = spzeros(Matrix(Aop[1:Ntx,1:Ntx]), I, Matrix(Bop[1:Ntx,1:Ntu]), Matrix(Cop[1:Nty,1:Ntx]), Matrix(Dop[1:Nty,1:Ntu]);
-    #             fast, atol1 = atol, atol2 = atol, rtol)[1] 
     zf2 = z2[isfinite.(z2)]
     ind = sortperm(imag(zf2),by=abs); 
     nf2 = count(abs.(imag(zf2[ind[1:min(4*n,length(ind))]])) .<=  ωhp2*(1+sqrt(eps(T))))
@@ -197,68 +106,6 @@ function pszero(psys::PeriodicStateSpace{PM}, N::Union{Int,Missing} = missing; P
     if any(isinf.(z)) 
        # Conjecture: number of infinite zeros is the same as that of the time-evaluated system 
        zm = spzeros(dssdata(psteval(psys, rand()))...; fast, atol1 = atol, atol2 = atol, rtol)[1] 
-       zf = [σf; zm[isinf.(zm)]]
-    end
-    nz = length(zf)
-    nz > n && (@warn "$(nz-n) spurious finite zero(s) present")
-    return zf
-end
-function pszero(A::PM, B::PM, C::PM, D::PM, N::Union{Int,Missing} = missing; P::Int= 1, fast::Bool = true, atol::Real = 0, rtol::Real = 0) where {PM <: FourierFunctionMatrix}
-    ismissing(N) && (N = max(20, maximum(ncoefficients.(Matrix(A.M))), maximum(ncoefficients.(Matrix(B.M))),
-                                   maximum(ncoefficients.(Matrix(C.M))), maximum(ncoefficients.(Matrix(A.M)))))
-    if N == 0 || (isconstant(A) && isconstant(B) && isconstant(C) && isconstant(D))
-       (AM, BM, CM, DM) = (getindex.(coefficients.(Matrix(A.M)),1), getindex.(coefficients.(Matrix(B.M)),1), 
-                           getindex.(coefficients.(Matrix(C.M)),1), getindex.(coefficients.(Matrix(D.M)),1))  
-       return spzeros(AM, I, BM, CM, DM; fast, atol1 = atol, atol2 = atol, rtol)[1] 
-    end
-    (N == 0 || (isconstant(A) && isconstant(B) && isconstant(C) && isconstant(D))) && (return spzeros(AM, I, BM, CM, DM; fast, atol1 = atol, atol2 = atol, rtol)[1] )
-    Af = P == 1 ? A :  FourierFunctionMatrix(Fun(t -> A.M(t),Fourier(0..P*A.period)))
-    Bf = P == 1 ? B :  FourierFunctionMatrix(Fun(t -> B.M(t),Fourier(0..P*B.period)))
-    Cf = P == 1 ? C :  FourierFunctionMatrix(Fun(t -> C.M(t),Fourier(0..P*C.period)))
-    Df = P == 1 ? D :  FourierFunctionMatrix(Fun(t -> D.M(t),Fourier(0..P*D.period)))
-
-    ωhp2 = pi/P/A.period
-    n, m = size(Bf); p = size(Cf,1);
-    T = promote_type(Float64, eltype(A))
-    Der = Derivative(domain(Af.M))
-    ND = DiagDerOp(Der,n)
-    Aop = Af.M - ND
-    Cop = Multiplication(Cf.M,domainspace(ND))
-    sdu = domainspace(DiagDerOp(0*Der,m))
-    Bop = Multiplication(Bf.M,sdu)
-    Dop = Multiplication(Df.M,sdu)
-    Ntx = 2*n*(2*N+1)
-    Ntu = m*(2*N+1)
-    Nty = p*(2*N+1)
-
-    z = spzeros(Matrix(Aop[1:Ntx,1:Ntx]), I, Matrix(Bop[1:Ntx,1:Ntu]), Matrix(Cop[1:Nty,1:Ntx]), Matrix(Dop[1:Nty,1:Ntu]);
-                fast, atol1 = atol, atol2 = atol, rtol)[1] 
-    zf = z[isfinite.(z)]
-    ind = sortperm(imag(zf),by=abs); 
-    nf = count(abs.(imag(zf[ind[1:min(4*n,length(ind))]])) .<=  ωhp2*(1+sqrt(eps(T))))
-    zf = zf[ind[1:nf]]
-    Ntx = 2*n*(2*N+3)
-    Ntu = m*(2*N+3)
-    Nty = p*(2*N+3)
-    z2 = spzeros(Matrix(Aop[1:Ntx,1:Ntx]), I, Matrix(Bop[1:Ntx,1:Ntu]), Matrix(Cop[1:Nty,1:Ntx]), Matrix(Dop[1:Nty,1:Ntu]);
-                fast, atol1 = atol, atol2 = atol, rtol)[1] 
-    zf2 = z2[isfinite.(z2)]
-    ind = sortperm(imag(zf2),by=abs); 
-    nf2 = count(abs.(imag(zf2[ind[1:min(4*n,length(ind))]])) .<=  ωhp2*(1+sqrt(eps(T))))
-    zf2 = zf2[ind[1:nf2]]
-    σf = Complex{T}[]
-    nf < nf2 || ((zf, zf2) = (zf2, zf))
-    atol > 0 || (norms = max(norm(coefficients(A.M),Inf),norm(coefficients(B.M),Inf),norm(coefficients(C.M),Inf),norm(coefficients(D.M),Inf)))
-    tol = atol > 0 ? atol : (rtol > 0 ? rtol*norms : sqrt(eps(T))*norms)
-    for i = 1:nf
-        minimum(abs.(zf2 .- zf[i])) < tol  && push!(σf,zf[i])
-    end
-    isreal(σf) && (σf = real(σf))
-
-    if any(isinf.(z)) 
-       # Conjecture: number of infinite zeros is the same as that of the time-evaluated system 
-       t = rand()
-       zm = spzeros(A.M(t), I, B.M(t), C.M(t), D.M(t); fast, atol1 = atol, atol2 = atol, rtol)[1] 
        zf = [σf; zm[isinf.(zm)]]
     end
     nz = length(zf)
