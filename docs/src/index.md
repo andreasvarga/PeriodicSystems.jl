@@ -26,7 +26,7 @@ Many control applications are formulated as genuine
 periodic control problems as for example, satellite attitude control, helicopter forward flight control, orbital stabilization of underactuated systems, etc. Besides
 that, periodic systems represent a general framework to analyze and design multi-rate sampled-data systems. 
 
-The targeted functionality of this package is described in [1] and will cover both continuous-time and discrete-time periodic systems. The following categories of functions are planned:
+The targeted functionality of this package is described in [1] and will cover both continuous-time and discrete-time periodic systems. The following categories of functions are implemented of planned:
 
 **Building periodic system state-space models**
 

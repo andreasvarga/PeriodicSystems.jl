@@ -17,8 +17,6 @@ makedocs(
           ["psconversions.md",
            "pslifting.md"],
    #      "operations.md",
-   #      "operations_rtf.md",
-   #      "conversions.md",
    #      "order_reduction.md",
           "psanalysis.md",
    #      "factorizations.md",

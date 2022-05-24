@@ -5,5 +5,7 @@
 
 ```@docs
 pspole
-pszero
+pszero(psys::PeriodicStateSpace{Union{PeriodicFunctionMatrix, PeriodicSymbolicMatrix, PeriodicTimeSeriesMatrix}})
+pszero(psys::PeriodicStateSpace{HarmonicArray})
+pszero(psys::PeriodicStateSpace{FourierFunctionMatrix})
 ```
