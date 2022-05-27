@@ -39,7 +39,7 @@ export mb03vd!, mb03vy!, mb03bd!, mb03wd!
 export ps
 export psaverage, psc2d, psmrc2d, psteval
 export ps2fls, hr2bt, hr2btupd, phasemat, ps2frls, DiagDerOp, ps2ls
-export pspole, pszero
+export pspole, pszero, isstable
 
 abstract type AbstractDynamicalSystem end
 abstract type AbstractLTISystem <: AbstractDynamicalSystem end
