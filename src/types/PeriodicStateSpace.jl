@@ -201,28 +201,28 @@ function ps_validation(A::PM1, B::PM2, C::PM3, D::PM4) where {T1, T2, T3, T4, PM
     # Validate dimensions
     ny = size(D,1)
     nu = size(D,2)
-    any(ny .!= ny[1]) && DimensionMismatch("all matrices D[i] must have the same row size")
-    any(nu .!= nu[1]) && DimensionMismatch("all matrices D[i] must have the same column size")
+    any(ny .!= ny[1]) && error("all matrices D[i] must have the same row size")
+    any(nu .!= nu[1]) && error("all matrices D[i] must have the same column size")
     
     ndx, nx = size(A)
     if all(ndx .== ndx[1]) && all(nx .== nx[1]) 
        # constant dimensions of A, B, C, D
-       ndx[1] == nx[1] || DimensionMismatch("A[i] must be square matrices")
-       any(size(B, 1) .!= ndx[1]) && DimensionMismatch("all matrices A[i] and B[i] must have the same row size")
-       any(size(C, 2) .!= nx[1]) &&  DimensionMismatch("all matrices A[i] and C[i] must have the same column size")
-       any(size(C, 1) .!= ny[1]) && DimensionMismatch("all matrices C[i] and D[i] must have the same row size")
-       any(size(B, 2) .!= nu[1]) && DimensionMismatch("all matrices B[i] and D[i] must have the same column size")
+       ndx[1] == nx[1] || error("A[i] must be square matrices")
+       any(size(B, 1) .!= ndx[1]) && error("all matrices A[i] and B[i] must have the same row size")
+       any(size(C, 2) .!= nx[1]) &&  error("all matrices A[i] and C[i] must have the same column size")
+       any(size(C, 1) .!= ny[1]) && error("all matrices C[i] and D[i] must have the same row size")
+       any(size(B, 2) .!= nu[1]) && error("all matrices B[i] and D[i] must have the same column size")
     else     
        N = A.dperiod
-       (N != B.dperiod || N != C.dperiod) && DimensionMismatch("the number of component matrices of A, B and C must be the same ")
+       (N != B.dperiod || N != C.dperiod) && error("the number of component matrices of A, B and C must be the same ")
        for i = 1:N
-           i == N && ndx[i] != nx[1] && DimensionMismatch("the number of columns of A[i+1] must be equal to the number of rows of A[i]")
-           i != N && ndx[i] != nx[i+1] && DimensionMismatch("the number of columns of A[i+1] must be equal to the number of rows of A[i]")
+           i == N && ndx[i] != nx[1] && error("the number of columns of A[i+1] must be equal to the number of rows of A[i]")
+           i != N && ndx[i] != nx[i+1] && error("the number of columns of A[i+1] must be equal to the number of rows of A[i]")
        end
-       any(size(B, 1) .!= ndx) && DimensionMismatch("all matrices A[i] and B[i] must have the same row size")
-       any(size(C, 2) .!= nx) &&  DimensionMismatch("all matrices A[i] and C[i] must have the same column size")
-       any(size(C, 1) .!= ny[1]) && DimensionMismatch("all matrices C[i] and D[i] must have the same row size")
-       any(size(B, 2) .!= nu[1]) && DimensionMismatch("all matrices B[i] and D[i] must have the same column size")
+       any(size(B, 1) .!= ndx) && error("all matrices A[i] and B[i] must have the same row size")
+       any(size(C, 2) .!= nx) &&  error("all matrices A[i] and C[i] must have the same column size")
+       any(size(C, 1) .!= ny[1]) && error("all matrices C[i] and D[i] must have the same row size")
+       any(size(B, 2) .!= nu[1]) && error("all matrices B[i] and D[i] must have the same column size")
     end
     return period
 end
@@ -244,12 +244,12 @@ function ps_validation(A::PA1, B::PA2, C::PA3, D::PA4) where {T1, T2, T3, T4, PA
     ny = size(D,1)
     nu = size(D,2)
     nx = size(A,1)
-    nx == size(A,2) || DimensionMismatch("matrix A(t) is not square")
+    nx == size(A,2) || error("matrix A(t) is not square")
     
-    any(size(B, 1) .!= nx) && DimensionMismatch("A and B must have the same row size")
-    any(size(C, 2) .!= nx) &&  DimensionMismatch("A and C must have the same column size")
-    any(size(C, 1) .!= ny) && DimensionMismatch("C and D must have the same row size")
-    any(size(B, 2) .!= nu) && DimensionMismatch("B and D must have the same column size")
+    any(size(B, 1) .!= nx) && error("A and B must have the same row size")
+    any(size(C, 2) .!= nx) &&  error("A and C must have the same column size")
+    any(size(C, 1) .!= ny) && error("C and D must have the same row size")
+    any(size(B, 2) .!= nu) && error("B and D must have the same column size")
  
     return period
 end

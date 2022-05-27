@@ -29,7 +29,118 @@ _References_
 [3] D. S. Flamm. A new shift-invariant representation for periodic systems, 
     Systems and Control Letters, 17:9–14, 1991.
 """
-function ps2ls(psys::PeriodicStateSpace{PeriodicMatrix{:d,T}}, kstart::Int = 1; ss::Bool = false, cyclic::Bool = false) where {T}
+function ps2ls(psys::PeriodicStateSpace{<:AbstractPeriodicArray{:d,T}}, kstart::Int = 1; ss::Bool = false, cyclic::Bool = false) where {T}
+    (pa, pb, pc, pd) = (psys.A.dperiod, psys.B.dperiod, psys.C.dperiod, psys.D.dperiod)
+    (na, nb, nc, nd) = (psys.A.nperiod, psys.B.nperiod, psys.C.nperiod, psys.D.nperiod)
+    ndx, nx = size(psys.A)
+    p, m = size(psys)
+    patype = length(nx) == 1 
+    Ts = psys.A.Ts
+    K = pa*na  # number of blocks
+    N = patype ? nx*pa*na : sum(nx)*na  # dimension of lifted state vector 
+    M = K*m
+    P = K*p
+    B = zeros(T, N, M) 
+    # n = patype ? ndx[1] : ndx[mod(kstart+pb-2,pb)+1]
+    # copyto!(view(B,1:n,M-m+1:M),getpm(psys.B,kstart+pb-1,pb))
+    n = patype ? ndx[1] : ndx[mod(kstart-2,pb)+1]
+    copyto!(view(B,1:n,M-m+1:M),getpm(psys.B,kstart-1,pb))
+    i1 = n+1
+    j1 = 1
+    pbc = pb
+    for i = 1:nb
+        k = kstart
+        i == nb && (pbc = pb-1)
+        for j = 1:pbc
+            jj = patype ? 1 : mod(k-1,pb)+1
+            i2 = i1+ndx[jj]-1 
+            j2 = j1+m-1
+            copyto!(view(B,i1:i2,j1:j2),getpm(psys.B,k,pb))
+            k += 1
+            i1 = i2+1
+            j1 = j2+1 
+        end
+    end
+    C = zeros(T, P, N) 
+    i1 = 1
+    j1 = 1
+    for i = 1:nc
+        k = kstart
+        for j = 1:pc
+            jj = patype ? 1 : mod(k-1,pc)+1
+            i2 = i1+p-1
+            j2 = j1+nx[jj]-1
+            copyto!(view(C,i1:i2,j1:j2),getpm(psys.C,k,pc)) 
+            k += 1
+            i1 = i2+1
+            j1 = j2+1 
+        end
+    end
+    D = zeros(T, P, M) 
+    i1 = 1
+    j1 = 1
+    for i = 1:nd
+        k = kstart
+        for j = 1:pd
+            i2 = i1+p-1
+            j2 = j1+m-1
+            copyto!(view(D,i1:i2,j1:j2),getpm(psys.D,k,pd))
+            k += 1
+            i1 = i2+1
+            j1 = j2+1 
+        end
+    end
+    A = zeros(T, N, N) 
+    nf = patype ? nx[1] : nx[mod(kstart-2,pa)+1]   
+    copyto!(view(A,1:n,N-nf+1:N),getpm(psys.A,kstart-1,pa))
+    i1 = n+1
+    j1 = 1
+    pac = pa
+    U = -I
+    for i = 1:na
+        k = kstart
+        i == na && (pac = pa-1)
+        for j = 1:pac
+            jj = patype ? 1 : mod(k-1,pa)+1
+            jj1 = patype ? 1 : mod(k,pa)+1
+            i2 = i1+ndx[jj]-1
+            j2 = j1+nx[jj]-1
+            copyto!(view(A,i1:i2,j1:j2),getpm(psys.A,k,pa))
+            cyclic || copyto!(view(A,i1:i2,j2+1:j2+nx[jj1]),U)
+            k += 1
+            i1 = i2+1
+            j1 = j2+1 
+        end
+    end
+    cyclic && (return dss(A, B, C, D; Ts))
+    if ss 
+       # generate the standard lifted system using residualization formulas for E = [I 0; 0 0]
+       i1 = 1:n; i2 = n+1:N
+       A11 = view(A,i1,i1)
+       A12 = view(A,i1,i2)
+       A21 = view(A,i2,i1)
+       A22 = LowerTriangular(view(A,i2,i2))
+       B1 = view(B,i1,:)
+       B2 = view(B,i2,:)
+       C1 = view(C,:,i1)
+       C2 = view(C,:,i2)
+       # make A22 = I
+       ldiv!(A22,A21)
+       ldiv!(A22,B2)
+       # apply simplified residualization formulas
+       mul!(D, C2, B2, -1, 1)
+       mul!(B1, A12, B2, -1, 1)
+       mul!(C1, C2, A21, -1, 1)
+       mul!(A11, A12, A21, -1, 1)
+       return dss(A11, B1, C1, D; Ts)
+    else
+       # generate the stacked lifted descriptor system of (Grasselli and Longhi, 1991)
+       E = zeros(T, N, N) 
+       copyto!(view(E,1:n,1:n),I)
+       return dss(A, E, B, C, D; Ts)
+    end
+end
+function ps2ls1(psys::PeriodicStateSpace{PeriodicMatrix{:d,T}}, kstart::Int = 1; ss::Bool = false, cyclic::Bool = false) where {T}
     pa = psys.A.dperiod
     na = psys.A.nperiod
     ndx, nx = size(psys.A)
@@ -146,8 +257,9 @@ function ps2ls(psys::PeriodicStateSpace{PeriodicMatrix{:d,T}}, kstart::Int = 1; 
        return dss(A, E, B, C, D; Ts)
     end
 end
-ps2ls(psys::PeriodicStateSpace{PeriodicArray{:d,T}}, k::Int = 1; kwargs...) where {T} = 
-      ps2ls(convert(PeriodicStateSpace{PeriodicMatrix},psys), k; kwargs...)
+
+ps2ls1(psys::PeriodicStateSpace{PeriodicArray{:d,T}}, k::Int = 1; kwargs...) where {T} = 
+      ps2ls1(convert(PeriodicStateSpace{PeriodicMatrix},psys), k; kwargs...)
 
 """
      ps2frls(psysc::PeriodicStateSpace, N) -> sys::DescriptorStateSpace 

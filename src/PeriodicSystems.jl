@@ -26,6 +26,7 @@ import LinearAlgebra: BlasInt, BlasFloat, BlasReal, BlasComplex, copy_oftype, tr
 import Base: +, -, *, /, \, (==), (!=), ^, isapprox, iszero, convert, promote_op, size, length, ndims, 
              hcat, vcat, hvcat, inv, show, lastindex, require_one_based_indexing, print, show, one, zero, eltype
 import MatrixPencils: isregular, rmeval
+import DescriptorSystems: isstable
 import Polynomials: AbstractRationalFunction, AbstractPolynomial, poles, isconstant, variable, degree, pqs
 
 export PeriodicStateSpace, pschur, phess, pschurw, psreduc_reg, psreduc_fast, check_psim, mshift, pseig, tvmeval, hreval, tvstm

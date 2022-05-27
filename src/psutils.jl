@@ -84,7 +84,7 @@ function tvstm(A::PeriodicFunctionMatrix{:c,T}, tf::Real, t0::Real = 0; solver =
    return sol(tf)     
 end
 """ 
-     monodromy(A::PeriodicFunctionMatrix, K = 1; solver, reltol, abstol, dt) -> Ψ::PeriodicArray 
+     monodromy(A::PeriodicFunctionMatrix[, K = 1]; solver, reltol, abstol, dt) -> Ψ::PeriodicArray 
 
 Compute the monodromy matrix for a linear ODE with periodic time-varying coefficients. 
 
@@ -1595,3 +1595,26 @@ function pmaverage(A::PM) where {PM <: Union{PeriodicFunctionMatrix,PeriodicSymb
 end
 pmaverage(A::HarmonicArray) = real(A.values[:,:,1])
 pmaverage(A::FourierFunctionMatrix) = getindex.(coefficients.(Matrix(A.M)),1)
+
+function getpm(A::PeriodicMatrix, k, dperiod::Union{Int,Missing} = missing)
+   i = ismissing(dperiod) ? mod(k-1,A.dperiod)+1 : mod(k-1,dperiod)+1
+   return A.M[i]
+   #return view(A.M,i)
+end
+function getpm(A::PeriodicArray, k, dperiod::Union{Int,Missing} = missing)
+   i = ismissing(dperiod) ? mod(k-1,A.dperiod)+1 : mod(k-1,dperiod)+1
+   return A.M[:,:,i]
+   #return view(A.M,:,:,i)
+end
+function copypm!(Dest::AbstractMatrix{T}, A::PeriodicMatrix{:d,T}, k, dperiod::Union{Int,Missing} = missing) where {T}
+   i = ismissing(dperiod) ? mod(k-1,A.dperiod)+1 : mod(k-1,dperiod)+1
+   return copyto!(Dest,view(A.M[i],:,:))
+   #return copyto!(Dest,A.M[i])
+   #return view(A.M,i)
+end
+function copypm!(Dest::AbstractMatrix, A::PeriodicArray, k, dperiod::Union{Int,Missing} = missing)
+   i = ismissing(dperiod) ? mod(k-1,A.dperiod)+1 : mod(k-1,dperiod)+1
+   return copyto!(Dest,view(A.M,:,:,i))
+   #return view(A.M,:,:,i)
+end
+

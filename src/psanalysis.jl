@@ -19,27 +19,14 @@ function pspole(psys::PeriodicStateSpace, K::Int; kwargs...)
 end
 pspole(psys::PeriodicStateSpace; kwargs...) = psceig(psys.A; kwargs...)
 """
-    pszero(psys::PeriodicStateSpace{PM}[,K]; kwargs...) -> val
-
-Return for the periodic system `psys = (A(t),B(t),C(t),D(t))` the complex vector `val` containing 
-the finite and infinite zeros. 
-
-Depending on the underlying periodic matrix type `PM`, the optional argument `K` and keyword arguments `kwargs` may have the following values:
-
-- if `PM = HarmonicArray`, or `PM = PeriodicFunctionMatrix`, or `PM = PeriodicSymbolicMatrix`, or `PM = PeriodicTimeSeriesMatrix`, then `K` is the number of harmonic components used to represent the Fourier series of system matrices (default: `K = max(10,nh-1)`, `nh` is the maximum number of harmonics terms of the system mtrices)  and `kwargs` are the keyword arguments of  [`pszero(psys::PeriodicStateSpace{HarmonicArray})`](@ref); 
-
-- if `PM = FourierFunctionMatrix`, then `K` is the number of harmonic components used to represent the Fourier series of system matrices (default: `K = max(10,nh-1)`, `nh` is the maximum number of harmonics terms of system matrices`)  and `kwargs` are the keyword arguments of  [`pszero(psys::PeriodicStateSpace{FourierFunctionMatrix})`](@ref); 
-
-- if `PM = PeriodicMatrix` or `PM = PeriodicArray`, then `K` is the starting sample time (default: `K = 1`)  and `kwargs` are the keyword arguments of  [`pszero(psys::PeriodicStateSpace{PeriodicMatrix})`](@ref); 
-"""
-function pszero(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix, PeriodicSymbolicMatrix, PeriodicTimeSeriesMatrix}}, K::Union{Int,Missing} = missing; kwargs...) 
-    return pszero(convert(PeriodicStateSpace{HarmonicArray},psys), K; kwargs...)
-end
-"""
     pszero(psys::PeriodicStateSpace{HarmonicArray}[, N]; P, atol, rtol, fast) -> val
+    pszero(psys::PeriodicStateSpace{PeriodicFunctionMatrix}[, N]; P, atol, rtol, fast) -> val
+    pszero(psys::PeriodicStateSpace{PeriodicSymbolicMatrix}[, N]; P, atol, rtol, fast) -> val
 
-Compute the finite and infinite zeros of a continuous-time periodic system `psys = (Ahr(t), Bhr(t), Chr(t), Dhr(t))` in `val`, 
-where the periodic system matrices `Ahr(t)`, `Bhr(t)`, `Chr(t)`, and `Dhr(t)` are in a _Harmonic Array_ representation. 
+Compute the finite and infinite zeros of a continuous-time periodic system `psys = (A(t), B(t), C(t), D(t))` in `val`, 
+where the periodic system matrices `A(t)`, `B(t)`, `C(t)`, and `D(t)` are in a _Harmonic Array_, or 
+_Periodic Function Matrix_, or _Periodic Symbolic Matrix_ representation 
+(the last two representation are automatically converted to a _Harmonic Array_ representation). 
 `N` is the number of selected harmonic components in the Fourier series of the system matrices (default: `N = max(20,nh-1)`, 
 where `nh` is the maximum number of harmonics terms) and the keyword parameter `P` is the number of full periods 
 to be considered (default: `P = 1`) to build 
@@ -52,7 +39,7 @@ if `fast = true`, or, the more reliable, SVD-decompositions, if `fast = false`. 
 the finite zeros are determined as those eigenvalues which have imaginary parts in the interval `[-ω/2, ω/2]`, where `ω = 2π/(P*T)`.
 To eliminate possible spurious finite eigenvalues, the intersection of two finite eigenvalue sets is computed 
 for two lifted systems obtained for `N` and `N+2` harmonic components.    
-The infinite zeros are determined as the infinite zeros of the LTI system `(Ahr(ti), Bhr(ti), Chr(ti), Dhr(ti))` 
+The infinite zeros are determined as the infinite zeros of the LTI system `(A(ti), B(ti), C(ti), D(ti))` 
 resulting for a random time value `ti`. _Warning:_ While this evaluation of the number of infinite zeros mostly 
 provides the correct result, there is no theoretical assessment of this approach (counterexamples are welcome!). 
 
@@ -60,7 +47,6 @@ The keyword arguments `atol`  and `rtol` specify the absolute and relative toler
 elements of the underlying lifted system pencil, respectively. 
 The default relative tolerance is `n*ϵ`, where `n` is the size of the smallest dimension of the pencil, and `ϵ` is the 
 working machine epsilon. 
-
 """
 function pszero(psys::PeriodicStateSpace{<: HarmonicArray}, N::Union{Int,Missing} = missing; P::Int= 1, fast::Bool = true, atol::Real = 0, rtol::Real = 0) 
     ismissing(N) && (N = max(20, max(size(psys.A.values,3),size(psys.B.values,3),size(psys.C.values,3),size(psys.D.values,3))-1))
@@ -162,18 +148,130 @@ function pszero(psys::PeriodicStateSpace{<: FourierFunctionMatrix}, N::Union{Int
     nz > n && (@warn "$(nz-n) spurious finite zero(s) present")
     return zf
 end
+"""
+     pszero(psys::PeriodicStateSpace{PeriodicMatrix}[, K]; atol, rtol, fast) -> val
+     pszero(psys::PeriodicStateSpace{PeriodicArray}[, K]; atol, rtol, fast) -> val
 
-# function isstable(psys::PeriodicStateSpace, smarg::Real = SYS.Ts == 0 ? 0 : 1; 
-#                   fast = false, atol::Real = 0, atol1::Real = atol, atol2::Real = atol, 
-#                   rtol::Real = SYS.nx*eps(real(float(one(T))))*iszero(min(atol1,atol2)), 
-#                   offset::Real = sqrt(eps(float(real(T))))) where T
-#     disc = (SYS.Ts != 0)
-#     β = abs(offset); 
-#     if SYS.E == I
-#        isschur(SYS.A) ? poles = ordeigvals(SYS.A) : poles = eigvals(SYS.A)
-#     else
-#        poles = gpole(SYS; fast = fast, atol1 = atol1, atol2 = atol2, rtol = rtol)
-#        (any(isinf.(poles)) || any(isnan.(poles)))  && (return false)
-#     end
-#     return disc ? all(abs.(poles) .< smarg-β) : all(real.(poles) .< smarg-β)
-# end
+Compute the finite and infinite zeros of a discrete-time periodic system `psys = (A(t), B(t), C(t), D(t))` in `val`, 
+where the periodic system matrices `A(t)`, `B(t)`, `C(t)`, and `D(t)` are in either _Periodic Matrix_ or _Periodic Array_ representation. 
+The optional argument `K` specifies a desired time to start the sequence of periodic matrices (default: `K = 1`).
+
+The computation of zeros relies on the _fast_ structure exploiting reduction of singular periodic pencils as described in [1], 
+which separates a matrix pencil `M-λN` which contains the infinite and finite zeros 
+and the left and right Kronecker indices.
+The reduction is performed using orthonal similarity transformations and involves rank decisions based 
+on rank revealing QR-decompositions with column pivoting, 
+if `fast = true`, or, the more reliable, SVD-decompositions, if `fast = false`. 
+
+The keyword arguments `atol` and `rtol` specify the absolute and relative tolerances for the nonzero
+elements of the periodic system matrices, respectively. 
+The default relative tolerance is `n*ϵ`, where `n` is proportional with the largest dimension of the periodic matrices, 
+and `ϵ` is the working machine epsilon. 
+
+_References_
+
+[1] A. Varga and P. Van Dooren. Computing the zeros of periodic descriptor systems.
+    Systems & Control Letters 50:371–381, 2003.
+"""
+function pszero(psys::PeriodicStateSpace{<: AbstractPeriodicArray{:d,T}}, K::Int = 1; fast::Bool = true, atol::Real = 0, rtol::Real = 0) where {T}
+    islti(psys)  && (return spzeros(psys.A.M[1], I, psys.B.M[1], psys.C.M[1], psys.D.M[1]; fast, atol1 = atol, atol2 = atol, rtol)[1])
+
+    (na, nb, nc, nd) = (psys.A.dperiod, psys.B.dperiod, psys.C.dperiod, psys.D.dperiod)
+    N = na*psys.A.nperiod
+    p, m = size(psys)
+    ndx, nx = size(psys.A)
+    patype = length(nx) == 1 
+    si = [getpm(psys.A,K,na) getpm(psys.B,K,nb); getpm(psys.C,K,nc) getpm(psys.D,K,nd)]
+    ndxi = ndx[patype ? 1 : mod(K-1,na)+1]
+    nxi1 = nx[patype ? 1 : mod(K,na)+1]
+    ti = [ -I zeros(T,ndxi,m); zeros(T,p,nxi1+m)]
+    tolr = atol
+    atol == 0 && (sc = sum(nx.+p)* eps(float(T)))
+    n1 = size(si,2)
+    for i = K:K+N-3
+        m1 = size(si,1)
+        si1 = [getpm(psys.A,i+1,na) getpm(psys.B,i+1,nb); getpm(psys.C,i+1,nc) getpm(psys.D,i+1,nd)]
+        mi1 = size(si1,1)
+        ndxi1 = mi1-p
+        nxi2 = nx[patype ? 1 : mod(i+1,na)+1]
+        ti1 = [ -I zeros(T,ndxi1,m); zeros(T,p,nxi2+m)]
+
+        F = qr([ ti; si1 ], ColumnNorm()) 
+        nr = minimum(size(F.R))
+        # compute rank of r 
+        ss = abs.(diag(F.R[1:nr,1:nr]))
+        atol == 0 && ( tolr = sc * maximum(ss))
+        rankr = count(ss .> tolr)
+        si = F.Q'*[si; zeros(T,mi1,n1)]; si=si[rankr+1:end,:]
+        ti = F.Q'*[ zeros(T,m1,nxi2+m); ti1]; ti = ti[rankr+1:end,:]
+    end
+    sn = [getpm(psys.A,K+N-1,na) getpm(psys.B,K+N-1,nb); getpm(psys.C,K+N-1,nc) getpm(psys.D,K+N-1,nd)]
+    ndxi = ndx[patype ? 1 : mod(K+N-2,na)+1]
+    nxi1 = nx[patype ? 1 : mod(K+N-1,na)+1]
+    tn = [ I zeros(T,ndxi,m); zeros(T,p,nxi1+m)]
+    a = [ zeros(T,size(tn)...) sn; si ti] 
+    e = [ tn zeros(T,size(sn)...); zeros(T,size(si)...) zeros(T,size(ti)...)] 
+    return complex(pzeros(a, e; fast, atol1 = atol, atol2 = atol, rtol)[1]).^(1/N)    
+end
+function pszero(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix, PeriodicSymbolicMatrix, PeriodicTimeSeriesMatrix}}, K::Union{Int,Missing} = missing; kwargs...) 
+    return pszero(convert(PeriodicStateSpace{HarmonicArray},psys), K; kwargs...)
+end
+"""
+     isstable(psys[, K = 1]; smarg = 1, fast = false, offset = sqrt(ϵ), kwargs...) -> Bool
+
+Return `true` if the continuous-time periodic system `psys` has only stable characteristic multipliers and `false` otherwise. 
+
+To assess the stability, the absolute values of the characteristic multipliers (i.e., the eigenvalues of the monodromy matrix)
+must be less than `smarg-β`, where `smarg` is the discrete-time stability margin (default: `smarg = 1`)  and 
+`β` is an offset specified via the keyword parameter `offset = β` to be used to numerically assess the stability
+of eigenvalues. The default value used for `β` is `sqrt(ϵ)`, where `ϵ` is the working machine precision. 
+
+The monodromy matrix is determined as a product `K` state transition matrices (default: `K = 1`) 
+computed by integrating numerically a homogeneous linear ODE with periodic coefficients 
+(see function [`monodromy`](@ref) for options which can be specified via the keyword arguments `kwargs`).
+If `fast = false` (default) then the characteristic multipliers are computed using an approach
+based on the periodic Schur decomposition [1], while if `fast = true` 
+the structure exploiting reduction [2] of an appropriate lifted pencil is employed. 
+This later option may occasionally lead to inaccurate results for large number of matrices. 
+
+_References_
+
+[1] A. Bojanczyk, G. Golub, and P. Van Dooren, 
+    The periodic Schur decomposition. Algorithms and applications, Proc. SPIE 1996.
+
+[2] A. Varga & P. Van Dooren. Computing the zeros of periodic descriptor systems.
+    Systems and Control Letters, 50:371-381, 2003.
+"""
+function isstable(psys::PeriodicStateSpace{<: AbstractPeriodicArray{:c,T}}, K::Int = 1; smarg::Real = 1, 
+                  fast::Bool = false, offset::Real = sqrt(eps(float(real(T)))), kwargs...) where T
+    ev = pseig(monodromy(convert(PeriodicFunctionMatrix,psys.A), K; kwargs...); fast)
+    return all(abs.(ev) .< smarg-abs(offset))
+end
+"""
+    isstable(psys; smarg = 1, fast = false, offset = sqrt(ϵ)) -> Bool
+
+Return `true` if the discrete-time periodic system `psys` has only stable characteristic multipliers and `false` otherwise. 
+    
+To assess the stability, the absolute values of the characteristic multipliers (i.e., the eigenvalues of the monodromy matrix)
+must be less than `smarg-β`, where `smarg` is the discrete-time stability margin (default: `smarg = 1`)  and 
+`β` is an offset specified via the keyword parameter `offset = β` to be used to numerically assess the stability
+of eigenvalues. The default value used for `β` is `sqrt(ϵ)`, where `ϵ` is the working machine precision. 
+
+If `fast = false` (default) then the characteristic multipliers are computed using an approach
+based on the periodic Schur decomposition [1], while if `fast = true` 
+the structure exploiting reduction [2] of an appropriate lifted pencil is employed. 
+This later option may occasionally lead to inaccurate results for large number of matrices. 
+
+_References_
+
+[1] A. Bojanczyk, G. Golub, and P. Van Dooren, 
+    The periodic Schur decomposition. Algorithms and applications, Proc. SPIE 1996.
+
+[2] A. Varga & P. Van Dooren. Computing the zeros of periodic descriptor systems.
+    Systems and Control Letters, 50:371-381, 2003.
+"""
+function isstable(psys::PeriodicStateSpace{<: AbstractPeriodicArray{:d,T}}; smarg::Real = 1, fast::Bool = false, 
+                  offset::Real = sqrt(eps(float(real(T))))) where T
+    ev = pseig(psys.A; fast)
+    return all(abs.(ev) .< smarg-abs(offset))
+end

@@ -145,6 +145,10 @@ psys1 = ps(FourierFunctionMatrix,a,b,c,d)
 z1 = pszero(psys1,30,atol=1.e-7)
 @test any(isinf.(z1)) 
 
+psys2 = ps(a,b,c,d); 
+z2 = pszero(psys2,30,atol=1.e-7)
+@test any(isinf.(z2)) 
+
 
 # Bitanti-Colaneri's book p.26 
 a = PeriodicFunctionMatrix(t -> [-1+sin(t) 0; 1-cos(t) -3],2*pi);
@@ -175,6 +179,9 @@ ev1 = pspole(psysc,30)
 z1 = pszero(psysc,atol=1.e-7)
 @test minimum(abs.(z1.-ρ)) < 1.e-10  && any(isinf.(z1))
 
+psys2 = ps(a,b,c,d); 
+z2 = pszero(psys2,30,atol=1.e-7)
+@test z2 ≈ [ρ;Inf]
 
 
 # Zhou-Hagiwara Automatica 2002 
@@ -182,7 +189,7 @@ z1 = pszero(psysc,atol=1.e-7)
 a1 = PeriodicFunctionMatrix(t -> [-1-sin(2*t)^2 2-0.5*sin(4*t); -2-0.5*sin(4*t) -1-cos(2*t)^2],pi);
 #γ(t) = mod(t,pi) < pi/2 ? sin(2*t) : 0 
 γ = chop(Fun(t -> mod(t,pi) < pi/2 ? sin(2*t) : 0, Fourier(0..pi)),1.e-7);
-b1 = PeriodicFunctionMatrix(t ->  [0; 1-2*β*(mod(t,float(pi)) < pi/2 ? sin(2*t) : 0 )], pi); 
+#b1 = PeriodicFunctionMatrix(t ->  [0; 1-2*β*(mod(t,float(pi)) < pi/2 ? sin(2*t) : 0 )], pi); 
 b1 = PeriodicFunctionMatrix(t ->  [0; 1-2*β*γ(t)], pi); 
 c = [1 1]; d = [0];
 
@@ -202,6 +209,11 @@ ev = pspole(psysc)
 
 z = pszero(psysc,30,atol=1.e-7)
 @test z ≈ [-3.5;Inf]
+
+psys2 = ps(a1,b1,c,d); 
+z2 = pszero(psys2,30,atol=1.e-7)
+@test z2 ≈  [-3.5;Inf]
+
 
 # Zhou IEEE TAC 2009 
 β = 0.5
@@ -224,6 +236,9 @@ ev = pspole(psysc)
 z = pszero(psysc,30,atol=1.e-7)
 @test z ≈ [-1.5;Inf]
 
+psys2 = ps(a1,b1,c,d); 
+z2 = pszero(psys2,30,atol=1.e-7)
+@test z2 ≈  [-1.5;Inf]
 
 # # Ziegler's column
 
@@ -253,26 +268,90 @@ ev = pspole(psys)
 ev1 = pspole(psys,7)
 @test sort(ev) ≈ sort([2,0]) ≈ sort(ev1) ≈ sort(gpole(ps2ls(psys))).^(1/6)
 
-Ad = PeriodicMatrix([[4. 0], [1;1]],2);
-Bd = PeriodicMatrix( [[ 1 ], [ 1; 1]] ,2);
-Cd = PeriodicMatrix( [[ 1 1 ], [ 1 ]] ,2);
+z = pszero(psys)
+z1 = gzero(ps2ls(psys))
+@test all(abs.(z[isfinite.(z)].^6-z1[isfinite.(z1)]) .< 1.e-8) && length(z[isinf.(z)]) == length(z1[isinf.(z1)])
+
+
+Ad = PeriodicMatrix([[4. 0], [1;1], [2 0;0 1]],3);
+Bd = PeriodicMatrix( [[ 1 ], [ 1; 1], [1;2]] ,3);
+Cd = PeriodicMatrix( [[ 1 1 ], [ 1 ], [1 0]] ,3);
 Dd = PeriodicMatrix( [[ 1 ]], 1); 
 psys = PeriodicStateSpace(Ad,Bd,Cd,Dd);
 ev = pspole(psys)
 @test sort(ev) ≈ sort([2,0])
 ev1 = pspole(psys,2)
-@test ev1 ≈ [2] ≈ gpole(ps2ls(psys,2)).^(1/2)
+@test ev1 ≈ [2] ≈ gpole(ps2ls(psys,2)).^(1/3)
+
+z = pszero(psys)
+z1 = gzero(ps2ls(psys))
+@test all(abs.(z[isfinite.(z)].^3-z1[isfinite.(z1)]) .< 1.e-8) && length(z[isinf.(z)]) == length(z1[isinf.(z1)])
+
+Ad = PeriodicMatrix([[1. 2], [7;8]],2);
+Bd = PeriodicMatrix( [[ 3 ], [ 9; 10]] ,2);
+Cd = PeriodicMatrix( [[ 4 5 ], [ 11 ]] ,2);
+Dd = PeriodicMatrix( [[ 0 ]], 1); 
+psys = PeriodicStateSpace(Ad,Bd,Cd,Dd);
+
+z = pszero(psys)
+z1 = gzero(ps2ls(psys))
+@test all(abs.(z[isfinite.(z)].^2-z1[isfinite.(z1)]) .< 1.e-8) && length(z[isinf.(z)]) == length(z1[isinf.(z1)])
+
+z = pszero(psys,2)
+z1 = gzero(ps2ls(psys,2))
+@test all(abs.(z[isfinite.(z)].^2-z1[isfinite.(z1)]) .< 1.e-8) && length(z[isinf.(z)]) == length(z1[isinf.(z1)])
+
+psysa = convert(PeriodicStateSpace{PeriodicArray},psys)
+za = pszero(psysa)
+za1 = gzero(ps2ls(psysa))
+@test all(abs.(za[isfinite.(za)].^2-za1[isfinite.(za1)]) .< 1.e-8) && length(za[isinf.(za)]) == length(za1[isinf.(za1)])
+
+za = pszero(psysa,2)
+za1 = gzero(ps2ls(psysa,2))
+@test all(abs.(za[isfinite.(za)].^2-za1[isfinite.(za1)]) .< 1.e-8) && length(za[isinf.(za)]) == length(za1[isinf.(za1)])
+
 
 # periodic array representation
 Ad = PeriodicArray(rand(Float32,2,2,10),10);
 Bd = PeriodicArray(rand(2,1,2),2);
 Cd = PeriodicArray(rand(1,2,3),3);
-Dd = PeriodicArray(rand(1,1,1), 1);
+Dd = PeriodicArray(zeros(1,1,1), 1);
 psys = PeriodicStateSpace(Ad,Bd,Cd,Dd); 
 ev = pspole(psys)
 ev1 = pspole(psys; fast = true)
 @test sort(real(ev)) ≈ sort(real(ev1)) && norm(sort(imag(ev))-sort(imag(ev1))) < 1.e-7
 
+z = pszero(psys,atol=1.e-7)
+z1 = gzero(ps2ls(psys),atol=1.e-7)
+@test all(abs.(z[isfinite.(z)].^30-z1[isfinite.(z1)]) .< 1.e-8) && length(z[isinf.(z)]) == length(z1[isinf.(z1)])
+
+
+# Pitelkau's example
+ω = 0.00103448
+period = 2*pi/ω
+a = [  0            0     5.318064566757217e-02                         0
+       0            0                         0      5.318064566757217e-02
+       -1.352134256362805e-03   0             0    -7.099273035392090e-02
+       0    -7.557182037479544e-04     3.781555288420663e-02             0 
+];
+b = t->[0; 0; 0.1389735*10^-6*sin(ω*t); -0.3701336*10^-7*cos(ω*t)];
+c = [1 0 0 0;0 1 0 0];
+d = zeros(2,1);
+psysc = ps(a,PeriodicFunctionMatrix(b,period),c,d);
+@time evc = pspole(psysc)
+@test all(abs.(real(evc)) .< 1.e-10)
+
+zc = pszero(psysc)
+@test all(isinf.(zc))
+
+
+K = 120;
+@time psys = psc2d(psysc,period/K,reltol = 1.e-10);
+@time evd = pspole(psys)
+@test all(abs.(evd) .≈ 1)
+
+zd = pszero(psys,atol=1.e-7)
+@test all(isinf.(zd))
 
 end # test
 
