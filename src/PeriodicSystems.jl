@@ -57,6 +57,6 @@ include("ps.jl")
 include("conversions.jl")
 include("pslifting.jl")
 include("psanalysis.jl")
-include("pslyap.jl")
+#include("pslyap.jl")
 include("psutils.jl")
 end
