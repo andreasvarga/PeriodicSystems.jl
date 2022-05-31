@@ -1,6 +1,11 @@
 # Release Notes
 
-## Version 0.3 (WIP)
+## Version 0.3.1
+
+This patch version relies on a new wrapper for the SLICOT subroutine MB03VW available in release v5.8 and
+includes several new functions for the computation of periodic Hessenberg and Schur decompositions. 
+
+## Version 0.3 
 
 This minor version includes new functions for the computation of poles and zeros of periodic systems. 
 

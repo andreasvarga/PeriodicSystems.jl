@@ -97,6 +97,73 @@ end
 
 
 """
+    mb03vw!(compq::AbstractChar, triu::AbstractChar, qind::AbstractVector{Int64}, k::Integer, n::Integer, h::Integer, 
+            ilo::Integer, ihi::Integer, s::AbstractVector{Int64}, a::Array{Float64, 3}, q::Array{Float64, 3}, 
+            liwork::Integer, ldwork::Integer) -> info::Int64
+
+Reduce the generalized matrix product
+
+              s[1]           s[2]                 s[k]
+      A[:,:,1]     * A[:,:,2]     * ... * A[:,:,k]
+
+to upper Hessenberg-triangular form, where A is N-by-N-by-K and S
+is the signature array with values 1 or -1. The H-th matrix of A
+is reduced to upper Hessenberg form while the other matrices are
+triangularized. 
+
+If `compq = 'U'` or `compq = 'I'`, then the orthogonal factors are
+computed and stored in the array `Q` so that for `s[i] = 1`,
+
+                    T
+        Q[:,:,i](in)   A[:,:,i](in)   Q[:,:,mod(i,k)+1](in)
+                                                            T 
+    =   Q[:,:,i](out)  A[:,:,i](out)  Q[:,:,mod(i,k)+1](out),
+
+and for `s[i] = -1`,
+
+                             T
+        Q[:,:,mod(i,k)+1](in)   A[:,:,i](in)   Q[:,:,i](in)
+                                                            T 
+    =   Q[:,:,mod(i,k)+1](out)  A[:,:,i](out)  Q[:,:,i](out).
+
+A partial generation of the orthogonal factors can be realized
+via the array `qind`.
+
+If `triu = 'N'` only matrices with negative signature are reduced to upper
+triangular form in the first stage of the algorithm. 
+If `triu = 'A'` all possible `n-1` matrices with negative signature are reduced. 
+
+See the SLICOT documentation of `MB03VW` for details.
+"""
+function mb03vw!(compq::AbstractChar, qind::AbstractVector{BlasInt}, atriu::AbstractChar, 
+    n::Integer, k::Integer, h::Integer, ilo::Integer, ihi::Integer,
+    s::AbstractVector{BlasInt}, a::Array{Float64,3},
+    q::Array{Float64,3}, liwork::Integer, ldwork::Integer)
+
+    lda1 = max(1,stride(a,2))
+    lda2 = max(1,stride(a,3)÷lda1)
+    ldq1 = max(1,stride(q,2))
+    ldq2 = max(1,stride(q,3)÷ldq1)
+    info = Ref{BlasInt}()
+    iwork = Vector{BlasInt}(undef, liwork)
+    dwork = Vector{Float64}(undef, ldwork)
+    hi = (h < 0 || h > k) ? 1 : h
+
+    ccall((:mb03vw_, libslicot), Cvoid, (Ref{UInt8}, Ptr{BlasInt}, 
+            Ref{UInt8}, Ref{BlasInt}, Ref{BlasInt}, Ref{BlasInt}, 
+            Ref{BlasInt}, Ref{BlasInt}, Ptr{BlasInt}, Ptr{Float64}, 
+            Ref{BlasInt}, Ref{BlasInt}, Ptr{Float64}, Ref{BlasInt}, 
+            Ref{BlasInt}, Ptr{BlasInt}, Ref{BlasInt},
+            Ptr{Float64}, Ref{BlasInt}, Ptr{BlasInt}, Clong, Clong), 
+            compq, qind, atriu, n, k, hi,
+            ilo, ihi, s, a, lda1, lda2, q, ldq1, ldq2, 
+            iwork, liwork, dwork, ldwork, info, 1, 1)
+    chkargsok(info[])
+
+    return info[]
+end
+
+"""
     mb03bd!(job::AbstractChar, defl::AbstractChar, compq::AbstractChar, qind::AbstractVector{Int64}, k::Integer, n::Integer, h::Integer, 
             ilo::Integer, ihi::Integer, s::AbstractVector{Int64}, a::Array{Float64, 3}, q::Array{Float64, 3}, alphar::AbstractVector{Float64}, 
             alphai::AbstractVector{Float64}, beta::AbstractVector{Float64}, scal::AbstractVector{Int64}, liwork::Integer, ldwork::Integer) -> (info::Int64, iwarn::Int64)
@@ -167,6 +234,7 @@ function mb03bd!(job::AbstractChar, defl::AbstractChar,
 
     return info[], iwarn[]
 end
+
 
 function mb03bz!(job::AbstractChar, compq::AbstractChar, k::Integer,
     n::Integer, ilo::Integer, ihi::Integer,

@@ -115,13 +115,68 @@ ev = eigvals(A[:,:,2]*A[:,:,1])
       sort(imag(eigs)) ≈ sort(imag(ev))
 
 A1 = [1.5 -.7 3.5 -.7; 1.  0.  2.  3.; 1.5 -.7 2.5 -.3; 1.  0.  2.  1.]; 
-n = 4; K = 18;
-A = reshape(hcat([A1 for i in 1:K]...), n, n, K);
-@time H, Z, ihess = phess(A; rev = false);
-@test check_psim(A,Z,H; rev = false) && istriu(H[:,:,ihess],-1) && ihess == 1
+n = 4; K = 19; hind = 10; rev = false; 
+A = reshape(hcat([rand()*A1 for i in 1:K]...), n, n, K);
+@time H, Z, ihess = phess(A; hind, rev);
+@test check_psim(A,Z,H; rev) && istriu(H[:,:,ihess],-1) && ihess == hind
 
-@time S, Z, eigs, ischur, = pschur(A; rev = false);
-@test check_psim(A,Z,S; rev = false)
+@time H, Z, ihess = phess1(A; hind, rev);
+@test check_psim(A,Z,H; rev) && istriu(H[:,:,ihess],-1) && ihess == hind
+
+@time S, Z, eigs, ischur, = pschur(A; sind = hind, rev);
+@test check_psim(A,Z,S; rev)
+
+@time S, Z, eigs, ischur, = pschur1(A; sind = hind, rev);
+@test check_psim(A,Z,S; rev)
+
+# this would fail
+# n =4; K = 19; hind = 10; rev = false; 
+# A = reshape(hcat([rand()*A1 for i in 1:K]...), n, n, K);
+# @time S, Z, eigs, ischur, = pschur2(A; sind = hind, rev);
+# @test check_psim(A,Z,S; rev)
+
+n =4; K = 15; hind = 10; rev = false; 
+A = reshape(hcat([rand()*A1 for i in 1:K]...), n, n, K);
+@time S, Z, eigs, ischur, = pschur2(A; sind = hind, rev);
+@test check_psim(A,Z,S; rev)
+
+hind = 14; rev = true; 
+@time H, Z, ihess = phess(A; hind, rev);
+@test check_psim(A,Z,H; rev) && istriu(H[:,:,ihess],-1) && ihess == hind
+
+@time H, Z, ihess = phess1(A; hind, rev);
+@test check_psim(A,Z,H; rev) && istriu(H[:,:,ihess],-1) && ihess == hind
+
+@time S, Z, eigs, ischur, = pschur(A; sind = hind, rev);
+@test check_psim(A,Z,S; rev)
+
+@time S, Z, eigs, ischur, = pschur1(A; sind = hind, rev);
+@test check_psim(A,Z,S; rev)
+
+# this would fail
+# n =4; K = 19; hind = 10; rev = false; 
+# A = reshape(hcat([rand()*A1 for i in 1:K]...), n, n, K);
+# @time S, Z, eigs, ischur, = pschur2(A; sind = hind, rev);
+# @test check_psim(A,Z,S; rev)
+
+n =4; K = 15; hind = 10; rev = false; 
+A = reshape(hcat([rand()*A1 for i in 1:K]...), n, n, K);
+@time S, Z, eigs, ischur, = pschur2(A; sind = hind, rev);
+@test check_psim(A,Z,S; rev)
+
+
+A1 = [1.5 -.7 3.5 -.7; 1.  0.  2.  3.; 1.5 -.7 2.5 -.3]; 
+A2 = [1.5 -.7 3.5; 1.  0.  2.; 1.5 -.7 2.5 ; 1.  0.  2.];
+Ai=[A1,A2]; 
+A = [Ai[j] for j = 1:2,  i in 1:9][:]
+
+rev = false; 
+@time S, Z, eigs, ischur, = pschur(A; rev);
+@test check_psim(A,Z,S; rev)
+
+rev = true; 
+@time S, Z, eigs, ischur, = pschur(A; rev);
+@test check_psim(A,Z,S; rev)
 
 # @time S1, Z1, eigs1, ischur1 = pschurw(A; rev = false);
 # @test check_psim(A,Z1,S1; rev = false)
@@ -263,7 +318,7 @@ A = PeriodicMatrix([A1, A2, A3],K);
 ev = eigvals(prod(A.M[K:-1:1])); nmin = minimum(size.(A.M,1))
 @time S, Z, eigs, ischur, α, γ = pschur(A.M; rev = true);
 @test check_psim(A.M,Z,S; rev = true) && istriu(S[ischur][1:nmin,1:nmin],-1) && eigs == α.*γ
-@test sort(real(eigs)) ≈ sort(real(ev)) && 
+@test isapprox(sort(real(eigs)),sort(real(ev)), atol = 1.e-7) && 
       isapprox(sort(imag(eigs)),sort(imag(ev)), atol = 1.e-7)
 
 A = [A3, A2, A1];

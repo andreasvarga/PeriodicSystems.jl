@@ -282,6 +282,8 @@ ev = pspole(psys)
 @test sort(ev) ≈ sort([2,0])
 ev1 = pspole(psys,2)
 @test ev1 ≈ [2] ≈ gpole(ps2ls(psys,2)).^(1/3)
+@test !isstable(psys)
+
 
 z = pszero(psys)
 z1 = gzero(ps2ls(psys))
@@ -340,6 +342,7 @@ d = zeros(2,1);
 psysc = ps(a,PeriodicFunctionMatrix(b,period),c,d);
 @time evc = pspole(psysc)
 @test all(abs.(real(evc)) .< 1.e-10)
+@test !isstable(psysc)
 
 zc = pszero(psysc)
 @test all(isinf.(zc))
@@ -349,6 +352,7 @@ K = 120;
 @time psys = psc2d(psysc,period/K,reltol = 1.e-10);
 @time evd = pspole(psys)
 @test all(abs.(evd) .≈ 1)
+@test !isstable(psys)
 
 zd = pszero(psys,atol=1.e-7)
 @test all(isinf.(zd))

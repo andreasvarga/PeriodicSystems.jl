@@ -19,17 +19,18 @@ using Primes
 using ApproxFun
 
 include("SLICOTtools.jl")
-using .SLICOTtools: mb03vd!, mb03vy!, mb03bd!, mb03wd!
+using .SLICOTtools: mb03vd!, mb03vy!, mb03bd!, mb03wd!, mb03vw!
 
 
 import LinearAlgebra: BlasInt, BlasFloat, BlasReal, BlasComplex, copy_oftype, transpose, adjoint, opnorm, normalize, rdiv!
 import Base: +, -, *, /, \, (==), (!=), ^, isapprox, iszero, convert, promote_op, size, length, ndims, 
              hcat, vcat, hvcat, inv, show, lastindex, require_one_based_indexing, print, show, one, zero, eltype
 import MatrixPencils: isregular, rmeval
+import MatrixEquations: sylvd2!, luslv!
 import DescriptorSystems: isstable
 import Polynomials: AbstractRationalFunction, AbstractPolynomial, poles, isconstant, variable, degree, pqs
 
-export PeriodicStateSpace, pschur, phess, pschurw, psreduc_reg, psreduc_fast, check_psim, mshift, pseig, tvmeval, hreval, tvstm
+export PeriodicStateSpace, pschur, pschur1, pschur2, phess, phess1, psreduc_reg, psreduc_fast, check_psim, mshift, pseig, tvmeval, hreval, tvstm
 export ts2hr, ts2pfm, ts2ffm, pfm2hr, hr2psm, psm2hr, pm2pa, ffm2hr, pmaverage
 export monodromy, psceig
 export PeriodicArray, PeriodicMatrix
@@ -40,6 +41,7 @@ export ps
 export psaverage, psc2d, psmrc2d, psteval
 export ps2fls, hr2bt, hr2btupd, phasemat, ps2frls, DiagDerOp, ps2ls
 export pspole, pszero, isstable
+export dplyaps!, dpsylv2
 
 abstract type AbstractDynamicalSystem end
 abstract type AbstractLTISystem <: AbstractDynamicalSystem end
@@ -55,5 +57,6 @@ include("ps.jl")
 include("conversions.jl")
 include("pslifting.jl")
 include("psanalysis.jl")
+include("pslyap.jl")
 include("psutils.jl")
 end

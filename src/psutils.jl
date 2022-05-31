@@ -463,6 +463,7 @@ end
 
 """
      pschur(A; rev = true, withZ = true) -> (S, Z, ev, ischur, α, γ)
+     pschur1(A; rev = true, withZ = true) -> (S, Z, ev, ischur, α, γ)
 
 Compute the extended periodic Schur decomposition of a square product of matrices 
 `A(p)*...*A(2)*A(1)`, if `rev = true` (default) or `A(1)*A(2)*...*A(p)`
@@ -497,8 +498,102 @@ The eigenvalues can be alternatively expressed as `α .* γ`, where `γ` contain
 scaling parameters to avoid overflows or underflows in the expressions of the eigenvalues. 
 The performed orthogonal transformations are not accumulated if `withZ = false`, 
 in which case `Z = nothing`. 
+
+The function `pschur` is based on wrappers for the SLICOT subroutines `MB03VW` (see [`PeriodicSystems.SLICOTtools.mb03vw!`](@ref))
+ and `MB03BD` (see [`PeriodicSystems.SLICOTtools.mb03bd!`](@ref)), 
+based on algorithms proposed in [1] and [2].
+   
+The function `pschur1` is based on wrappers for the SLICOT subroutines `MB03VD` (see [`PeriodicSystems.SLICOTtools.mb03vd!`](@ref)), 
+`MB03VY` (see [`PeriodicSystems.SLICOTtools.mb03vy!`](@ref)),  and `MB03BD` (see [`PeriodicSystems.SLICOTtools.mb03bd!`](@ref)), 
+based on algorithms proposed in [1] and [2].
+
+REFERENCES
+
+[1] Bojanczyk, A., Golub, G. H. and Van Dooren, P.
+    The periodic Schur decomposition: algorithms and applications.
+    In F.T. Luk (editor), Advanced Signal Processing Algorithms,
+    Architectures, and Implementations III, Proc. SPIE Conference,
+    vol. 1770, pp. 31-42, 1992.
+
+[2] Kressner, D.
+    An efficient and reliable implementation of the periodic QZ
+    algorithm. IFAC Workshop on Periodic Control Systems (PSYCO
+    2001), Como (Italy), August 27-28 2001. Periodic Control
+    Systems 2001 (IFAC Proceedings Volumes), Pergamon.
+
 """
 function pschur(A::AbstractVector{Matrix{T}}; rev::Bool = true, withZ::Bool = true) where T
+
+   p = length(A) 
+   mp, np = size.(A,1), size.(A,2) 
+   if rev
+      all(mp .== view(np,mod.(1:p,p).+1)) || 
+        error("the number of columns of A[i+1] must be equal to the number of rows of A[i]")
+   else
+      all(np .== view(mp,mod.(1:p,p).+1)) ||  
+         error("the number of columns of A[i] must be equal to the number of rows of A[i+1]")
+   end
+   sind = argmin(mp)
+   nmin = mp[sind]
+   n = maximum(np)
+
+   #  use ilo = 1 and ihi = n for the reduction to the periodic Hessenberg form
+   ilo = 1; ihi = n
+   St = zeros(Float64, n, n, p)
+   #TAUt = Array{Float64,2}(undef, max(n-1,1), p)
+   if withZ 
+      Zt = Array{Float64,3}(undef, n, n, p) 
+      compQ = 'I'
+   else
+      Zt = Array{Float64,3}(undef, 0, 0, 0)
+      compQ = 'N'
+   end
+    
+   if rev 
+      imap = mod.(Vector(sind+p-1:-1:sind),p) .+ 1
+      [(k = imap[i]; St[1:mp[k],1:np[k],i] = A[k];) for i in 1:p]
+      hc = 1
+   else
+      # shift h, h+1, ..., h+p-1 matrices to position 1, 2, ..., p
+      imap = mod.(Vector(sind-1:sind+p-2),p) .+ 1
+      [(St[1:mp[i],1:np[i],i] = A[i]) for i in 1:p]
+      hc = sind
+   end
+
+   # reduce to periodic Hessenberg form
+   LDWORK = max(2*n,1)
+   LIWORK = max(3*p,1)
+   QIND = Array{BlasInt,1}(undef, 1) 
+   SIND = ones(BlasInt,p)
+
+   SLICOTtools.mb03vw!(compQ, QIND, 'A', n, p, hc, ilo, ihi, SIND, St, Zt, LIWORK, LDWORK)
+   
+   # reduce to periodic Schur form
+   LDWORK = p + max( 2*n, 8*p )
+   LIWORK = 2*p + n
+   ALPHAR = Array{Float64,1}(undef, n)
+   ALPHAI = Array{Float64,1}(undef, n)
+   BETA = Array{Float64,1}(undef, n)
+   SCAL = Array{BlasInt,1}(undef, n)
+   # use ilo = 1 and ihi = nmin
+   withZ && (compQ = 'U')
+   SLICOTtools.mb03bd!('T','C', compQ, QIND, p, n, hc, ilo, nmin, SIND, St, Zt, ALPHAR, ALPHAI, BETA, SCAL, LIWORK, LDWORK)
+   α = complex.(ALPHAR, ALPHAI)
+   γ = 2. .^SCAL
+   ev = α .* γ
+
+   if rev
+      imap1 = mod.(p+sind:-1:sind+1,p).+1
+      return [St[1:mp[i],1:np[i],imap[i]] for i in 1:p], 
+             withZ ? [Zt[1:np[i],1:np[i],imap1[i]] for i in 1:p] : nothing, ev, sind, α, γ
+   else
+      # return back shifted matrices
+      imap1 = mod.(imap.+(sind+1),p).+1
+      return [St[1:mp[i],1:np[i],i] for i in 1:p], 
+             withZ ? [Zt[1:mp[i],1:mp[i],i] for i in 1:p] : nothing, ev, sind, α, γ
+   end
+end
+function pschur1(A::AbstractVector{Matrix{T}}; rev::Bool = true, withZ::Bool = true) where T
 
    p = length(A) 
    mp, np = size.(A,1), size.(A,2) 
@@ -576,7 +671,9 @@ function pschur(A::AbstractVector{Matrix{T}}; rev::Bool = true, withZ::Bool = tr
    end
 end
 """
-     pschur(A; sind = 1, rev = true, withZ = true) -> (S, Z, ev, ischur, α, γ)
+     pschur(A; rev = true, withZ = true) -> (S, Z, ev, ischur, α, γ)
+     pschur1(A; rev = true, withZ = true) -> (S, Z, ev, ischur, α, γ)
+     pschur2(A; rev = true, withZ = true) -> (S, Z, ev, ischur, α, γ)
 
 Compute the Schur decomposition of a product of square matrices 
 `A(p)*...*A(2)*A(1)`, if `rev = true` (default) or `A(1)*A(2)*...*A(p)`
@@ -609,8 +706,90 @@ The eigenvalues can be alternatively expressed as `α .* γ`, where `γ` contain
 scaling parameters to avoid overflows or underflows in the expressions of the eigenvalues. 
 The performed orthogonal transformations are not accumulated if `withZ = false`, 
 in which case `Z = nothing`. 
+
+The function `pschur` is based on wrappers for the SLICOT subroutines `MB03VW`  
+(see [`PeriodicSystems.SLICOTtools.mb03vw!`](@ref)) and `MB03BD`  (see [`PeriodicSystems.SLICOTtools.mb03bd!`](@ref)), 
+based on algorithms proposed in [1] and [2].
+   
+The function `pschur1` is based on wrappers for the SLICOT subroutines `MB03VD`  (see [`PeriodicSystems.SLICOTtools.mb03vd!`](@ref)), 
+`MB03VY`  (see [`PeriodicSystems.SLICOTtools.mb03vy!`](@ref))  and `MB03BD`  (see [`PeriodicSystems.SLICOTtools.mb03bd!`](@ref)), 
+based on algorithms proposed in [1] and [2].
+
+The function `pschur2` is based on wrappers for the SLICOT subroutines `MB03VD`  (see [`PeriodicSystems.SLICOTtools.mb03vd!`](@ref)), 
+`MB03VY`  (see [`PeriodicSystems.SLICOTtools.mb03vy!`](@ref)) and `MB03VW`  (see [`PeriodicSystems.SLICOTtools.mb03vw!`](@ref)), 
+based on the algorithm proposed in [1]. Known issue: `MB03VW` may fails for larger periods. 
+
+REFERENCES
+
+[1] Bojanczyk, A., Golub, G. H. and Van Dooren, P.
+    The periodic Schur decomposition: algorithms and applications.
+    In F.T. Luk (editor), Advanced Signal Processing Algorithms,
+    Architectures, and Implementations III, Proc. SPIE Conference,
+    vol. 1770, pp. 31-42, 1992.
+
+[2] Kressner, D.
+    An efficient and reliable implementation of the periodic QZ
+    algorithm. IFAC Workshop on Periodic Control Systems (PSYCO
+    2001), Como (Italy), August 27-28 2001. Periodic Control
+    Systems 2001 (IFAC Proceedings Volumes), Pergamon.
+
+
 """
 function pschur(A::Array{Float64,3}; rev::Bool = true, sind::Int = 1, withZ::Bool = true)
+   n = size(A,1)
+   n == size(A,2) || error("A must have equal first and second dimensions") 
+   p = size(A,3)
+   (sind < 1 || sind > p) && error("sind is out of range $(1:p)") 
+
+   #  use ilo = 1 and ihi = n for the reduction to the periodic Hessenberg form
+   ilo = 1; ihi = n; 
+   #TAU = Array{Float64,2}(undef, max(n-1,1), p)
+   
+   if withZ 
+      Z = Array{Float64,3}(undef, n, n, p) 
+      compQ = 'I'
+   else
+      Z = Array{Float64,3}(undef, 0, 0, 0)
+      compQ = 'N'
+   end
+
+   if rev
+      imap = mod.(Vector(sind+p-1:-1:sind),p) .+ 1
+      S = A[:,:,imap]
+      hc = 1
+   else
+      S = copy(A)
+      hc = sind  
+   end
+
+   # reduce to periodic Hessenberg form
+   LDWORK = max(2*n,1)
+   LIWORK = max(3*p,1)
+   QIND = Array{BlasInt,1}(undef, 1) 
+   SIND = ones(BlasInt,p)
+
+   SLICOTtools.mb03vw!(compQ, QIND, 'A', n, p, hc, ilo, ihi, SIND, S, Z, LIWORK, LDWORK)
+
+   # reduce to periodic Schur form
+   LDWORK = p + max( 2*n, 8*p )
+   LIWORK = 2*p + n
+   ALPHAR = Array{Float64,1}(undef, n)
+   ALPHAI = Array{Float64,1}(undef, n)
+   BETA = Array{Float64,1}(undef, n)
+   SCAL = Array{BlasInt,1}(undef, n)
+   withZ && (compQ = 'U')
+   SLICOTtools.mb03bd!('T','C',compQ, QIND, p, n, hc, ilo, ihi, SIND, S, Z, ALPHAR, ALPHAI, BETA, SCAL, LIWORK, LDWORK)
+   α = complex.(ALPHAR, ALPHAI)
+   γ = 2. .^SCAL
+   ev = α .* γ
+
+   if rev
+      return S[:,:,imap], withZ ? Z[:,:,mod.(p+sind:-1:sind+1,p).+1] : nothing, ev, sind, α, γ
+   else
+      return S, withZ ? Z : nothing, ev, sind, α, γ
+   end
+end
+function pschur1(A::Array{Float64,3}; rev::Bool = true, sind::Int = 1, withZ::Bool = true)
    n = size(A,1)
    n == size(A,2) || error("A must have equal first and second dimensions") 
    p = size(A,3)
@@ -683,7 +862,7 @@ function pschur(A::Array{Float64,3}; rev::Bool = true, sind::Int = 1, withZ::Boo
         return S[:,:,imap], withZ ? Z[:,:,mod.(p+sind:-1:sind+1,p).+1] : nothing, ev, sind, α, γ
      else
         # return back shifted matrices
-        imap1 = mod.(imap.+(sind+1),p).+1
+        imap1 = invperm(imap)
         return S[:,:,imap1], withZ ? Z[:,:,imap1] : nothing, ev, sind, α, γ
      end
    else
@@ -694,91 +873,92 @@ function pschur(A::Array{Float64,3}; rev::Bool = true, sind::Int = 1, withZ::Boo
      end
   end
 end
-# function pschurw(A::Array{Float64,3}; rev::Bool = true, sind::Int = 1, withZ::Bool = true)
-#    n = size(A,1)
-#    n == size(A,2) || error("A must have equal first and second dimensions") 
-#    p = size(A,3)
-#    (sind < 1 || sind > p) && error("sind is out of range $(1:p)") 
+function pschur2(A::Array{Float64,3}; rev::Bool = true, sind::Int = 1, withZ::Bool = true)
+   n = size(A,1)
+   n == size(A,2) || error("A must have equal first and second dimensions") 
+   p = size(A,3)
+   (sind < 1 || sind > p) && error("sind is out of range $(1:p)") 
 
-#    shift = (sind != 1)
-#    #  use ilo = 1 and ihi = n for the reduction to the periodic Hessenberg form
-#    ilo = 1; ihi = n; 
-#    TAU = Array{Float64,2}(undef, max(n-1,1), p)
+   shift = (sind != 1)
+   #  use ilo = 1 and ihi = n for the reduction to the periodic Hessenberg form
+   ilo = 1; ihi = n; 
+   TAU = Array{Float64,2}(undef, max(n-1,1), p)
    
-#    if withZ 
-#       Z = Array{Float64,3}(undef, n, n, p) 
-#       compQ = 'V'
-#    else
-#       Z = Array{Float64,3}(undef, 0, 0, 0)
-#       compQ = 'N'
-#    end
+   if withZ 
+      Z = Array{Float64,3}(undef, n, n, p) 
+      compQ = 'V'
+   else
+      Z = Array{Float64,3}(undef, 0, 0, 0)
+      compQ = 'N'
+   end
 
-#    if shift 
-#      if rev 
-#         imap = mod.(Vector(sind+p-1:-1:sind),p) .+ 1
-#         S = A[:,:,imap]
-#     else
-#         # shift h, h+1, ..., h+p-1 matrices to position 1, 2, ..., p
-#         imap = mod.(Vector(sind-1:sind+p-2),p) .+ 1
-#         #rev && (ind = reverse(ind); h = p-hind+1 )
-#         S = copy(view(A,:,:,imap))
-#      end
-#    else
-#       if rev 
-#          imap = mod.(Vector(p:-1:1),p) .+ 1
-#          S = A[:,:,imap]
-#       else
-#          S = copy(A); imap = 1:p; 
-#       end
-#    end
+   if shift 
+     if rev 
+        imap = mod.(Vector(sind+p-1:-1:sind),p) .+ 1
+        S = A[:,:,imap]
+    else
+        # shift h, h+1, ..., h+p-1 matrices to position 1, 2, ..., p
+        imap = mod.(Vector(sind-1:sind+p-2),p) .+ 1
+        #rev && (ind = reverse(ind); h = p-hind+1 )
+        S = copy(view(A,:,:,imap))
+     end
+   else
+      if rev 
+         imap = mod.(Vector(p:-1:1),p) .+ 1
+         S = A[:,:,imap]
+      else
+         S = copy(A); imap = 1:p; 
+      end
+   end
 
-#    # reduce to periodic Hessenberg form
-#    SLICOTtools.mb03vd!(n, p, ilo, ihi,  S, TAU)
-#    for i in 1:p
-#        withZ && (Z[:,:,i] .= tril(view(S,:,:,i)))    
-#        if n > 1 
-#           if n > 2 && i == 1 
-#              triu!(view(S,:,:,i),-1)  
-#           elseif i > 1 
-#              triu!(view(S,:,:,i))
-#           end 
-#        end 
-#    end 
+   # reduce to periodic Hessenberg form
+   SLICOTtools.mb03vd!(n, p, ilo, ihi,  S, TAU)
+   for i in 1:p
+       withZ && (Z[:,:,i] .= tril(view(S,:,:,i)))    
+       if n > 1 
+          if n > 2 && i == 1 
+             triu!(view(S,:,:,i),-1)  
+          elseif i > 1 
+             triu!(view(S,:,:,i))
+          end 
+       end 
+   end 
    
-#    # accumulate transformations
-#    withZ && SLICOTtools.mb03vy!(n, p, ilo, ihi, Z, TAU)
+   # accumulate transformations
+   withZ && SLICOTtools.mb03vy!(n, p, ilo, ihi, Z, TAU)
 
 
-#    # reduce to periodic Schur form
-#    LDWORK = p + max( 2*n, 8*p )
-#    LIWORK = 2*p + n
-#    QIND = Array{BlasInt,1}(undef, 1) 
-#    ALPHAR = Array{Float64,1}(undef, n)
-#    ALPHAI = Array{Float64,1}(undef, n)
-#    BETA = Array{Float64,1}(undef, n)
-#    SCAL = Array{BlasInt,1}(undef, n)
-#    SLICOTtools.mb03wd!('S',compQ, n, p, ilo, ihi, ilo, ihi, S, Z, ALPHAR, ALPHAI, LDWORK)
-#    ev = complex.(ALPHAR, ALPHAI)
+   # reduce to periodic Schur form
+   LDWORK = p + max( 2*n, 8*p )
+   LIWORK = 2*p + n
+   QIND = Array{BlasInt,1}(undef, 1) 
+   ALPHAR = Array{Float64,1}(undef, n)
+   ALPHAI = Array{Float64,1}(undef, n)
+   BETA = Array{Float64,1}(undef, n)
+   SCAL = Array{BlasInt,1}(undef, n)
+   SLICOTtools.mb03wd!('S',compQ, n, p, ilo, ihi, ilo, ihi, S, Z, ALPHAR, ALPHAI, LDWORK)
+   ev = complex.(ALPHAR, ALPHAI)
 
-#    if shift
-#      if rev
-#         return S[:,:,imap], withZ ? Z[:,:,mod.(p+sind:-1:sind+1,p).+1] : nothing, ev, sind
-#      else
-#         # return back shifted matrices
-#         imap1 = mod.(imap.+(sind+1),p).+1
-#         return S[:,:,imap1], withZ ? Z[:,:,imap1] : nothing, ev, sind
-#      end
-#    else
-#      if rev 
-#         return S[:,:,imap], withZ ? Z[:,:,mod.(p+1:-1:2,p).+1] : nothing, ev, sind
-#      else
-#         return S, withZ ? Z : nothing, ev, sind
-#      end
-#   end
-# end
+   if shift
+     if rev
+        return S[:,:,imap], withZ ? Z[:,:,mod.(p+sind:-1:sind+1,p).+1] : nothing, ev, sind
+     else
+        # return back shifted matrices
+        imap1 = invperm(imap)
+        return S[:,:,imap1], withZ ? Z[:,:,imap1] : nothing, ev, sind
+     end
+   else
+     if rev 
+        return S[:,:,imap], withZ ? Z[:,:,mod.(p+1:-1:2,p).+1] : nothing, ev, sind
+     else
+        return S, withZ ? Z : nothing, ev, sind
+     end
+  end
+end
 
 """
      phess(A; hind = 1, rev = true, withZ = true) -> (H, Z, ihess)
+     phess1(A; hind = 1, rev = true, withZ = true) -> (H, Z, ihess)
 
 Compute the Hessenberg decomposition of a product of square matrices 
 `A(p)*...*A(2)*A(1)`, if `rev = true` (default) or `A(1)*A(2)*...*A(p)`
@@ -808,69 +988,113 @@ upper triangular for `i` ``\\neq`` `ihess`.
 `H(i)` and `Z(i)` are contained in `H[:,:,i]` and `Z[:,:,i]`, respectively. 
 The performed orthogonal transformations are not accumulated if `withZ = false`, 
 in which case `Z = nothing`. 
+
+The function `phess` is based on a wrapper for the SLICOT subroutine `MB03VW`
+   (see [`PeriodicSystems.SLICOTtools.mb03vw!`](@ref)).
+   
+The function `phess1` is based on wrappers for the SLICOT subroutines `MB03VD`  
+(see [`PeriodicSystems.SLICOTtools.mb03vd!`](@ref)) and `MB03VY`  (see [`PeriodicSystems.SLICOTtools.mb03vy!`](@ref)).
 """
 function phess(A::AbstractArray{Float64,3}; rev::Bool = true, hind::Int = 1, withZ::Bool = true)
-    n = size(A,1)
-    n == size(A,2) || error("A must have equal first and second dimensions")
-    K = size(A,3)
-    (hind < 1 || hind > K) && error("hind is out of range $(1:K)") 
+   n = size(A,1)
+   n == size(A,2) || error("A must have equal first and second dimensions")
+   K = size(A,3)
+   (hind < 1 || hind > K) && error("hind is out of range $(1:K)") 
 
-    shift = (hind != 1)
-    ilo = 1; ihi = n; 
-    withZ && (Q = Array{Float64,3}(undef, n, n, K))
-    TAU = Array{Float64,2}(undef, max(n-1,1), K)
-    
-    if shift 
+   ilo = 1; ihi = n; 
+   if withZ 
+      Z = Array{Float64,3}(undef, n, n, K) 
+      compQ = 'I'
+   else
+      Z = Array{Float64,3}(undef, 0, 0, 0)
+      compQ = 'N'
+   end
+
+   if rev
+      imap = mod.(Vector(hind+K-1:-1:hind),K) .+ 1
+      H = A[:,:,imap]
+      hc = 1
+   else
+      H = copy(A)
+      hc = hind  
+   end
+
+   # reduce to periodic Hessenberg form
+   LDWORK = max(2*n,1)
+   LIWORK = max(3*K,1)
+   QIND = Array{BlasInt,1}(undef, 1) 
+   
+   SLICOTtools.mb03vw!(compQ, QIND, 'A', n, K, hc, ilo, ihi, ones(BlasInt,K), H, Z, LIWORK, LDWORK)
+
+   if rev
+      return H[:,:,imap], withZ ? Z[:,:,mod.(K+hind:-1:hind+1,K).+1] : nothing, hind
+   else
+      return H, withZ ? Z : nothing, hind
+   end
+end
+function phess1(A::AbstractArray{Float64,3}; rev::Bool = true, hind::Int = 1, withZ::Bool = true)
+   n = size(A,1)
+   n == size(A,2) || error("A must have equal first and second dimensions")
+   K = size(A,3)
+   (hind < 1 || hind > K) && error("hind is out of range $(1:K)") 
+
+   shift = (hind != 1)
+   ilo = 1; ihi = n; 
+   withZ && (Q = Array{Float64,3}(undef, n, n, K))
+   TAU = Array{Float64,2}(undef, max(n-1,1), K)
+   
+   if shift 
+     if rev 
+        imap = mod.(Vector(hind+K-1:-1:hind),K) .+ 1
+        H = A[:,:,imap]
+    else
+        # shift h, h+1, ..., h+K-1 matrices to position 1, 2, ..., K
+        imap = mod.(Vector(hind-1:hind+K-2),K) .+ 1
+        #rev && (ind = reverse(ind); h = K-hind+1 )
+        H = copy(view(A,:,:,imap))
+     end
+   else
       if rev 
-         imap = mod.(Vector(hind+K-1:-1:hind),K) .+ 1
+         imap = mod.(Vector(K:-1:1),K) .+ 1
          H = A[:,:,imap]
-     else
-         # shift h, h+1, ..., h+K-1 matrices to position 1, 2, ..., K
-         imap = mod.(Vector(hind-1:hind+K-2),K) .+ 1
-         #rev && (ind = reverse(ind); h = K-hind+1 )
-         H = copy(view(A,:,:,imap))
-      end
-    else
-       if rev 
-          imap = mod.(Vector(K:-1:1),K) .+ 1
-          H = A[:,:,imap]
-       else
-          H = copy(A); imap = 1:K; 
-       end
-    end
-
-    # reduce to periodic Hessenberg form
-    SLICOTtools.mb03vd!(n, K, ilo, ihi,  H, TAU)
-    for i in 1:K
-        withZ && (Q[:,:,i] .= tril(view(H,:,:,i)))    
-        if n > 1 
-           if ( n>2 && i == 1 )
-              triu!(view(H,:,:,i),-1)
-    
-            elseif ( i>1 )
-               triu!(view(H,:,:,i))
-            end 
-        end 
-    end 
-    
-    # accumulate transformations
-    withZ && SLICOTtools.mb03vy!(n, K, ilo, ihi, Q, TAU)
-
-    if shift
-       if rev
-          return H[:,:,imap], withZ ? Q[:,:,mod.(K+hind:-1:hind+1,K).+1] : nothing, hind
-       else
-          # return back shifted matrices
-          imap1 = mod.(imap.+(hind+1),K).+1
-          return H[:,:,imap1], withZ ? Q[:,:,imap1] : nothing, hind
-       end
-    else
-      if rev 
-         return H[:,:,imap], withZ ? Q[:,:,mod.(K+1:-1:2,K).+1] : nothing, hind
       else
-         return H, withZ ? Q : nothing, hind
+         H = copy(A); imap = 1:K; 
       end
    end
+
+   # reduce to periodic Hessenberg form
+   SLICOTtools.mb03vd!(n, K, ilo, ihi,  H, TAU)
+   for i in 1:K
+       withZ && (Q[:,:,i] .= tril(view(H,:,:,i)))    
+       if n > 1 
+          if ( n>2 && i == 1 )
+             triu!(view(H,:,:,i),-1)
+   
+           elseif ( i>1 )
+              triu!(view(H,:,:,i))
+           end 
+       end 
+   end 
+   
+   # accumulate transformations
+   withZ && SLICOTtools.mb03vy!(n, K, ilo, ihi, Q, TAU)
+
+   if shift
+      if rev
+         return H[:,:,imap], withZ ? Q[:,:,mod.(K+hind:-1:hind+1,K).+1] : nothing, hind
+      else
+         # return back shifted matrices
+         #imap1 = mod.(imap.+(hind+1),K).+1
+         imap1 = invperm(imap)
+         return H[:,:,imap1], withZ ? Q[:,:,imap1] : nothing, hind
+      end
+   else
+     if rev 
+        return H[:,:,imap], withZ ? Q[:,:,mod.(K+1:-1:2,K).+1] : nothing, hind
+     else
+        return H, withZ ? Q : nothing, hind
+     end
+  end
 end
 
 # similarity transformation checks
