@@ -10,6 +10,8 @@
 * **[`tvmeval`](@ref)**  Time response evaluation of a continuous-time periodic matrix. 
 * **[`hreval`](@ref)**  Evaluation of a harmonic array for a numerical or symbolic time value. 
 * **[`pmaverage`](@ref)**  Evaluation of the time averaged matrix of a continuous-time periodic matrix. 
+* **[`pslyapd`](@ref)**  Solution of periodic discrete-time Lyapunov equations using periodic Schur decomposition. 
+* **[`pslyapdkr`](@ref)**  Solution of periodic discrete-time Lyapunov equations using Kronecker product expansions. 
 
 
 ```@docs
@@ -23,4 +25,6 @@ psreduc_reg
 tvmeval
 hreval
 pmaverage
+pslyapd
+pslyapdkr
 ```

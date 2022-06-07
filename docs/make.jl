@@ -19,7 +19,7 @@ makedocs(
    #      "operations.md",
    #      "order_reduction.md",
           "psanalysis.md",
-   #      "factorizations.md",
+          "pslyap.md",
    #      "advanced_operations.md",
    #      "model_matching.md"
          ],

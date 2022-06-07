@@ -41,7 +41,8 @@ export ps
 export psaverage, psc2d, psmrc2d, psteval
 export ps2fls, hr2bt, hr2btupd, phasemat, ps2frls, DiagDerOp, ps2ls
 export pspole, pszero, isstable
-export dplyaps!, dpsylv2
+export prlyap, pflyap, pslyapd, pdlyaps!, dpsylv2, pslyapdkr
+export pmshift
 
 abstract type AbstractDynamicalSystem end
 abstract type AbstractLTISystem <: AbstractDynamicalSystem end
@@ -57,6 +58,7 @@ include("ps.jl")
 include("conversions.jl")
 include("pslifting.jl")
 include("psanalysis.jl")
-#include("pslyap.jl")
+include("pslyap.jl")
+include("pmops.jl")
 include("psutils.jl")
 end

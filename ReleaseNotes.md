@@ -1,9 +1,12 @@
 # Release Notes
 
+## Version 0.4 (WIP)
+
+This minor version includes several new functions for the solution of discrete-time periodic Lyapunov equations and implements basic operations with discrete-time periodic matrices. 
+
 ## Version 0.3.1
 
-This patch version relies on a new wrapper for the SLICOT subroutine MB03VW available in release v5.8 and
-includes several new functions for the computation of periodic Hessenberg and Schur decompositions. 
+This patch version relies on a new wrapper for the SLICOT subroutine MB03VW available in release v5.8 and includes several new functions for the computation of periodic Hessenberg and Schur decompositions. 
 
 ## Version 0.3 
 

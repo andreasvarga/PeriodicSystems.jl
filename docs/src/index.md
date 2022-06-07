@@ -56,6 +56,10 @@ The targeted functionality of this package is described in [1] and will cover bo
 
 **Solving periodic matrix equations**
 
+* **[`prlyap`](@ref)** Solution of reverse-time periodic discrete-time Lyapunov equation. 
+* **[`pflyap`](@ref)**  Solution of forward-time periodic discrete-time Lyapunov equations.
+
+
 **Simplification of periodic system models**
 
 **Periodic output and state feedback controller design** 
