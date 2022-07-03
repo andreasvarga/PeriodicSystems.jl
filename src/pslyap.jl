@@ -20,6 +20,15 @@ function prlyap(A::PeriodicArray, C::PeriodicArray)
    return PeriodicArray(X, period; nperiod = div(K,size(X,3)))
 end
 prlyap(A::PeriodicArray, C::AbstractMatrix) = prlyap(A, PeriodicArray(C, A.Ts; nperiod = 1))
+function prlyap(A::PeriodicMatrix, C::PeriodicMatrix) 
+   A.Ts ≈ C.Ts || error("A and C must have the same sampling time")
+   period = promote_period(A, C)
+   nta = numerator(rationalize(period/A.period))
+   K = nta*A.nperiod*A.dperiod
+   X = pslyapd(A.M, C.M; adj = true)
+   return PeriodicMatrix(X, period; nperiod = div(K,length(X)))
+end
+prlyap(A::PeriodicMatrix, C::AbstractMatrix) = prlyap(A, PeriodicMatrix(C, A.Ts; nperiod = 1))
 """
     pflyap(A, C) -> X
 
@@ -42,6 +51,15 @@ function pflyap(A::PeriodicArray, C::PeriodicArray)
    return PeriodicArray(X, period; nperiod = div(K,size(X,3)))
 end
 pflyap(A::PeriodicArray, C::AbstractMatrix) = pflyap(A, PeriodicArray(C, A.Ts; nperiod = 1))
+function pflyap(A::PeriodicMatrix, C::PeriodicMatrix) 
+   A.Ts ≈ C.Ts || error("A and C must have the same sampling time")
+   period = promote_period(A, C)
+   nta = numerator(rationalize(period/A.period))
+   K = nta*A.nperiod*A.dperiod
+   X = pslyapd(A.M, C.M; adj = false)
+   return PeriodicMatrix(X, period; nperiod = div(K,length(X)))
+end
+pflyap(A::PeriodicMatrix, C::AbstractMatrix) = pflyap(A, PeriodicMatrix(C, A.Ts; nperiod = 1))
 """
     pslyapd(A, C; adj = true) -> X
 
@@ -50,16 +68,17 @@ Solve the periodic discrete-time Lyapunov equation.
 For the square `n`-th order periodic matrices `A(i)`, `i = 1, ..., pa` and 
 `C(i)`, `i = 1, ..., pc`  of periods `pa` and `pc`, respectively, 
 the periodic solution `X(i)`, `i = 1, ..., p` of period `p = lcm(pa,pc)` of the 
-periodic Lyapunov equation is solved:  for `adj = true`,  
+periodic Lyapunov equation is computed:  
 
-    A(i)'*X(i+1)*A(i) + C(i) = X(i), i = 1, ..., p    
+    A(i)'*X(i+1)*A(i) + C(i) = X(i), i = 1, ..., p     for `adj = true`; 
 
-and for `adj = false`   
-
-    A(i)*X(i)*A(i)' + C(i) = X(i+1), i = 1, ..., p.   
+    A(i)*X(i)*A(i)' + C(i) = X(i+1), i = 1, ..., p     for `adj = false`.   
 
 The periodic matrices `A` and `C` are stored in the `n×n×pa` and `n×n×pc` 3-dimensional 
 arrays `A` and `C`, respectively, and `X` results as a `n×n×p` 3-dimensional array.  
+
+Alternatively, the periodic matrices `A` and `C` can be stored in the  `pa`- and `pc`-dimensional
+vectors of matrices `A` and `C`, respectively, and `X` results as a `p`-dimensional vector of matrices.
 
 The periodic discrete analog of the Bartels-Steward method based on the periodic Schur form
 of the periodic matrix `A` is employed [1].
@@ -106,6 +125,61 @@ function pslyapd(A::AbstractArray{T1, 3}, C::AbstractArray{T2, 3}; adj::Bool = t
    end
    return X
 end
+function pslyapd(A::AbstractVector{Matrix{T1}}, C::AbstractVector{Matrix{T2}}; adj::Bool = true) where {T1, T2}
+   pa = length(A) 
+   pc = length(C)
+   ma, na = size.(A,1), size.(A,2) 
+   p = lcm(pa,pc)
+   all(ma .== view(na,mod.(1:pa,pa).+1)) || 
+        error("the number of columns of A[i+1] must be equal to the number of rows of A[i]")
+   if adj
+      all([LinearAlgebra.checksquare(C[mod(i-1,pc)+1]) == na[mod(i-1,pa)+1] for i in 1:p]) ||
+           throw(DimensionMismatch("incompatible dimensions between A and C"))
+   else
+      all([LinearAlgebra.checksquare(C[mod(i-1,pc)+1]) == ma[mod(i-1,pa)+1] for i in 1:p]) ||
+           throw(DimensionMismatch("incompatible dimensions between A and C"))
+   end
+
+   all([issymmetric(C[i]) for i in 1:pc]) || error("all C[i] must be symmetric matrices")
+
+   # sind = argmin(mp)
+   # nmin = mp[sind]
+   n = maximum(na)
+
+
+   T = promote_type(T1, T2)
+   T <: BlasFloat  || (T = promote_type(Float64,T))
+   A1 = zeros(T, n, n, pa)
+   C1 = zeros(T, n, n, pc)
+   [copyto!(view(A1,1:ma[i],1:na[i],i), T.(A[i])) for i in 1:pa]
+   adj ? [copyto!(view(C1,1:na[i],1:na[i],i), T.(C[i])) for i in 1:pc] :
+         [copyto!(view(C1,1:ma[i],1:ma[i],i), T.(C[i])) for i in 1:pc] 
+
+   # Reduce A to Schur form and transform C
+   AS, Q, _, KSCHUR = pschur(A1)
+   
+   # if adj = true: X = Q'*C*Q; if adj = false: X = σQ'*C*σQ
+   X = Array{T,3}(undef, n, n, p)
+
+   for i = 1:p
+       ia = mod(i-1,pa)+1
+       ic = mod(i-1,pc)+1
+       ia1 = mod(i,pa)+1
+
+       X[:,:,i] = adj ? utqu(view(C1,:,:,ic),view(Q,:,:,ia)) : 
+                        utqu(view(C1,:,:,ic),view(Q,:,:,ia1)) 
+   end
+   # solve A'σXA - X + C = 0
+   pdlyaps!(KSCHUR, AS, X; adj)
+
+   #X <- Q*X*Q'
+   for i = 1:p
+       ia = mod(i-1,pa)+1
+       utqu!(view(X,:,:,i),view(Q,:,:,ia)')
+   end
+   return adj ? [X[1:na[mod(i-1,pa)+1],1:na[mod(i-1,pa)+1],i] for i in 1:p] :
+                [X[1:na[mod(i-1,pa)+1],1:na[mod(i-1,pa)+1],i] for i in 1:p]  
+end
 """
      pslyapdkr(A, C; adj = true) -> X
 
@@ -117,38 +191,624 @@ or
 
       A*X*A' + C =  σX, if adj = false, 
 
-where `σ` is the forward shift operator `σX(i) = X(i+1)`.                 
-The Kronecker product expansion of equations is employed. `A` and `C` are
-periodic square matrices, and `A` must not have characteristic multipliers on the unit circle.
-This function is not recommended for large order matrices or large periods.
+where `σ` is the forward shift operator `σX(i) = X(i+1)`.  
+The periodic matrix `A` must not have characteristic multipliers on the unit circle.               
+The periodic matrices `A` and `C` are either stored as 3-dimensional arrays or as
+as vectors of matrices. 
+
+The Kronecker product expansion of equations is employed and therefore 
+this function is not recommended for large order matrices or large periods.
 """
-function pslyapdkr(A::AbstractArray{T, 3}, C::AbstractArray{T, 3}; adj = true) where {T}
-    m, n, pc = size(C)
-    n == LinearAlgebra.checksquare(A[:,:,1]) 
-    m == LinearAlgebra.checksquare(C[:,:,1]) 
-    m == n  || throw(DimensionMismatch("A and C have incompatible dimensions"))
-    pa = size(A,3)
-    n2 = n*n
-    p = lcm(pa,pc)
-    N = p*n2
-    R = zeros(T, N, N)
-    adj ? copyto!(view(R,N-n2+1:N,1:n2),kron(A[:,:,pa]',A[:,:,pa]')) : 
-          copyto!(view(R,1:n2,N-n2+1:N),kron(A[:,:,pa],A[:,:,pa])) 
-    (i2, j2) = adj ? (n2, n2+n2) : (n2+n2, n2)
-    for i = 1:p-1
-        i1 = i2-n2+1
-        j1 = j2-n2+1
-        ia = mod(i-1,pa)+1
-        adj ? copyto!(view(R,i1:i2,j1:j2),kron(A[:,:,ia]',A[:,:,ia]')) : 
-              copyto!(view(R,i1:i2,j1:j2),kron(A[:,:,ia],A[:,:,ia])) 
-        i2 += n2
-        j2 += n2
-    end
-    indc = mod.(0:p-1,pc).+1
-    return adj ? reshape((I-R) \ (C[:,:,indc][:]), n, n, p) : 
-    reshape((I-R) \ (C[:,:,circshift(indc,1)][:]), n, n, p)
+function pslyapdkr(A::AbstractArray{T1, 3}, C::AbstractArray{T2, 3}; adj = true) where {T1, T2}
+   m, n, pc = size(C)
+   n == LinearAlgebra.checksquare(A[:,:,1]) 
+   m == LinearAlgebra.checksquare(C[:,:,1]) 
+   m == n  || throw(DimensionMismatch("A and C have incompatible dimensions"))
+   pa = size(A,3)
+   n2 = n*n
+   p = lcm(pa,pc)
+   N = p*n2
+   R = zeros(promote_type(T1,T2), N, N)
+   if adj
+      copyto!(view(R,1:n2,N-n2+1:N),kron(A[:,:,pa]',A[:,:,pa]')) 
+      i1 = n2+1; j1 = 1 
+      for i = p-1:-1:1         
+          ia = mod(i-1,pa)+1
+          i2 = i1+n2-1
+          j2 = j1+n2-1
+          copyto!(view(R,i1:i2,j1:j2),kron(A[:,:,ia]',A[:,:,ia]')) 
+          i1 = i2+1
+          j1 = j2+1
+      end
+      indc = mod.(p-1:-1:0,pc).+1
+      return reshape((I-R) \ (C[:,:,indc][:]), n, n, p)[:,:,indc] 
+   else
+      copyto!(view(R,1:n2,N-n2+1:N),kron(A[:,:,pa],A[:,:,pa])) 
+      (i2, j2) = (n2+n2, n2)
+      for i = 1:p-1
+          i1 = i2-n2+1
+          j1 = j2-n2+1
+          ia = mod(i-1,pa)+1
+          copyto!(view(R,i1:i2,j1:j2),kron(A[:,:,ia],A[:,:,ia])) 
+          i2 += n2
+          j2 += n2
+      end
+      indc = mod.(-1:p-2,pc).+1
+      return reshape((I-R) \ (C[:,:,indc][:]), n, n, p)
+   end
 end
-function pdlyaps!(KSCHUR::Int, A::StridedArray{T1,3}, C::StridedArray{T1,3}; adj = true) where {T1<:BlasReal}
+function pslyapdkr(A::AbstractVector{Matrix{T1}}, C::AbstractVector{Matrix{T2}}; adj = true) where {T1, T2}
+   pa = length(A) 
+   pc = length(C)
+   ma, na = size.(A,1), size.(A,2) 
+   p = lcm(pa,pc)
+   all(ma .== view(na,mod.(1:pa,pa).+1)) || 
+        error("the number of columns of A[i+1] must be equal to the number of rows of A[i]")
+   if adj
+      all([LinearAlgebra.checksquare(C[mod(i-1,pc)+1]) == na[mod(i-1,pa)+1] for i in 1:p]) ||
+           throw(DimensionMismatch("incompatible dimensions between A and C"))
+   else
+      all([LinearAlgebra.checksquare(C[mod(i-1,pc)+1]) == ma[mod(i-1,pa)+1] for i in 1:p]) ||
+           throw(DimensionMismatch("incompatible dimensions between A and C"))
+   end
+
+   all([issymmetric(C[i]) for i in 1:pc]) || error("all C[i] must be symmetric matrices")
+   
+   T = promote_type(T1,T2)
+   m2 = ma.^2
+   n2 = na.^2
+   mn = ma.*na
+   p = lcm(pa,pc)
+   N = adj ? sum(m2) : sum(n2)
+   R = zeros(T, N, N)
+   Y = zeros(T, N)
+   
+   if adj 
+      copyto!(view(R,1:n2[pa],N-m2[pa]+1:N),kron(A[pa]',A[pa]')) 
+      copyto!(view(Y,1:n2[pa]),C[pa][:]) 
+      i1 = n2[pa]+1; j1 = 1 
+      for i = p-1:-1:1         
+          ia = mod(i-1,pa)+1
+          ic = mod(i-1,pc)+1
+          i2 = i1+n2[ia]-1
+          j2 = j1+m2[ia]-1
+          copyto!(view(R,i1:i2,j1:j2),kron(A[ia]',A[ia]')) 
+          copyto!(view(Y,i1:i2),C[ic][:]) 
+          i1 = i2+1
+          j1 = j2+1
+      end
+      ldiv!(qr!(I-R),Y)
+      z = Vector{Matrix{T}}(undef,0)
+      i2 = N
+      for i = 1:p 
+          ia = mod(i-1,pa)+1
+          ia1 = mod(i-2,pa)+1
+          i1 = i2-m2[ia1]+1
+          push!(z,reshape(view(Y,i1:i2),ma[ia1],ma[ia1]))
+          i2 = i1-1
+      end
+      return z
+   else
+      copyto!(view(R,1:m2[pa],N-n2[pa]+1:N),kron(A[pa],A[pa])) 
+      copyto!(view(Y,1:m2[pa]),C[pa][:]) 
+      i1 = m2[pa]+1; j1 = 1 
+      for i = 1:p-1
+          ia = mod(i-1,pa)+1
+          ic = mod(i-1,pc)+1
+          i2 = i1+m2[ia]-1
+          j2 = j1+n2[ia]-1
+          copyto!(view(R,i1:i2,j1:j2),kron(A[ia],A[ia])) 
+          copyto!(view(Y,i1:i2),C[ic][:]) 
+          i1 = i2+1
+          j1 = j2+1
+      end
+      ldiv!(qr!(I-R),Y)
+      z = Vector{Matrix{T}}(undef,0)
+      i1 = 1
+      for i = 1:p 
+          ia = mod(i-1,pa)+1
+          i2 = i1+n2[ia]-1
+          push!(z,reshape(view(Y,i1:i2),na[ia],na[ia]))
+          i1 = i2+1
+      end
+      return z
+   end
+end  
+
+function pdlyaps!(KSCHUR::Int, A::AbstractArray{T1,3}, C::AbstractArray{T1,3}; adj = true) where {T1<:BlasReal}
+   # Standard solver for A in a periodic Schur form, with structure exploiting solution of
+   # the underlying 2x2 periodic Sylvester equations. 
+   n = LinearAlgebra.checksquare(A[:,:,1])
+   pa = size(A,3)
+   pc = size(C,3)
+   (LinearAlgebra.checksquare(C[:,:,1]) == n && all([issymmetric(C[:,:,i]) for i in 1:pc])) ||
+      throw(DimensionMismatch("all C[:,:,i] must be $n x $n symmetric matrices"))
+   rem(pc,pa) == 0 || error("the period of C must be an integer multiple of A")
+   (KSCHUR <= 0 || KSCHUR > pa ) && 
+         error("KSCHUR has a value $KSCHUR, which is inconsistent with A ")
+
+   if pa == 1 && pc == 1   
+      lyapds!(view(A,:,:,1), view(C,:,:,1); adj)
+      return #C[:,:,:]
+   end
+   ONE = one(T1)
+
+   # allocate cache for 2x2 periodic Sylvester solver
+   G = Array{T1,3}(undef,2,2,pc)
+   WUSD = Array{Float64,3}(undef,4,4,pc)
+   WUD = Array{Float64,3}(undef,4,4,pc)
+   WUL = Matrix{Float64}(undef,4*pc,4)
+   WY = Vector{Float64}(undef,4*pc)
+   W = Matrix{Float64}(undef,8,8)
+
+   # determine the dimensions of the diagonal blocks of real Schur form
+   ba, p = MatrixEquations.sfstruct(A[:,:,KSCHUR])
+   if adj
+      #
+      # Solve    A(j)'*X(j+1)*A(j) + C(j) = X(j) .
+      #
+      # The (K,L)th blocks of X(j), j = 1, ..., p are determined
+      # starting from upper-left corner column by column by
+      #
+      #   A(j)(K,K)'*X(j+1)(K,L)*A(j)(L,L) - X(j)(K,L) = -C(j)(K,L) - R(j)(K,L)
+      #
+      # where
+      #                K              L-1
+      #   R(j)(K,L) = SUM {A(j)(I,K)'*SUM [X(j+1)(I,J)*A(j)(J,L)]}
+      #               I=1             J=1
+      #             
+      #                 K-1
+      #             +  {SUM [A(j)(I,K)'*X(j+1)(I,L)]}*A(j)(L,L)
+      #                 I=1
+      i = 1
+      @inbounds  for kk = 1:p
+          dk = ba[kk]
+          k = i:i+dk-1
+          j = 1
+          ir = 1:i-1
+          for ll = 1:kk
+              dl = ba[ll]
+              j1 = j+dl-1
+              l = j:j1
+              Ckl = view(C,k,l,1:pc)
+              y = view(G,1:dk,1:dl,1:pc)
+              copyto!(y,Ckl)
+              if kk > 1
+                 # C(j+1)[l,k] = C(j+1)[l,ir]*A(j)[ir,k]
+                 ic = 1:j1
+                 for ii = 1:pc
+                     ia = mod(ii-1,pa)+1
+                     ii1 = mod(ii,pc)+1
+                     mul!(view(C,l,k,ii1),view(C,l,ir,ii1),view(A,ir,k,ia))
+                     #y += C(j+1)[ic,k]'*A(j)[ic,l]
+                     mul!(view(y,:,:,ii),transpose(view(C,ic,k,ii1)),view(A,ic,l,ia),ONE,ONE)
+                 end
+              end
+              dpsylv2krsol!(adj, dk, dl, KSCHUR, view(A,k,k,1:pa), view(A,l,l,1:pa), y, WUD, WUSD, WUL, WY, W) 
+              #dpsylv2!(adj, dk, dl, KSCHUR, view(A,k,k,1:pa), view(A,l,l,1:pa), y, WZ, WY)
+              copyto!(Ckl,y)
+              if ll == kk && dl == 2
+                 for ii = 1:pc
+                     temp = 0.5*(Ckl[1,2,ii]+Ckl[2,1,ii])
+                     Ckl[1,2,ii] = temp; Ckl[2,1,ii] = temp
+                 end
+              end
+              j += dl
+              if ll < kk
+                 # C(j+1)[l,k] += C(j+1)[k,l]'*A(j)[k,k]
+                 for ii = 1:pc
+                     ia = mod(ii-1,pa)+1
+                     ii1 = mod(ii,pc)+1
+                     mul!(view(C,l,k,ii1),transpose(view(C,k,l,ii1)),view(A,k,k,ia),ONE,ONE) 
+                 end
+              end
+          end
+          if kk > 1
+             # C(j)[ir,k] = C(j)[k,ir]'
+             for ii = 1:pc
+                 transpose!(view(C,ir,k,ii),view(C,k,ir,ii))
+             end
+          end
+          i += dk
+      end
+   else
+      #
+      # Solve    A(j)*X(j)*A(j)' + C(j) = X(j+1) .
+      #
+      # The (K,L)th block of X(j) is determined starting from
+      # bottom-right corner column by column by
+      #
+      #    A(j)(K,K)*X(j)(K,L)*A(j)(L,L)' - X(j+1)(K,L) = -C(j)(K,L) - R(j)(K,L)
+      #
+      # Where
+      #
+      #                 N               N
+      #    R(j)(K,L) = SUM {A(j)(K,I)* SUM [X(j)(I,J)*A(j)(L,J)']} +
+      #                I=K            J=L+1
+      #              
+      #                N
+      #             { SUM [A(j)(K,J)*X(j)(J,L)]}*A(j)(L,L)'
+      #              J=K+1
+      j = n
+      for ll = p:-1:1
+          dl = ba[ll]
+          l = j-dl+1:j
+          i = n
+          ir = j+1:n
+          for kk = p:-1:ll
+              dk = ba[kk]
+              i1 = i-dk+1
+              k = i1:i
+              Clk = view(C,l,k,1:pc)
+              y = view(G,1:dl,1:dk,1:pc)
+              copyto!(y,Clk)
+              if ll < p
+                 ic = i1:n
+                 for ii = 1:pc
+                     ia = mod(ii-1,pa)+1
+                     # C(j)[k,l] = C(j)[k,ir]*A(j)[l,ir]'
+                     mul!(view(C,k,l,ii),view(C,k,ir,ii),transpose(view(A,l,ir,ia)))
+                     # y += (A(j)[k,ic]*C(j)[ic,l])'
+                     mul!(view(y,:,:,ii),transpose(view(C,ic,l,ii)),transpose(view(A,k,ic,ia)),ONE,ONE)
+                 end
+              end
+              dpsylv2krsol!(adj, dl, dk, KSCHUR, view(A,l,l,1:pa), view(A,k,k,1:pa), y, WUD, WUSD, WUL, WY, W) 
+              #dpsylv2!(adj, dl, dk, KSCHUR, view(A,l,l,1:pa), view(A,k,k,1:pa), y, WZ, WY)
+              copyto!(Clk,y)
+              if ll == kk && dl == 2
+                 for ii = 1:pc
+                     temp = 0.5*(Clk[1,2,ii]+Clk[2,1,ii])
+                     Clk[1,2,ii] = temp; Clk[2,1,ii] = temp
+                 end
+              end
+              i -= dk
+              if i >= j
+                 for ii = 1:pc
+                     ia = mod(ii-1,pa)+1
+                     # C(j)[k,l] += (A(j)[l,l]*C(j)[l,k])'
+                     mul!(view(C,k,l,ii),transpose(view(C,l,k,ii)),transpose(view(A,l,l,ia)),ONE,ONE)
+                 end
+              else
+                 break
+              end
+          end
+          if ll < p
+             ir = i+2:n
+             for ii = 1:pc
+                 # C(j)[ir,l] = C(j)[l,ir]'
+                 transpose!(view(C,ir,l,ii),view(C,l,ir,ii))
+             end
+          end
+          j -= dl
+      end
+   end
+   return #C[:,:,:]
+end
+function pdlyaps3!(KSCHUR::Int, A::AbstractArray{T1,3}, C::AbstractArray{T1,3}; adj = true) where {T1<:BlasReal}
+   # Alternative solver for A in a periodic Schur form, with Kronecker product expansion based solution of
+   # the underlying 2x2 periodic Sylvester equations, using fine structure exploitation of small matrices.
+   n = LinearAlgebra.checksquare(A[:,:,1])
+   pa = size(A,3)
+   pc = size(C,3)
+   (LinearAlgebra.checksquare(C[:,:,1]) == n && all([issymmetric(C[:,:,i]) for i in 1:pc])) ||
+      throw(DimensionMismatch("all C[:,:,i] must be $n x $n symmetric matrices"))
+   rem(pc,pa) == 0 || error("the period of C must be an integer multiple of A")
+   (KSCHUR <= 0 || KSCHUR > pa ) && 
+         error("KSCHUR has a value $KSCHUR, which is inconsistent with A ")
+
+   if pa == 1 && pc == 1   
+      lyapds!(view(A,:,:,1), view(C,:,:,1); adj)
+      return #C[:,:,:]
+   end
+   ONE = one(T1)
+
+   # determine the dimensions of the diagonal blocks of real Schur form
+
+   G = Array{T1,3}(undef,2,2,pc)
+   WZ = Matrix{Float64}(undef,4*pc,max(4*pc,5))
+   WY = Vector{Float64}(undef,4*pc)
+   ba, p = MatrixEquations.sfstruct(A[:,:,KSCHUR])
+   if adj
+      #
+      # Solve    A(j)'*X(j+1)*A(j) + C(j) = X(j) .
+      #
+      # The (K,L)th blocks of X(j), j = 1, ..., p are determined
+      # starting from upper-left corner column by column by
+      #
+      #   A(j)(K,K)'*X(j+1)(K,L)*A(j)(L,L) - X(j)(K,L) = -C(j)(K,L) - R(j)(K,L)
+      #
+      # where
+      #                K              L-1
+      #   R(j)(K,L) = SUM {A(j)(I,K)'*SUM [X(j+1)(I,J)*A(j)(J,L)]}
+      #               I=1             J=1
+      #             
+      #                 K-1
+      #             +  {SUM [A(j)(I,K)'*X(j+1)(I,L)]}*A(j)(L,L)
+      #                 I=1
+      i = 1
+      @inbounds  for kk = 1:p
+          dk = ba[kk]
+          k = i:i+dk-1
+          j = 1
+          ir = 1:i-1
+          for ll = 1:kk
+              dl = ba[ll]
+              j1 = j+dl-1
+              l = j:j1
+              Ckl = view(C,k,l,1:pc)
+              y = view(G,1:dk,1:dl,1:pc)
+              copyto!(y,Ckl)
+              if kk > 1
+                 # C(j+1)[l,k] = C(j+1)[l,ir]*A(j)[ir,k]
+                 ic = 1:j1
+                 for ii = 1:pc
+                     ia = mod(ii-1,pa)+1
+                     ii1 = mod(ii,pc)+1
+                     mul!(view(C,l,k,ii1),view(C,l,ir,ii1),view(A,ir,k,ia))
+                     #y += C(j+1)[ic,k]'*A(j)[ic,l]
+                     mul!(view(y,:,:,ii),transpose(view(C,ic,k,ii1)),view(A,ic,l,ia),ONE,ONE)
+                 end
+              end
+              dpsylv2!(adj, dk, dl, KSCHUR, view(A,k,k,1:pa), view(A,l,l,1:pa), y, WZ, WY)
+              copyto!(Ckl,y)
+              if ll == kk && dl == 2
+                 for ii = 1:pc
+                     temp = 0.5*(Ckl[1,2,ii]+Ckl[2,1,ii])
+                     Ckl[1,2,ii] = temp; Ckl[2,1,ii] = temp
+                 end
+              end
+              j += dl
+              if ll < kk
+                 # C(j+1)[l,k] += C(j+1)[k,l]'*A(j)[k,k]
+                 for ii = 1:pc
+                     ia = mod(ii-1,pa)+1
+                     ii1 = mod(ii,pc)+1
+                     mul!(view(C,l,k,ii1),transpose(view(C,k,l,ii1)),view(A,k,k,ia),ONE,ONE) 
+                 end
+              end
+          end
+          if kk > 1
+             # C(j)[ir,k] = C(j)[k,ir]'
+             for ii = 1:pc
+                 transpose!(view(C,ir,k,ii),view(C,k,ir,ii))
+             end
+          end
+          i += dk
+      end
+   else
+      #
+      # Solve    A(j)*X(j)*A(j)' + C(j) = X(j+1) .
+      #
+      # The (K,L)th block of X(j) is determined starting from
+      # bottom-right corner column by column by
+      #
+      #    A(j)(K,K)*X(j)(K,L)*A(j)(L,L)' - X(j+1)(K,L) = -C(j)(K,L) - R(j)(K,L)
+      #
+      # Where
+      #
+      #                 N               N
+      #    R(j)(K,L) = SUM {A(j)(K,I)* SUM [X(j)(I,J)*A(j)(L,J)']} +
+      #                I=K            J=L+1
+      #              
+      #                N
+      #             { SUM [A(j)(K,J)*X(j)(J,L)]}*A(j)(L,L)'
+      #              J=K+1
+      j = n
+      for ll = p:-1:1
+          dl = ba[ll]
+          l = j-dl+1:j
+          i = n
+          ir = j+1:n
+          for kk = p:-1:ll
+              dk = ba[kk]
+              i1 = i-dk+1
+              k = i1:i
+              Clk = view(C,l,k,1:pc)
+              y = view(G,1:dl,1:dk,1:pc)
+              copyto!(y,Clk)
+              if ll < p
+                 ic = i1:n
+                 for ii = 1:pc
+                     ia = mod(ii-1,pa)+1
+                     # C(j)[k,l] = C(j)[k,ir]*A(j)[l,ir]'
+                     mul!(view(C,k,l,ii),view(C,k,ir,ii),transpose(view(A,l,ir,ia)))
+                     # y += (A(j)[k,ic]*C(j)[ic,l])'
+                     mul!(view(y,:,:,ii),transpose(view(C,ic,l,ii)),transpose(view(A,k,ic,ia)),ONE,ONE)
+                 end
+              end
+              dpsylv2!(adj, dl, dk, KSCHUR, view(A,l,l,1:pa), view(A,k,k,1:pa), y, WZ, WY)
+              copyto!(Clk,y)
+              if ll == kk && dl == 2
+                 for ii = 1:pc
+                     temp = 0.5*(Clk[1,2,ii]+Clk[2,1,ii])
+                     Clk[1,2,ii] = temp; Clk[2,1,ii] = temp
+                 end
+              end
+              i -= dk
+              if i >= j
+                 for ii = 1:pc
+                     ia = mod(ii-1,pa)+1
+                     # C(j)[k,l] += (A(j)[l,l]*C(j)[l,k])'
+                     mul!(view(C,k,l,ii),transpose(view(C,l,k,ii)),transpose(view(A,l,l,ia)),ONE,ONE)
+                 end
+              else
+                 break
+              end
+          end
+          if ll < p
+             ir = i+2:n
+             for ii = 1:pc
+                 # C(j)[ir,l] = C(j)[l,ir]'
+                 transpose!(view(C,ir,l,ii),view(C,l,ir,ii))
+             end
+          end
+          j -= dl
+      end
+   end
+   return #C[:,:,:]
+end
+function pdlyaps2!(KSCHUR::Int, A::AbstractArray{T1,3}, C::AbstractArray{T1,3}; adj = true) where {T1<:BlasReal}
+   # Alternative solver for A in a periodic Schur form, with Kronecker product expansion based solution of
+   # the underlying 2x2 periodic Sylvester equations. No fine structure exploitation is implemented.
+   n = LinearAlgebra.checksquare(A[:,:,1])
+   pa = size(A,3)
+   pc = size(C,3)
+   (LinearAlgebra.checksquare(C[:,:,1]) == n && all([issymmetric(C[:,:,i]) for i in 1:pc])) ||
+      throw(DimensionMismatch("all C[:,:,i] must be $n x $n symmetric matrices"))
+   rem(pc,pa) == 0 || error("the period of C must be an integer multiple of A")
+   (KSCHUR <= 0 || KSCHUR > pa ) && 
+         error("KSCHUR has a value $KSCHUR, which is inconsistent with A ")
+
+   if pa == 1 && pc == 1   
+      lyapds!(view(A,:,:,1), view(C,:,:,1); adj)
+      return #C[:,:,:]
+   end
+   ONE = one(T1)
+
+   # determine the dimensions of the diagonal blocks of real Schur form
+
+   G = Array{T1,3}(undef,2,2,pc)
+   WZ = Matrix{Float64}(undef,4*pc,max(4*pc,5))
+   WY = Vector{Float64}(undef,4*pc)
+   ba, p = MatrixEquations.sfstruct(A[:,:,KSCHUR])
+   if adj
+      #
+      # Solve    A(j)'*X(j+1)*A(j) + C(j) = X(j) .
+      #
+      # The (K,L)th blocks of X(j), j = 1, ..., p are determined
+      # starting from upper-left corner column by column by
+      #
+      #   A(j)(K,K)'*X(j+1)(K,L)*A(j)(L,L) - X(j)(K,L) = -C(j)(K,L) - R(j)(K,L)
+      #
+      # where
+      #                K              L-1
+      #   R(j)(K,L) = SUM {A(j)(I,K)'*SUM [X(j+1)(I,J)*A(j)(J,L)]}
+      #               I=1             J=1
+      #             
+      #                 K-1
+      #             +  {SUM [A(j)(I,K)'*X(j+1)(I,L)]}*A(j)(L,L)
+      #                 I=1
+      i = 1
+      @inbounds  for kk = 1:p
+          dk = ba[kk]
+          k = i:i+dk-1
+          j = 1
+          ir = 1:i-1
+          for ll = 1:kk
+              dl = ba[ll]
+              j1 = j+dl-1
+              l = j:j1
+              Ckl = view(C,k,l,1:pc)
+              y = view(G,1:dk,1:dl,1:pc)
+              copyto!(y,Ckl)
+              if kk > 1
+                 # C(j+1)[l,k] = C(j+1)[l,ir]*A(j)[ir,k]
+                 ic = 1:j1
+                 for ii = 1:pc
+                     ia = mod(ii-1,pa)+1
+                     ii1 = mod(ii,pc)+1
+                     mul!(view(C,l,k,ii1),view(C,l,ir,ii1),view(A,ir,k,ia))
+                     #y += C(j+1)[ic,k]'*A(j)[ic,l]
+                     mul!(view(y,:,:,ii),transpose(view(C,ic,k,ii1)),view(A,ic,l,ia),ONE,ONE)
+                 end
+              end
+              _dpsylv2!(adj, dk, dl, view(A,k,k,1:pa), view(A,l,l,1:pa), y, WZ, WY)
+              copyto!(Ckl,y)
+              if ll == kk && dl == 2
+                 for ii = 1:pc
+                     temp = 0.5*(Ckl[1,2,ii]+Ckl[2,1,ii])
+                     Ckl[1,2,ii] = temp; Ckl[2,1,ii] = temp
+                 end
+              end
+              j += dl
+              if ll < kk
+                 # C(j+1)[l,k] += C(j+1)[k,l]'*A(j)[k,k]
+                 for ii = 1:pc
+                     ia = mod(ii-1,pa)+1
+                     ii1 = mod(ii,pc)+1
+                     mul!(view(C,l,k,ii1),transpose(view(C,k,l,ii1)),view(A,k,k,ia),ONE,ONE) 
+                 end
+              end
+          end
+          if kk > 1
+             # C(j)[ir,k] = C(j)[k,ir]'
+             for ii = 1:pc
+                 transpose!(view(C,ir,k,ii),view(C,k,ir,ii))
+             end
+          end
+          i += dk
+      end
+   else
+      #
+      # Solve    A(j)*X(j)*A(j)' + C(j) = X(j+1) .
+      #
+      # The (K,L)th block of X(j) is determined starting from
+      # bottom-right corner column by column by
+      #
+      #    A(j)(K,K)*X(j)(K,L)*A(j)(L,L)' - X(j+1)(K,L) = -C(j)(K,L) - R(j)(K,L)
+      #
+      # Where
+      #
+      #                 N               N
+      #    R(j)(K,L) = SUM {A(j)(K,I)* SUM [X(j)(I,J)*A(j)(L,J)']} +
+      #                I=K            J=L+1
+      #              
+      #                N
+      #             { SUM [A(j)(K,J)*X(j)(J,L)]}*A(j)(L,L)'
+      #              J=K+1
+      j = n
+      for ll = p:-1:1
+          dl = ba[ll]
+          l = j-dl+1:j
+          i = n
+          ir = j+1:n
+          for kk = p:-1:ll
+              dk = ba[kk]
+              i1 = i-dk+1
+              k = i1:i
+              Clk = view(C,l,k,1:pc)
+              y = view(G,1:dl,1:dk,1:pc)
+              copyto!(y,Clk)
+              if ll < p
+                 ic = i1:n
+                 for ii = 1:pc
+                     ia = mod(ii-1,pa)+1
+                     # C(j)[k,l] = C(j)[k,ir]*A(j)[l,ir]'
+                     mul!(view(C,k,l,ii),view(C,k,ir,ii),transpose(view(A,l,ir,ia)))
+                     # y += (A(j)[k,ic]*C(j)[ic,l])'
+                     mul!(view(y,:,:,ii),transpose(view(C,ic,l,ii)),transpose(view(A,k,ic,ia)),ONE,ONE)
+                 end
+              end
+              _dpsylv2!(adj, dl, dk, view(A,l,l,1:pa), view(A,k,k,1:pa), y, WZ, WY)
+              copyto!(Clk,y)
+              i -= dk
+              if i >= j
+                 for ii = 1:pc
+                     ia = mod(ii-1,pa)+1
+                     # C(j)[k,l] += (A(j)[l,l]*C(j)[l,k])'
+                     mul!(view(C,k,l,ii),transpose(view(C,l,k,ii)),transpose(view(A,l,l,ia)),ONE,ONE)
+                 end
+              else
+                 break
+              end
+          end
+          if ll < p
+             ir = i+2:n
+             for ii = 1:pc
+                 # C(j)[ir,l] = C(j)[l,ir]'
+                 transpose!(view(C,ir,l,ii),view(C,l,ir,ii))
+             end
+          end
+          j -= dl
+      end
+   end
+   return #C[:,:,:]
+end
+function pdlyaps1!(KSCHUR::Int, A::StridedArray{T1,3}, C::StridedArray{T1,3}; adj = true) where {T1<:BlasReal}
+   # Alternative solver for A in a periodic Schur form, with fast iterative solution of
+   # the underlying 2x2 periodic Sylvester equations. This version is usually faster 
+   # than the numerically more robust implementations employing Kronecker expansion based
+   # linear equations solvers.  
    n = LinearAlgebra.checksquare(A[:,:,1])
    pa = size(A,3)
    pc = size(C,3)
@@ -301,6 +961,617 @@ function pdlyaps!(KSCHUR::Int, A::StridedArray{T1,3}, C::StridedArray{T1,3}; adj
    end
    return C[:,:,:]
 end
+
+function dpsylv2!(adj::Bool, n1::Int, n2::Int, KSCHUR::Int, AL::StridedArray{T,3}, AR::StridedArray{T,3}, 
+                  C::StridedArray{T,3}, WZ::AbstractMatrix{T}, WY::AbstractVector{T}) where {T}
+#     To solve for the n1-by-n2 matrices X_j, j = 1, ..., p, 
+#     1 <= n1,n2 <= 2, in the p simultaneous equations: 
+
+#     if REV = true
+
+#       AL_j'*X_(j+1)*AR_j - X_j = C_j, X_(p+1) = X_1  (1) 
+
+#     or if REV = false
+
+#       AL_j*X_j*AR_j' - X_(j+1) = C_j, X_(p+1) = X_1  (2)
+
+#     where AL_j is n1 by n1, AR_j is n2 by n2, C_j is n1 by n2.  
+
+#     NOTE: This routine is primarily intended to be used in conjuntion 
+#           with solvers for periodic Lyapunov equations. Thus, both 
+#           AL and AR are formed from the diagonal blocks of the same
+#           matrix in periodic real Schur form. 
+#           The solution X overwrites the right-hand side C. 
+#           WY and WX are 4p-by-4p and 4-by-5 working matrices, respectively,
+#           allocated only once in the caller routine. 
+#           AL and AR are assumed to have the same period, but 
+#           C may have different period than AL and AR. The period
+#           of C must be an integer multiple of that of AL and AR.
+#           In the interests of speed, this routine does not
+#                   check the inputs for errors.
+
+#     METHOD
+
+#     The solution is computed by explicitly forming and solving the underlying linear equation
+#     Z*vec(X) = vec(C), where Z is built using Kronecker products of component matrices [1].
+#     
+
+#     REFERENCES
+
+#     [1] A. Varga.
+#         Periodic Lyapunov equations: some applications and new algorithms.
+#         Int. J. Control, vol, 67, pp, 69-87, 1997.
+   pa = size(AL,3)
+   p = size(C,3)
+   ii1 = 1:n1; ii2 = 1:n2;
+   # Quick return if possible.
+   if p == 1 
+      MatrixEquations.lyapdsylv2!(adj, view(C, ii1, ii2, 1),  n1, n2, view(AL, ii1, ii1, 1), view(AR, ii2, ii2, 1), 
+                                  view(WZ,1:4,1:4), view(WZ,1:4,5)) 
+      return 
+   end
+   n12 = n1*n2
+   N = p*n12
+   R = view(WZ,1:N,1:N); copyto!(R,-I)
+   #RT = zeros(T, N, N); copyto!(RT,-I)  
+   Y = view(WY,1:N)
+   if adj
+      if n12 == 1
+         ia = mod(KSCHUR+pa-1,pa)+1
+         ic = mod(KSCHUR+p-1,p)+1
+         R[1,N] = AR[1,1,ia]*AL[1,1,ia] 
+         Y[1] = -C[1,1,ic]
+         i1 = 2
+         for i = p+KSCHUR-1:-1:KSCHUR+1         
+             ia = mod(i-1,pa)+1
+             ic = mod(i-1,p)+1
+             R[i1,i1-1] = AR[1,1,ia]*AL[1,1,ia] 
+             Y[i1] = -C[1,1,ic]
+             i1 += 1
+         end
+      elseif n1 == 1 && n2 == 2
+         ias = mod(KSCHUR+p-1,pa)+1
+         # [ al11*ar11  al11*ar21 ]
+         # [ al11*ar12  al11*ar22 ]      
+         R[1,N-1] = AL[1,1,ias]*AR[1,1,ias]; R[1,N] = AL[1,1,ias]*AR[2,1,ias]
+         R[2,N-1] = AL[1,1,ias]*AR[1,2,ias]; R[2,N] = AL[1,1,ias]*AR[2,2,ias]
+         ic = mod(KSCHUR+p-1,p)+1
+         Y[1] = -C[1,1,ic]
+         Y[2] = -C[1,2,ic]
+         i1 = n12+1; j1 = 1 
+         for i = p+KSCHUR-1:-1:KSCHUR+1         
+             ia = mod(i-1,pa)+1
+             ic = mod(i-1,p)+1
+             i2 = i1+n12-1
+             j2 = j1+n12-1
+             # [ al11*ar11          * ]
+             # [ al11*ar12  al11*ar22 ]      
+             R[i1,j1] = AL[1,1,ia]*AR[1,1,ia]
+             ia == ias && (R[i1,j1+1] = AL[1,1,ias]*AR[2,1,ias])
+             R[i1+1,j1] = AL[1,1,ia]*AR[1,2,ia]; R[i1+1,j1+1] = AL[1,1,ia]*AR[2,2,ia]
+             Y[i1] = -C[1,1,ic]
+             Y[i1+1] = -C[1,2,ic]
+             i1 = i2+1
+             j1 = j2+1
+         end
+      elseif n1 == 2 && n2 == 1
+         ias = mod(KSCHUR+p-1,pa)+1
+         # [ al11*ar11  al21*ar11 ]
+         # [ al12*ar11  al22*ar11 ]
+         R[1,N-1] = AL[1,1,ias]*AR[1,1,ias]; R[1,N] = AL[2,1,ias]*AR[1,1,ias]
+         R[2,N-1] = AL[1,2,ias]*AR[1,1,ias]; R[2,N] = AL[2,2,ias]*AR[1,1,ias]
+         ic = mod(KSCHUR+p-1,p)+1
+         Y[1] = -C[1,1,ic]
+         Y[2] = -C[2,1,ic]
+         i1 = n12+1; j1 = 1 
+         for i = p+KSCHUR-1:-1:KSCHUR+1         
+             ia = mod(i-1,pa)+1
+             ic = mod(i-1,p)+1
+             i2 = i1+n12-1
+             j2 = j1+n12-1
+             # [ al11*ar11          * ]
+             # [ al12*ar11  al22*ar11 ]
+             R[i1,j1] = AL[1,1,ia]*AR[1,1,ia]
+             ia == ias && (R[i1,j1+1] = AL[2,1,ias]*AR[1,1,ias])
+             R[i1+1,j1] = AL[1,2,ia]*AR[1,1,ia]; R[i1+1,j1+1] = AL[2,2,ia]*AR[1,1,ia]
+             Y[i1] = -C[1,1,ic]
+             Y[i1+1] = -C[2,1,ic]
+             i1 = i2+1
+             j1 = j2+1
+         end
+      else
+         ias = mod(KSCHUR+p-1,pa)+1
+         transpose!(view(R,1:n12,N-n12+1:N),kron(view(AR,ii2,ii2,ias),view(AL,ii1,ii1,ias))) 
+         ic = mod(KSCHUR+p-1,p)+1
+         Y[1] = -C[1,1,ic]
+         Y[2] = -C[2,1,ic]
+         Y[3] = -C[1,2,ic]
+         Y[4] = -C[2,2,ic]         
+         i1 = n12+1; j1 = 1 
+         for i = p+KSCHUR-1:-1:KSCHUR+1         
+             ia = mod(i-1,pa)+1
+             ic = mod(i-1,p)+1
+             i2 = i1+n12-1
+             j2 = j1+n12-1
+             if ia == ias
+                transpose!(view(R,i1:i2,j1:j2),kron(view(AR,ii2,ii2,ia),view(AL,ii1,ii1,ia))) 
+             else
+               # al11*ar11          0          0          0
+               # al12*ar11  al22*ar11          0          0
+               # al11*ar12          0  al11*ar22          0
+               # al12*ar12  al22*ar12  al12*ar22  al22*ar22
+                R[i1,j1] = AL[1,1,ia]*AR[1,1,ia]
+                R[i1+1,j1] = AL[1,2,ia]*AR[1,1,ia]; R[i1+1,j1+1] = AL[2,2,ia]*AR[1,1,ia]
+                R[i1+2,j1] = AL[1,1,ia]*AR[1,2,ia]; R[i1+2,j1+2] = AL[1,1,ia]*AR[2,2,ia]; 
+                R[i1+3,j1] = AL[1,2,ia]*AR[1,2,ia]; R[i1+3,j1+1] = AL[2,2,ia]*AR[1,2,ia]; 
+                R[i1+3,j1+2] = AL[1,2,ia]*AR[2,2,ia]; R[i1+3,j1+3] = AL[2,2,ia]*AR[2,2,ia]; 
+             end
+             Y[i1] = -C[1,1,ic]
+             Y[i1+1] = -C[2,1,ic]
+             Y[i1+2] = -C[1,2,ic]
+             Y[i1+3] = -C[2,2,ic]         
+             i1 = i2+1
+             j1 = j2+1
+         end
+      end
+      ldiv!(qr!(R), Y )
+      i1 = 1
+      for i = p+KSCHUR:-1:KSCHUR+1
+          ic = mod(i-1,p)+1
+          i2 = i1+n12-1
+          copyto!(view(C,ii1,ii2,ic), view(Y,i1:i2))  
+          i1 = i2+1
+      end  
+   else
+      if n12 == 1
+         ia = mod(KSCHUR+p-1,pa)+1
+         ic = mod(KSCHUR+p-1,p)+1
+         R[1,N] = AR[1,1,ia]*AL[1,1,ia] 
+         Y[1] = -C[1,1,ic]
+         i1 = 2
+         for i = 1:p-1 
+             ia = mod(i+KSCHUR-1,pa)+1
+             ic = mod(i+KSCHUR-1,p)+1
+             R[i1,i1-1] = AR[1,1,ia]*AL[1,1,ia] 
+             Y[i1] = -C[1,1,ic]
+             i1 += 1
+         end
+      elseif n1 == 1 && n2 == 2
+         ias = mod(KSCHUR+p-1,pa)+1
+         # [ al11*ar11  al11*ar12 ]
+         # [ al11*ar21  al11*ar22 ]      
+         R[1,N-1] = AL[1,1,ias]*AR[1,1,ias]; R[1,N] = AL[1,1,ias]*AR[1,2,ias]
+         R[2,N-1] = AL[1,1,ias]*AR[2,1,ias]; R[2,N] = AL[1,1,ias]*AR[2,2,ias]
+         ic = mod(KSCHUR+p-1,p)+1
+         Y[1] = -C[1,1,ic]
+         Y[2] = -C[1,2,ic]
+         i1 = n12+1; j1 = 1 
+         for i = 1:p-1 
+             ia = mod(i+KSCHUR-1,pa)+1
+             ic = mod(i+KSCHUR-1,p)+1
+             i2 = i1+n12-1
+             j2 = j1+n12-1
+             # [ al11*ar11  al11*ar12 ]
+             # [ *          al11*ar22 ]      
+             R[i1,j1] = AL[1,1,ia]*AR[1,1,ia]; R[i1,j1+1] = AL[1,1,ia]*AR[1,2,ia]
+             ia == ias && (R[i1+1,j1] = AL[1,1,ia]*AR[2,1,ia])
+             R[i1+1,j1+1] = AL[1,1,ia]*AR[2,2,ia]
+             Y[i1] = -C[1,1,ic]
+             Y[i1+1] = -C[1,2,ic]
+             i1 = i2+1
+             j1 = j2+1
+         end
+      elseif n1 == 2 && n2 == 1
+         ias = mod(KSCHUR+p-1,pa)+1
+         # [ al11*ar11  al12*ar11 ]
+         # [ al21*ar21  al22*ar11 ]      
+         R[1,N-1] = AL[1,1,ias]*AR[1,1,ias]; R[1,N] = AL[1,2,ias]*AR[1,1,ias]
+         R[2,N-1] = AL[2,1,ias]*AR[1,1,ias]; R[2,N] = AL[2,2,ias]*AR[1,1,ias]
+         ic = mod(KSCHUR+p-1,p)+1
+         Y[1] = -C[1,1,ic]
+         Y[2] = -C[2,1,ic]
+         i1 = n12+1; j1 = 1 
+         for i = 1:p-1 
+             ia = mod(i+KSCHUR-1,pa)+1
+             ic = mod(i+KSCHUR-1,p)+1
+             i2 = i1+n12-1
+             j2 = j1+n12-1
+             # [ al11*ar11  al12*ar11 ]
+             # [ *          al22*ar11 ]      
+             R[i1,j1] = AL[1,1,ia]*AR[1,1,ia]; R[i1,j1+1] = AL[1,2,ia]*AR[1,1,ia]
+             ia == ias && (R[i1+1,j1] = AL[2,1,ia]*AR[1,1,ia])
+             R[i1+1,j1+1] = AL[2,2,ia]*AR[1,1,ia]
+             Y[i1] = -C[1,1,ic]
+             Y[i1+1] = -C[2,1,ic]
+             i1 = i2+1
+             j1 = j2+1
+         end
+      else
+         ias = mod(KSCHUR+p-1,pa)+1
+         ic = mod(KSCHUR+p-1,p)+1
+         copyto!(view(R,1:n12,N-n12+1:N),kron(view(AR,ii2,ii2,ias),view(AL,ii1,ii1,ias))) 
+         copyto!(view(Y,1:n12), view(C,ii1,ii2,ic)) 
+         Y[1] = -C[1,1,ic]
+         Y[2] = -C[2,1,ic]
+         Y[3] = -C[1,2,ic]
+         Y[4] = -C[2,2,ic]         
+         i1 = n12+1; j1 = 1 
+         for i = 1:p-1 
+             ia = mod(i+KSCHUR-1,pa)+1
+             ic = mod(i+KSCHUR-1,p)+1
+             i2 = i1+n12-1
+             j2 = j1+n12-1
+             #R[i1:i2,j1:j2] = kron(view(AR,ii2,ii2,ia),view(AL,ii1,ii1,ia))
+             if ia == ias
+                copyto!(view(R,i1:i2,j1:j2),kron(view(AR,ii2,ii2,ia),view(AL,ii1,ii1,ia))) 
+             else
+                # al11*ar11  al12*ar11  al11*ar12  al12*ar12
+                # 0          al22*ar11          0  al22*ar12
+                # 0          0          al11*ar22  al12*ar22
+                # 0          0          0          al22*ar22
+                R[i1,j1] = AL[1,1,ia]*AR[1,1,ia]; R[i1,j1+1] = AL[1,2,ia]*AR[1,1,ia];
+                R[i1,j1+2] = AL[1,1,ia]*AR[1,2,ia]; R[i1,j1+3] = AL[1,2,ia]*AR[1,2,ia];
+                R[i1+1,j1+1] = AL[2,2,ia]*AR[1,1,ia]; R[i1+1,j1+3] = AL[2,2,ia]*AR[1,2,ia]
+                R[i1+2,j1+2] = AL[1,1,ia]*AR[2,2,ia]; R[i1+2,j1+3] = AL[1,2,ia]*AR[2,2,ia]; 
+                R[i1+3,j1+3] = AL[2,2,ia]*AR[2,2,ia]; 
+             end
+             Y[i1] = -C[1,1,ic]
+             Y[i1+1] = -C[2,1,ic]
+             Y[i1+2] = -C[1,2,ic]
+             Y[i1+3] = -C[2,2,ic]         
+             i1 = i2+1
+             j1 = j2+1
+         end
+      end
+      ldiv!(qr!(R), Y )
+      i1 = 1
+      for i = 1:p
+          ic = mod(i+KSCHUR-1,p)+1
+          i2 = i1+n12-1
+          copyto!(view(C,ii1,ii2,ic), view(Y,i1:i2))  
+          i1 = i2+1
+      end  
+   end
+end
+
+function kronset!(R::AbstractMatrix{T}, adj::Bool, n1::Int, n2::Int, SCHUR::Bool, AL::StridedMatrix{T}, AR::StridedMatrix{T}) where {T}
+   n12 = n1*n2
+   if n12 == 1
+      R[1,1] = AR[1,1]*AL[1,1]
+      return
+   end
+   if adj
+      if n1 == 1 && n2 == 2
+         # [ al11*ar11  al11*ar21 ]
+         # [ al11*ar12  al11*ar22 ]      
+         R[1,1] = AL[1,1]*AR[1,1]; 
+         R[1,2] = SCHUR ? AL[1,1]*AR[2,1] : zero(T)
+         R[2,1] = AL[1,1]*AR[1,2]; R[2,2] = AL[1,1]*AR[2,2]
+      elseif n1 == 2 && n2 == 1
+         # [ al11*ar11  al21*ar11 ]
+         # [ al12*ar11  al22*ar11 ]
+         R[1,1] = AL[1,1]*AR[1,1]; 
+         R[1,2] = SCHUR ? AL[2,1]*AR[1,1] : zero(T)
+         R[2,1] = AL[1,2]*AR[1,1]; R[2,2] = AL[2,2]*AR[1,1]
+      else
+         if SCHUR
+            ii1 = 1:n1; ii2 = 1:n2
+            transpose!(view(R,1:n12,1:n12),kron(view(AR,ii2,ii2),view(AL,ii1,ii1))) 
+         else
+               # al11*ar11          0          0          0
+               # al12*ar11  al22*ar11          0          0
+               # al11*ar12          0  al11*ar22          0
+               # al12*ar12  al22*ar12  al12*ar22  al22*ar22
+            R[1,1] = AL[1,1]*AR[1,1]
+            R[2,1] = AL[1,2]*AR[1,1]; R[2,2] = AL[2,2]*AR[1,1]
+            R[3,1] = AL[1,1]*AR[1,2]; R[3,2] = zero(T); R[3,3] = AL[1,1]*AR[2,2]; 
+            R[4,1] = AL[1,2]*AR[1,2]; R[4,2] = AL[2,2]*AR[1,2]; 
+            R[4,3] = AL[1,2]*AR[2,2]; R[4,4] = AL[2,2]*AR[2,2]; 
+            tril!(view(R,1:n12,1:n12))
+         end
+      end      
+   else
+      if n1 == 1 && n2 == 2
+         # [ al11*ar11  al11*ar12 ]
+         # [ al11*ar21  al11*ar22 ]      
+         R[1,1] = AL[1,1]*AR[1,1]; R[1,2] = AL[1,1]*AR[1,2]
+         R[2,1] = SCHUR ? AL[1,1]*AR[2,1] : zero(T)
+         R[2,2] = AL[1,1]*AR[2,2]
+      elseif n1 == 2 && n2 == 1
+         # [ al11*ar11  al12*ar11 ]
+         # [ al21*ar21  al22*ar11 ]      
+         R[1,1] = AL[1,1]*AR[1,1]; R[1,2] = AL[1,2]*AR[1,1]
+         R[2,1] = SCHUR ? AL[2,1]*AR[1,1]  : zero(T)
+         R[2,2] = AL[2,2]*AR[1,1]
+      else
+         if SCHUR
+            ii1 = 1:n1; ii2 = 1:n2
+            copyto!(view(R,1:n12,1:n12),kron(view(AR,ii2,ii2),view(AL,ii1,ii1))) 
+         else
+            # al11*ar11  al12*ar11  al11*ar12  al12*ar12
+                # 0          al22*ar11          0  al22*ar12
+                # 0          0          al11*ar22  al12*ar22
+                # 0          0          0          al22*ar22
+            R[1,1] = AL[1,1]*AR[1,1]; R[1,2] = AL[1,2]*AR[1,1];
+            R[1,3] = AL[1,1]*AR[1,2]; R[1,4] = AL[1,2]*AR[1,2];
+            R[2,2] = AL[2,2]*AR[1,1]; R[2,3] = zero(T); R[2,4] = AL[2,2]*AR[1,2]
+            R[3,3] = AL[1,1]*AR[2,2]; R[3,4] = AL[1,2]*AR[2,2]; 
+            R[4,4] = AL[2,2]*AR[2,2]; 
+            triu!(view(R,1:n12,1:n12))
+         end
+      end
+   end
+end
+function dpsylv2krsol!(adj::Bool, n1::Int, n2::Int, KSCHUR::Int, AL::StridedArray{T,3}, AR::StridedArray{T,3}, 
+                  C::StridedArray{T,3}, WUD::AbstractArray{T,3}, WUSD::AbstractArray{T,3}, WUL::AbstractMatrix{T},  WY::AbstractVector{T}, W::AbstractMatrix{T}) where {T}
+#     To solve for the n1-by-n2 matrices X_j, j = 1, ..., p, 
+#     1 <= n1,n2 <= 2, in the p simultaneous equations: 
+
+#     if REV = true
+
+#       AL_j'*X_(j+1)*AR_j - X_j = C_j, X_(p+1) = X_1  (1) 
+
+#     or if REV = false
+
+#       AL_j*X_j*AR_j' - X_(j+1) = C_j, X_(p+1) = X_1  (2)
+
+#     where AL_j is n1 by n1, AR_j is n2 by n2, C_j is n1 by n2.  
+
+#     NOTE: This routine is primarily intended to be used in conjuntion 
+#           with solvers for periodic Lyapunov equations. Thus, both 
+#           AL and AR are formed from the diagonal blocks of the same
+#           matrix in periodic real Schur form. 
+#           The solution X overwrites the right-hand side C. 
+#           WY and WX are 4p-by-4p and 4-by-5 working matrices, respectively,
+#           allocated only once in the caller routine. 
+#           AL and AR are assumed to have the same period, but 
+#           C may have different period than AL and AR. The period
+#           of C must be an integer multiple of that of AL and AR.
+#           In the interests of speed, this routine does not
+#                   check the inputs for errors.
+
+#     METHOD
+
+#     The solution is computed by explicitly forming and solving the underlying linear equation
+#     Z*vec(X) = vec(C), where Z is built using Kronecker products of component matrices [1].
+#     
+
+#     REFERENCES
+
+#     [1] A. Varga.
+#         Periodic Lyapunov equations: some applications and new algorithms.
+#         Int. J. Control, vol, 67, pp, 69-87, 1997.
+   pa = size(AL,3)
+   p = size(C,3)
+   ii1 = 1:n1; ii2 = 1:n2;
+   # Quick return if possible.
+   if p == 1 
+      MatrixEquations.lyapdsylv2!(adj, view(C, ii1, ii2, 1),  n1, n2, view(AL, ii1, ii1, 1), view(AR, ii2, ii2, 1), 
+                                  view(WUL,1:4,1:4), view(WY,1:4)) 
+      return 
+   end
+   n12 = n1*n2
+   n22 = 2*n12
+   N = p*n12
+   i1 = 1:n12; i2 = n12+1:n22
+
+   USD = view(WUSD,i1,i1,1:p-1)
+   UD = view(WUD,i1,i1,1:p)
+   UK = view(WUL,1:N,i1)
+   YK = view(WY,1:N)
+   zmi = view(W,1:n22,i1)
+   uu = view(W,1:n22,i2)
+
+   ias = mod(KSCHUR+p-1,pa)+1
+   ic = mod(KSCHUR+p-1,p)+1
+   copyto!(view(YK,i1),view(C,ii1,ii2,ic))
+   kronset!(view(UK,i1,i1), adj, n1, n2, true, view(AL,ii1,ii1,ias), view(AR,ii2,ii2,ias)) 
+   fill!(view(UK,n12+1:N-n12,i1),zero(T))
+   copyto!(view(UK,N-n12+1:N,i1),-I)
+   copyto!(view(YK,i1),view(C,ii1,ii2,ic))
+
+   # Build the blocks of the bordered almost block diagonal (BABD) system and the right-hand side 
+   if adj
+      j = 1; j1 = 1; 
+      for i = p+KSCHUR-1:-1:KSCHUR+1   
+          j1 += n12      
+          ia = mod(i-1,pa)+1
+          ic = mod(i-1,p)+1
+          kronset!(view(USD,:,:,j), adj, n1, n2, ia == ias, view(AL,ii1,ii1,ia), view(AR,ii2,ii2,ia)) 
+          copyto!(view(YK,j1:j1+n12-1),view(C,ii1,ii2,ic))
+          j += 1
+      end
+   else
+      j = 1; j1 = 1; 
+      for i = 1:p-1 
+          j1 += n12      
+          ia = mod(i+KSCHUR-1,pa)+1
+          ic = mod(i+KSCHUR-1,p)+1
+          kronset!(view(USD,:,:,i), adj, n1, n2, ia == ias, view(AL,ii1,ii1,ia), view(AR,ii2,ii2,ia)) 
+          copyto!(view(YK,j1:j1+n12-1),view(C,ii1,ii2,ic))
+      end
+   end
+   for i = 1:N
+      YK[i] = -YK[i]
+   end
+
+   # Solve the BABD system H*y = g using Algorithm 3 of [1] with LU factorizations replaced by QR decompositions 
+   # First compute the QR factorization H = Q*R and update g <- Q'*g
+   j1 = 1; 
+   il = N-n12+1:N
+   for j = 1:p-1          
+       if j == 1
+          copyto!(view(uu,i1,i1), -I)
+       else
+          copyto!(view(uu,i1,i1),view(UD,:,:,j))      
+       end
+       copyto!(view(uu,i2,i1),view(USD,:,:,j))      
+       F = qr!(uu)
+       copy!(view(UD,:,:,j), F.R)
+       lmul!(F.Q',view(UK,j1:j1+n22-1,i1))
+       lmul!(F.Q',view(YK,j1:j1+n22-1))
+       fill!(view(zmi,i1,i1), zero(T))
+       copyto!(view(zmi,i2,i1),-I)      
+       lmul!(F.Q',zmi)
+       copyto!(view(USD,:,:,j), view(zmi,i1,:))
+       copyto!(view(UD,:,:,j+1), view(zmi,i2,:))
+       j1 += n12
+   end
+   F = qr!(view(UK,il,i1))
+   copyto!(view(UD,:,:,p), F.R)
+   lmul!(F.Q',view(YK,il))
+
+   # Solve R*y = g by overwritting g
+   ldiv!(UpperTriangular(UD[:,:,p]),view(YK,il))
+   il1 = il .- n12
+   mul!(view(YK,il1),view(UK,il1,i1),view(YK,il),-1,1)
+   ldiv!(UpperTriangular(UD[:,:,p-1]),view(YK,il1))
+   for i = p-2:-1:1
+       il2 = il1 .- n12
+       mul!(view(YK,il2),view(UK,il2,i1),view(YK,il),-1,1)
+       mul!(view(YK,il2),USD[:,:,i],view(YK,il1),-1,1)
+       ldiv!(UpperTriangular(UD[:,:,i]),view(YK,il2)) 
+       il1 = il1 .- n12
+   end
+   # Reorder solution blocks
+   if adj
+      i1 = 1
+      for i = p+KSCHUR:-1:KSCHUR+1
+          ic = mod(i-1,p)+1
+          i2 = i1+n12-1
+          copyto!(view(C,ii1,ii2,ic), view(YK,i1:i2))  
+          i1 = i2+1
+      end
+   else
+      i1 = 1
+      for i = 1:p
+          ic = mod(i+KSCHUR-1,p)+1
+          i2 = i1+n12-1
+          copyto!(view(C,ii1,ii2,ic), view(YK,i1:i2))  
+          i1 = i2+1
+      end  
+   end
+   return
+end
+function _dpsylv2!(adj::Bool, n1::Int, n2::Int, AL::StridedArray{T,3}, AR::StridedArray{T,3}, 
+                  C::StridedArray{T,3}, WZ::AbstractMatrix{T}, WY::AbstractVector{T}) where {T}
+# function dpsylv2!(adj::Bool, n1::Int, n2::Int, AL::AbstractArray{T,3}, AR::AbstractArray{T,3}, 
+#                   C::AbstractArray{T,3}, WY::AbstractMatrix{T}, WX::AbstractMatrix{T}) where {T}
+#     To solve for the n1-by-n2 matrices X_j, j = 1, ..., p, 
+#     1 <= n1,n2 <= 2, in the p simultaneous equations: 
+
+#     if REV = true
+
+#       AL_j'*X_(j+1)*AR_j - X_j = C_j, X_(p+1) = X_1  (1) 
+
+#     or if REV = false
+
+#       AL_j*X_j*AR_j' - X_(j+1) = C_j, X_(p+1) = X_1  (2)
+
+#     where AL_j is n1 by n1, AR_j is n2 by n2, C_j is n1 by n2.  
+
+#     NOTE: This routine is primarily intended to be used in conjuntion 
+#           with solvers for periodic Lyapunov equations. Thus, both 
+#           AL and AR are formed from the diagonal blocks of the same
+#           matrix in periodic real Schur form. 
+#           The solution X overwrites the right-hand side C. 
+#           WY and WX are 4p-by-4p and 4-by-5 working matrices, respectively,
+#           allocated only once in the caller routine. 
+#           AL and AR are assumed to have the same period, but 
+#           C may have different period than AL and AR. The period
+#           of C must be an integer multiple of that of AL and AR.
+#           In the interests of speed, this routine does not
+#                   check the inputs for errors.
+
+#     METHOD
+
+#     The solution is computed by explicitly forming and solving the underlying linear equation
+#     Z*vec(X) = vec(C), where Z is built using Kronecker products of component matrices [1].
+#     
+
+#     REFERENCES
+
+#     [1] A. Varga.
+#         Periodic Lyapunov equations: some applications and new algorithms.
+#         Int. J. Control, vol, 67, pp, 69-87, 1997.
+   pa = size(AL,3)
+   p = size(C,3)
+   ii1 = 1:n1; ii2 = 1:n2;
+   # Quick return if possible.
+   if p == 1 
+      MatrixEquations.lyapdsylv2!(adj, view(C, ii1, ii2, 1),  n1, n2, view(AL, ii1, ii1, 1), view(AR, ii2, ii2, 1), 
+                                  view(WZ,1:4,1:4), view(WZ,1:4,5)) 
+      return 
+   end
+   n12 = n1*n2
+   N = p*n12
+   R = view(WZ,1:N,1:N)
+   R = zeros(T, N, N)
+   Y = view(WY,1:N)
+   if adj
+      if n12 == 1
+         R[1,N] = AR[1,1,pa]*AL[1,1,pa] 
+         R[1,1] = -1
+         i1 = 2
+         for i = p-1:-1:1         
+             ia = mod(i-1,pa)+1
+             R[i1,i1-1] = AR[1,1,ia]*AL[1,1,ia] 
+             R[i1,i1] = -1
+             i1 += 1
+         end
+      else
+         R[1:n12,N-n12+1:N] = transpose(kron(view(AR,ii2,ii2,pa),view(AL,ii1,ii1,pa))) 
+         copyto!(view(R,1:n12,1:n12),-I)
+         i1 = n12+1; j1 = 1 
+         for i = p-1:-1:1         
+             ia = mod(i-1,pa)+1
+             i2 = i1+n12-1
+             j2 = j1+n12-1
+             R[i1:i2,j1:j2] = transpose(kron(view(AR,ii2,ii2,ia),view(AL,ii1,ii1,ia)))
+             copyto!(view(R,i1:i2,i1:i2),-I)
+             i1 = i2+1
+             j1 = j2+1
+         end
+         end
+      reverse!(C,dims = 3)
+      copyto!(Y, view(C,ii1,ii2,1:p))
+      ldiv!(qr!(R), Y )
+      copyto!(view(C,ii1,ii2,1:p), lmul!(-1,Y))
+      reverse!(C,dims = 3)
+   else
+      if n12 == 1
+         R[1,N] = AR[1,1,pa]*AL[1,1,pa] 
+         R[1,1] = -1
+         Y[1] = C[1,1,p]
+         i1 = 2
+         for i = 1:p-1         
+             ia = mod(i-1,pa)+1
+             R[i1,i1-1] = AR[1,1,ia]*AL[1,1,ia] 
+             R[i1,i1] = -1
+             Y[i1] = C[1,1,i]
+             i1 += 1
+         end
+      else
+         R[1:n12,N-n12+1:N] = kron(view(AR,ii2,ii2,pa),view(AL,ii1,ii1,pa)) 
+         copyto!(view(R,1:n12,1:n12),-I)
+         copyto!(view(Y,1:n12), view(C,ii1,ii2,p)) 
+         i1 = n12+1; j1 = 1 
+         for i = 1:p-1
+             ia = mod(i-1,pa)+1
+             i2 = i1+n12-1
+             j2 = j1+n12-1
+             R[i1:i2,j1:j2] = kron(view(AR,ii2,ii2,ia),view(AL,ii1,ii1,ia))
+             copyto!(view(R,i1:i2,i1:i2),-I)
+             copyto!(view(Y,i1:i2), view(C,ii1,ii2,i)) 
+             i1 = i2+1
+             j1 = j2+1
+         end
+      end
+      ldiv!(qr!(R), Y )
+      copyto!(view(C,ii1,ii2,1:p), lmul!(-1,Y))
+   end
+end
+
 function dpsylv2(REV::Bool, N1::Int, N2::Int, KSCHUR::Int, TL::StridedArray{T,3}, TR::StridedArray{T,3}, 
                  B::StridedArray{T,3}, W::AbstractMatrix{T}, WX::AbstractMatrix{T}) where {T}
 #     To solve for the N1-by-N2 matrices X_j, j = 1, ..., P, 
@@ -314,8 +1585,7 @@ function dpsylv2(REV::Bool, N1::Int, N2::Int, KSCHUR::Int, TL::StridedArray{T,3}
 
 #       TL_j*X_j*TR_j' - X_(j+1) = B_j, X_(P+1) = X_1  (2)
 
-#     where TL_j is N1 by N1, TR_j is N2 by N2, B_j is N1 by N2,
-#     and ISGN = 1 or -1.  
+#     where TL_j is N1 by N1, TR_j is N2 by N2, B_j is N1 by N2.  
 
 #     NOTE: This routine is primarily intended to be used in conjuntion 
 #           with solvers for periodic Lyapunov equations. Thus, both 
@@ -545,7 +1815,7 @@ function dpsylv2(REV::Bool, N1::Int, N2::Int, KSCHUR::Int, TL::StridedArray{T,3}
 
 #     Save initial X_[KSCHUR+1].
 
-   ZOLD[i1,i2] = Z[i1,i2]
+   copyto!(view(ZOLD,i1,i2), view(Z,i1,i2))
 
 #     Set iteration indices.
 
@@ -675,7 +1945,7 @@ function dpsylv2(REV::Bool, N1::Int, N2::Int, KSCHUR::Int, TL::StridedArray{T,3}
                     X21 = TL[ 2, 1, J ]
                  end
                  Y11 = TR[ 1, 1, J ]
-
+ 
                  TEMP = X11*Z[1,1] + X12*Z[2,1]
                  Z[2,1] = X21*Z[1,1] + X22*Z[2,1]
                  Z[1,1] = TEMP
@@ -810,10 +2080,10 @@ function dpsylv2(REV::Bool, N1::Int, N2::Int, KSCHUR::Int, TL::StridedArray{T,3}
              ZOLD[ I, J ] = Z[ I, J ]
           end
        end
-       #println("XNORM = $XNORM DNORM = $DNORM")
+       # println("XNORM = $XNORM DNORM = $DNORM")
        DNORM <= EPSM*XNORM && (return -X)
    end
-   @warn "iterative process not converging: solution may be inaccurate"
+   @warn "iterative process not converged in 30 iterations: solution may be inaccurate"
    return -X
 #   END of DPSYLV2
 end
