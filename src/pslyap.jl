@@ -967,22 +967,22 @@ function dpsylv2!(adj::Bool, n1::Int, n2::Int, KSCHUR::Int, AL::StridedArray{T,3
 #     To solve for the n1-by-n2 matrices X_j, j = 1, ..., p, 
 #     1 <= n1,n2 <= 2, in the p simultaneous equations: 
 
-#     if REV = true
+#     if adj = true
 
 #       AL_j'*X_(j+1)*AR_j - X_j = C_j, X_(p+1) = X_1  (1) 
 
-#     or if REV = false
+#     or if adj = false
 
 #       AL_j*X_j*AR_j' - X_(j+1) = C_j, X_(p+1) = X_1  (2)
 
-#     where AL_j is n1 by n1, AR_j is n2 by n2, C_j is n1 by n2.  
+#     where AL_j is n1-by-n1, AR_j is n2-by-n2, C_j is n1-by-n2.  
 
 #     NOTE: This routine is primarily intended to be used in conjuntion 
 #           with solvers for periodic Lyapunov equations. Thus, both 
 #           AL and AR are formed from the diagonal blocks of the same
 #           matrix in periodic real Schur form. 
 #           The solution X overwrites the right-hand side C. 
-#           WY and WX are 4p-by-4p and 4-by-5 working matrices, respectively,
+#           WZ and WY are 4p-by-4p and 4p-by-1 working matrices, respectively,
 #           allocated only once in the caller routine. 
 #           AL and AR are assumed to have the same period, but 
 #           C may have different period than AL and AR. The period
@@ -1307,11 +1307,11 @@ function dpsylv2krsol!(adj::Bool, n1::Int, n2::Int, KSCHUR::Int, AL::StridedArra
 #     To solve for the n1-by-n2 matrices X_j, j = 1, ..., p, 
 #     1 <= n1,n2 <= 2, in the p simultaneous equations: 
 
-#     if REV = true
+#     if adj = true
 
 #       AL_j'*X_(j+1)*AR_j - X_j = C_j, X_(p+1) = X_1  (1) 
 
-#     or if REV = false
+#     or if adj = false
 
 #       AL_j*X_j*AR_j' - X_(j+1) = C_j, X_(p+1) = X_1  (2)
 
@@ -1322,8 +1322,8 @@ function dpsylv2krsol!(adj::Bool, n1::Int, n2::Int, KSCHUR::Int, AL::StridedArra
 #           AL and AR are formed from the diagonal blocks of the same
 #           matrix in periodic real Schur form. 
 #           The solution X overwrites the right-hand side C. 
-#           WY and WX are 4p-by-4p and 4-by-5 working matrices, respectively,
-#           allocated only once in the caller routine. 
+#           WUD and WUSD are 4x4xp 3-dimensional arrays, WUL and W are 4px4 and 8x4 matrices,
+#           WY is a 4p-dimensional vector. 
 #           AL and AR are assumed to have the same period, but 
 #           C may have different period than AL and AR. The period
 #           of C must be an integer multiple of that of AL and AR.
@@ -1333,11 +1333,12 @@ function dpsylv2krsol!(adj::Bool, n1::Int, n2::Int, KSCHUR::Int, AL::StridedArra
 #     METHOD
 
 #     The solution is computed by explicitly forming and solving the underlying linear equation
-#     Z*vec(X) = vec(C), where Z is built using Kronecker products of component matrices [1].
+#     Z*vec(X) = vec(C), using Kronecker products of component matrices [1]. 
+#     Only the diagonal, supra-diagonal and last column blocks of Z are explicitly built.  
+#     A structure exploiting QR-factorization based solution method is employed, using 
+#     Algorithm 3 of [1], with the LU factorizations replaced by QR-factorizations.  
 #     
-
 #     REFERENCES
-
 #     [1] A. Varga.
 #         Periodic Lyapunov equations: some applications and new algorithms.
 #         Int. J. Control, vol, 67, pp, 69-87, 1997.
@@ -1455,16 +1456,14 @@ function dpsylv2krsol!(adj::Bool, n1::Int, n2::Int, KSCHUR::Int, AL::StridedArra
 end
 function _dpsylv2!(adj::Bool, n1::Int, n2::Int, AL::StridedArray{T,3}, AR::StridedArray{T,3}, 
                   C::StridedArray{T,3}, WZ::AbstractMatrix{T}, WY::AbstractVector{T}) where {T}
-# function dpsylv2!(adj::Bool, n1::Int, n2::Int, AL::AbstractArray{T,3}, AR::AbstractArray{T,3}, 
-#                   C::AbstractArray{T,3}, WY::AbstractMatrix{T}, WX::AbstractMatrix{T}) where {T}
 #     To solve for the n1-by-n2 matrices X_j, j = 1, ..., p, 
 #     1 <= n1,n2 <= 2, in the p simultaneous equations: 
 
-#     if REV = true
+#     if adj = true
 
 #       AL_j'*X_(j+1)*AR_j - X_j = C_j, X_(p+1) = X_1  (1) 
 
-#     or if REV = false
+#     or if adj = false
 
 #       AL_j*X_j*AR_j' - X_(j+1) = C_j, X_(p+1) = X_1  (2)
 
@@ -1475,7 +1474,7 @@ function _dpsylv2!(adj::Bool, n1::Int, n2::Int, AL::StridedArray{T,3}, AR::Strid
 #           AL and AR are formed from the diagonal blocks of the same
 #           matrix in periodic real Schur form. 
 #           The solution X overwrites the right-hand side C. 
-#           WY and WX are 4p-by-4p and 4-by-5 working matrices, respectively,
+#           WZ and WY are 4p-by-4p and 4p-by-1 working matrices, respectively,
 #           allocated only once in the caller routine. 
 #           AL and AR are assumed to have the same period, but 
 #           C may have different period than AL and AR. The period
