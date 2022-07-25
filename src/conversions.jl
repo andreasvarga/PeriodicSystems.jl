@@ -95,7 +95,7 @@ by starting Julia with several execution threads.
 The number of execution threads is controlled either by using the `-t/--threads` command line argument 
 or by using the `JULIA_NUM_THREADS` environment variable.  
 """
-function psc2d(psysc::PeriodicStateSpace{PM}, Ts::Real; solver::String  = "", reltol = 1e-3, abstol = 1e-7, dt = Ts/10) where {T,PM <: AbstractPeriodicArray{:c,T}}
+function psc2d(psysc::PeriodicStateSpace{PM}, Ts::Real; solver::String  = "", reltol = 1e-3, abstol = 1e-7, dt = Ts/10) where {PM <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}}
 
     Ts > 0 || error("the sampling time Ts must be positive")
     period = psysc.period
@@ -103,57 +103,50 @@ function psc2d(psysc::PeriodicStateSpace{PM}, Ts::Real; solver::String  = "", re
     denominator(r) == 1 || error("incommensurate period and sample time")
     K = numerator(r)
 
+    T = eltype(psysc)
     T1 = T <: BlasFloat ? T : (T <: Num ? Float64 : promote_type(Float64,T)) 
-    ONE = one(T1)
     n, m = size(psysc.B) 
 
     # quick exit in constant case  
     islti(psysc) && (return ps(c2d(psaverage(psysc),Ts)[1],psysc.period))
 
-    ka, na = isconstant(psysc.A) ? (1,K) : (K,1)
-    kb, nb = isconstant(psysc.A) && isconstant(psysc.B) ? (1,K) : (K,1)
-    kc, nc = isconstant(psysc.C) ? (1,K) : (K,1)
-    kd, nd = isconstant(psysc.D) ? (1,K) : (K,1)
+    kk = gcd(K,psysc.A.nperiod)
+    ka, na = isconstant(psysc.A) ? (1,K) :  (div(K,kk),kk)
+    kk = gcd(K,psysc.B.nperiod)
+    (kb, nb) = isconstant(psysc.B) ? (1,K) :  (div(K,kk),kk)
+    kk = gcd(K,psysc.C.nperiod)
+    kc, nc = isconstant(psysc.C) ? (1,K) : (div(K,kk),kk)
+    kk = gcd(K,psysc.D.nperiod)
+    kd, nd = isconstant(psysc.D) ? (1,K) : (div(K,kk),kk)
     Ap = similar(Vector{Matrix},ka)
     Bp = similar(Vector{Matrix},kb)
     Cp = similar(Vector{Matrix},kc)
     Dp = similar(Vector{Matrix},kd)
 
-    psys1 = typeof(psysc.A) <: PeriodicFunctionMatrix ? psysc : 
-               convert(PeriodicStateSpace{PeriodicFunctionMatrix},psysc)
     i1 = 1:n; i2 = n+1:n+m
-
     if isconstant(psysc.A) && isconstant(psysc.B)
-        G = exp([ rmul!(psys1.A.f(0),Ts) rmul!(psys1.B.f(0),Ts); zeros(T1,m,n+m)])
+        G = exp([ rmul!(tpmeval(psysc.A,0),Ts) rmul!(tpmeval(psysc.B,0),Ts); zeros(T1,m,n+m)])
         Ap[1] = G[i1,i1]
         Bp[1] = G[i1,i2]
-        ts = zero(T1)
-        for i = 1:kc
-            Cp[i] = psys1.C.f(ts)
-            ts += Ts
-        end
-        ts = zero(T1)
-        for i = 1:kd
-            Dp[i] = psys1.D.f(ts)
-            ts += Ts
-        end
+        [Cp[i] = tpmeval(psysc.C,(i-1)*Ts) for i in 1:kc]
+        [Dp[i] = tpmeval(psysc.D,(i-1)*Ts) for i in 1:kd]
     else
-        Gfun = PeriodicFunctionMatrix(t -> [psys1.A.f(t) psys1.B.f(t); zeros(T1,m,n+m)], period)
-        G = monodromy(Gfun, K; solver, reltol, abstol, dt)
+        kab = max(ka,kb)
+        Gfun = PeriodicFunctionMatrix(t -> [tpmeval(psysc.A,t) tpmeval(psysc.B,t); zeros(T1,m,n+m)], period; nperiod = div(K,kab))
+        #G = monodromy(Gfun, kab; Ts, solver, reltol, abstol, dt)
+        G = monodromy(Gfun, kab; solver, reltol, abstol, dt)
         [Ap[i] = G.M[i1,i1,i] for i in 1:ka]
         [Bp[i] = G.M[i1,i2,i] for i in 1:kb]
-        ts = zero(T1)
-        for i = 1:kc
-            Cp[i] = psys1.C.f(ts)
-            ts += Ts
-        end
-        ts = zero(T1)
-        for i = 1:kd
-            Dp[i] = psys1.D.f(ts)
-            ts += Ts
-        end
+        [Cp[i] = tpmeval(psysc.C,(i-1)*Ts) for i in 1:kc]
+        [Dp[i] = tpmeval(psysc.D,(i-1)*Ts) for i in 1:kd]
     end
     PMT = PeriodicMatrix
     return ps(PMT(Ap,period; nperiod = na),PMT(Bp,period; nperiod = nb),PMT(Cp,period; nperiod = nc),PMT(Dp,period; nperiod = nd))
     # end PSC2D
 end
+# psc2d(psysc::PeriodicStateSpace{PeriodicTimeSeriesMatrix{:c,T}}, Ts::Real; kwargs...) where {T} = 
+#       psc2d(convert(PeriodicStateSpace{PeriodicFunctionMatrix},psysc), Ts; kwargs...)
+psc2d(psysc::PeriodicStateSpace{PeriodicTimeSeriesMatrix{:c,T}}, Ts::Real; kwargs...) where {T} = 
+      psc2d(convert(PeriodicStateSpace{HarmonicArray},psysc), Ts; kwargs...)
+psc2d(psysc::PeriodicStateSpace{PeriodicSymbolicMatrix{:c,T}}, Ts::Real; kwargs...) where {T} = 
+      psc2d(convert(PeriodicStateSpace{PeriodicFunctionMatrix},psysc), Ts; kwargs...)

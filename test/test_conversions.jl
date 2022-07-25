@@ -33,18 +33,23 @@ end
 @testset "psc2d" begin
 
 # periodic time-varying matrices from IFAC2005 paper
+Ta = 4*pi; Tb = 2*pi; Tc = 8*pi; Td = pi; 
 @variables t
-A = PeriodicSymbolicMatrix([cos(t) 1; 1 1-sin(t)],2*pi); 
+A = PeriodicSymbolicMatrix([cos(t) 1; 1 1-sin(t)],Ta); 
 println("A(t) = $(A.F)")
-B = HarmonicArray([0;1],[[1;0]],[[1;-1]],2*pi);
+B = HarmonicArray([0;1],[[1;0]],[[1;-1]],Tb);
 println("B(t) = $(convert(PeriodicSymbolicMatrix,B).F)")
-C = PeriodicFunctionMatrix(t-> [sin(2*t)+cos(2*t) 1],pi);
+C = PeriodicFunctionMatrix(t-> [sin(2*t)+cos(2*t) 1],Tc);
 println("C(t) = $(C.f(t))")
-D = PeriodicFunctionMatrix(zeros(1,1),pi)
-K = 100
-Δ = 2*pi/K
-ts = (0:K-1)*Δ
+D = PeriodicFunctionMatrix(zeros(1,1),Td)
+K = 200
+Δa = Ta/K; Δb = Tb/K; Δd = Td/K; Δc = Tc/K;
 
+tsa = (0:K-1)*Δa
+ts = (0:K-1)*Δb
+tsd = (0:K-1)*Δd
+tsc = (0:K-1)*Δc
+Δ = Δb
 
 psysc = PeriodicStateSpace(convert(PeriodicFunctionMatrix,A), 
                           convert(PeriodicFunctionMatrix,B), 
@@ -60,8 +65,8 @@ psysc1 = PeriodicStateSpace(convert(PeriodicSymbolicMatrix,A),
                           convert(PeriodicSymbolicMatrix,C), 
                           convert(PeriodicSymbolicMatrix,D));
 @time psys1 = psc2d(psysc1,Δ);
-@test all(psys.A.M .≈ psys1.A.M) && all(psys.B.M .≈ psys1.B.M) && 
-      all(psys.C.M .≈ psys1.C.M) && all(psys.D.M .≈ psys1.D.M)
+@test norm(psys.A-psys1.A,Inf) < 1.e-7 && norm(psys.B-psys1.B,Inf) < 1.e-7 && 
+      norm(psys.C-psys1.C,Inf) < 1.e-7 && norm(psys.D-psys1.D,Inf) < 1.e-7
 @time sys1 = psaverage(psysc1); 
 @test iszero(sys-sys1,atol=1.e-7)
 
@@ -71,8 +76,8 @@ psysc2 = PeriodicStateSpace(convert(HarmonicArray,A),
                           convert(HarmonicArray,C), 
                           convert(HarmonicArray,D));
 @time psys2 = psc2d(psysc2,Δ);
-@test all(psys.A.M .≈ psys2.A.M) && all(psys.B.M .≈ psys2.B.M) && 
-      all(psys.C.M .≈ psys2.C.M) && all(psys.D.M .≈ psys2.D.M)
+@test norm(psys.A-psys2.A,Inf) < 1.e-7 && norm(psys.B-psys2.B,Inf) < 1.e-7 && 
+      norm(psys.C-psys2.C,Inf) < 1.e-7 && norm(psys.D-psys2.D,Inf) < 1.e-7
 @time sys2 = psaverage(psysc2); 
 @test iszero(sys-sys2,atol=1.e-7)
 
@@ -81,22 +86,35 @@ psysc3 = PeriodicStateSpace(convert(FourierFunctionMatrix,A),
                           convert(FourierFunctionMatrix,C), 
                           convert(FourierFunctionMatrix,D));
 @time psys3 = psc2d(psysc3,Δ);
-@test all(psys.A.M .≈ psys3.A.M) && all(psys.B.M .≈ psys3.B.M) && 
-      all(psys.C.M .≈ psys3.C.M) && all(psys.D.M .≈ psys3.D.M)
+@test norm(psys.A-psys3.A,Inf) < 1.e-7 && norm(psys.B-psys3.B,Inf) < 1.e-7 && 
+      norm(psys.C-psys3.C,Inf) < 1.e-7 && norm(psys.D-psys3.D,Inf) < 1.e-7
 @time sys3 = psaverage(psysc3); 
 @test iszero(sys-sys3,atol=1.e-7)
 
 
-At = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,A).f.(ts),A.period);
+At = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,A).f.(tsa),A.period);
 Bt = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,B).f.(ts),B.period);
-Ct = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,C).f.(ts),C.period); 
-Dt = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,D).f.(ts),D.period);
+Ct = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,C).f.(tsc),C.period); 
+Dt = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,D).f.(tsd),D.period);
+
+#fails
 psysc4 = PeriodicStateSpace(At, Bt, Ct, Dt); 
 @time psys4 = psc2d(psysc4,Δ);
-@test norm(psys.A.M .- psys4.A.M) < 1.e-7 && norm(psys.B.M .- psys4.B.M) < 1.e-7 && 
-      all(psys.C.M .≈ psys4.C.M) && all(psys.D.M .≈ psys4.D.M)
+@test norm(psys.A - psys4.A,Inf) < 1.e-7 && norm(psys.B - psys4.B) < 1.e-7 && 
+      norm(psys.C-psys4.C) < 1.e-7 && norm(psys.D-psys4.D) < 1.e-7
 @time sys4 = psaverage(psysc4); 
 @test iszero(sys-sys4,atol=1.e-7)
+
+#fails
+A1=convert(PeriodicTimeSeriesMatrix,A)
+B1=convert(PeriodicTimeSeriesMatrix,B)
+C1=convert(PeriodicTimeSeriesMatrix,C)
+D1=convert(PeriodicTimeSeriesMatrix,D)
+psysc5 = PeriodicStateSpace(A1, B1, C1, D1); 
+@time psys5 = psc2d(psysc5,Δ);
+@test norm(psys.A - psys5.A,Inf) < 1.e-7 && norm(psys.B - psys5.B,Inf) < 1.e-7 && 
+      norm(psys.C-psys5.C,Inf) < 1.e-7 && norm(psys.D-psys5.D,Inf) < 1.e-7
+
 
 # Pitelkau's example
 ω = 0.00103448

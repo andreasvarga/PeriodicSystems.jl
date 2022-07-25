@@ -22,7 +22,7 @@ ApproxFun = "28f2ccd6-bb30-5033-b560-165f7b14dc2f"
 [compat]
 DescriptorSystems = "1"
 FFTW = "1"
-Interpolations = "0.13"
+Interpolations = "0.13, 0.14"
 IRKGaussLegendre = "0.1"
 LinearMaps = "3.3"
 MatrixEquations = "2.2"

@@ -199,13 +199,15 @@ end
 function PeriodicFunctionMatrix{:c,T}(at::PeriodicFunctionMatrix, period::Real) where {T}
    period > 0 || error("period must be positive") 
    Aperiod = at.period
+   Aperiod == period && T == eltype(at) && (return at) 
+   isconstant(at) && (return PeriodicFunctionMatrix{:c,T}(at.f, period, at.dims, 1, at._isconstant))
    r = rationalize(Aperiod/period)
    n, d = numerator(r), denominator(r)
    min(n,d) == 1 || error("new period is incommensurate with the old period")
    if period >= Aperiod
       PeriodicFunctionMatrix{:c,T}(at.f, Aperiod*d, at.dims, at.nperiod*d, at._isconstant)
    elseif period < Aperiod
-      nperiod = div(A.nperiod,n)
+      nperiod = div(at.nperiod,n)
       nperiod < 1 && error("new period is incommensurate with the old period")
       PeriodicFunctionMatrix{:c,T}(at.f, Aperiod/n, at.dims, at.nperiod, at._isconstant)
    end
@@ -638,8 +640,10 @@ function Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicSymbolicMatri
     tA = convert(PeriodicFunctionMatrix,A)
     PeriodicTimeSeriesMatrix(tA.f.((0:127)*tA.period/128/tA.nperiod), tA.period; nperiod = tA.nperiod)
 end
-Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicFunctionMatrix) = 
-         PeriodicTimeSeriesMatrix(A.f.((0:127)*A.period/128/A.nperiod), A.period; nperiod = A.nperiod)
+function Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicFunctionMatrix)
+   isconstant(A) ? PeriodicTimeSeriesMatrix(A.f.(0), A.period) : 
+                   PeriodicTimeSeriesMatrix(A.f.((0:127)*A.period/128/A.nperiod), A.period; nperiod = A.nperiod)
+end
 Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::HarmonicArray) =
     PeriodicTimeSeriesMatrix(tvmeval(A, collect((0:127)*A.period/128/A.nperiod)), A.period; nperiod = A.nperiod)
 Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicMatrix) =

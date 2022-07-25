@@ -1,3 +1,59 @@
+for PM in (:PeriodicArray, :PeriodicMatrix)
+    @eval begin
+       function pdlyap(A::$PM, C::$PM; adj::Bool = true) 
+          A.Ts ≈ C.Ts || error("A and C must have the same sampling time")
+          period = promote_period(A, C)
+          na = rationalize(period/A.period).num
+          K = na*A.nperiod*A.dperiod
+          X = pslyapd(A.M, C.M; adj)
+          p = lcm(length(A),length(C))
+          return $PM(X, period; nperiod = div(K,p))
+       end
+    end
+end
+"""
+    pdlyap(A, C; adj = true) -> X
+
+Solve the periodic discrete-time Lyapunov equation
+
+    A'σXA + C = X  for adj = true 
+
+or 
+
+    AXA' + C = σX  for adj = false,
+    
+where `σ` is the forward shift operator `σX(i) = X(i+1)`. 
+
+The periodic matrices `A` and `C` must have the same type, the same dimensions and commensurate periods, 
+and additionally `C` must be symmetric. The resulting symmetric periodic solution `X` has the period 
+set to the least common commensurate period of `A` and `C` and the number of subperiods
+is adjusted accordingly. 
+
+The periodic discrete analog of the Bartels-Stewart method based on the periodic Schur form
+of the periodic matrix `A` is employed [1].
+
+_Reference:_
+
+[1] A. Varga. Periodic Lyapunov equations: some applications and new algorithms. 
+              Int. J. Control, vol, 67, pp, 69-87, 1997.
+"""
+pdlyap(A::PeriodicArray, C::PeriodicArray; adj::Bool = true) 
+for PM in (:PeriodicArray, :PeriodicMatrix)
+   @eval begin
+      function prlyap(A::$PM, C::$PM) 
+         pdlyap(A, C; adj = true)
+      end
+      function prlyap(A::$PM, C::AbstractMatrix)
+               pdlyap(A, $PM(C, A.Ts; nperiod = 1);  adj = true)
+      end
+      function pflyap(A::$PM, C::$PM) 
+         pdlyap(A, C; adj = false)
+      end
+      function pflyap(A::$PM, C::AbstractMatrix)
+               pdlyap(A, $PM(C, A.Ts; nperiod = 1); adj = false)
+      end
+   end
+end
 """
     prlyap(A, C) -> X
 
@@ -7,59 +63,28 @@ Solve the reverse-time periodic discrete-time Lyapunov equation
 
 where `σ` is the forward shift operator `σX(i) = X(i+1)`.                 
 
-For the periodic matrices `A` and `C` with the same sampling period and commensurate periods, 
-the periodic matrix `X` is determined, whose period is automatically set to the
-the least common period of `A` and `C`.  
+The periodic matrices `A` and `C` must have the same type, the same dimensions and commensurate periods, 
+and additionally `C` must be symmetric. The resulting symmetric periodic solution `X` has the period 
+set to the least common commensurate period of `A` and `C` and the number of subperiods
+is adjusted accordingly.  
 """
-function prlyap(A::PeriodicArray, C::PeriodicArray) 
-   A.Ts ≈ C.Ts || error("A and C must have the same sampling time")
-   period = promote_period(A, C)
-   nta = numerator(rationalize(period/A.period))
-   K = nta*A.nperiod*A.dperiod
-   X = pslyapd(A.M, C.M; adj = true)
-   return PeriodicArray(X, period; nperiod = div(K,size(X,3)))
-end
-prlyap(A::PeriodicArray, C::AbstractMatrix) = prlyap(A, PeriodicArray(C, A.Ts; nperiod = 1))
-function prlyap(A::PeriodicMatrix, C::PeriodicMatrix) 
-   A.Ts ≈ C.Ts || error("A and C must have the same sampling time")
-   period = promote_period(A, C)
-   nta = numerator(rationalize(period/A.period))
-   K = nta*A.nperiod*A.dperiod
-   X = pslyapd(A.M, C.M; adj = true)
-   return PeriodicMatrix(X, period; nperiod = div(K,length(X)))
-end
-prlyap(A::PeriodicMatrix, C::AbstractMatrix) = prlyap(A, PeriodicMatrix(C, A.Ts; nperiod = 1))
+prlyap(A::PeriodicArray, C::PeriodicArray) 
 """
     pflyap(A, C) -> X
 
 Solve the forward-time periodic discrete-time Lyapunov equation
 
-    A'XA + C = σX
+    AXA' + C = σX
 
 where `σ` is the forward shift operator `σX(i) = X(i+1)`.                 
 
-For the periodic matrices `A` and `C` with the same sampling period and commensurate periods, 
-the periodic matrix `X` is determined, whose period is automatically set to the
-the least common period of `A` and `C`.  
+The periodic matrices `A` and `C` must have the same type, the same dimensions and commensurate periods, 
+and additionally `C` must be symmetric. The resulting symmetric periodic solution `X` has the period 
+set to the least common commensurate period of `A` and `C` and the number of subperiods
+is adjusted accordingly.  
 """
-function pflyap(A::PeriodicArray, C::PeriodicArray) 
-   A.Ts ≈ C.Ts || error("A and C must have the same sampling time")
-   period = promote_period(A, C)
-   nta = numerator(rationalize(period/A.period))
-   K = nta*A.nperiod*A.dperiod
-   X = pslyapd(A.M, C.M; adj = false)
-   return PeriodicArray(X, period; nperiod = div(K,size(X,3)))
-end
-pflyap(A::PeriodicArray, C::AbstractMatrix) = pflyap(A, PeriodicArray(C, A.Ts; nperiod = 1))
-function pflyap(A::PeriodicMatrix, C::PeriodicMatrix) 
-   A.Ts ≈ C.Ts || error("A and C must have the same sampling time")
-   period = promote_period(A, C)
-   nta = numerator(rationalize(period/A.period))
-   K = nta*A.nperiod*A.dperiod
-   X = pslyapd(A.M, C.M; adj = false)
-   return PeriodicMatrix(X, period; nperiod = div(K,length(X)))
-end
-pflyap(A::PeriodicMatrix, C::AbstractMatrix) = pflyap(A, PeriodicMatrix(C, A.Ts; nperiod = 1))
+pflyap(A::PeriodicArray, C::PeriodicArray) 
+
 """
     pslyapd(A, C; adj = true) -> X
 
@@ -80,7 +105,7 @@ arrays `A` and `C`, respectively, and `X` results as a `n×n×p` 3-dimensional a
 Alternatively, the periodic matrices `A` and `C` can be stored in the  `pa`- and `pc`-dimensional
 vectors of matrices `A` and `C`, respectively, and `X` results as a `p`-dimensional vector of matrices.
 
-The periodic discrete analog of the Bartels-Steward method based on the periodic Schur form
+The periodic discrete analog of the Bartels-Stewart method based on the periodic Schur form
 of the periodic matrix `A` is employed [1].
 
 _Reference:_
@@ -115,7 +140,7 @@ function pslyapd(A::AbstractArray{T1, 3}, C::AbstractArray{T2, 3}; adj::Bool = t
        X[:,:,i] = adj ? utqu(view(C1,:,:,ic),view(Q,:,:,ia)) : 
                         utqu(view(C1,:,:,ic),view(Q,:,:,ia1)) 
    end
-   # solve A'σXA - X + C = 0
+   # solve A'σXA + C = X if adj = true or AXA' + C = σX if adj = false
    pdlyaps!(KSCHUR, AS, X; adj)
 
    #X <- Q*X*Q'

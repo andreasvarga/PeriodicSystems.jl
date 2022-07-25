@@ -30,11 +30,14 @@ The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/Ordi
 
 `solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 """
-function tvstm(A::PeriodicFunctionMatrix{:c,T}, tf::Real, t0::Real = 0; solver = "", reltol = 1e-3, abstol = 1e-7, dt = (tf-t0)/10) where {T}
-   n = A.dims[1]
-   n == A.dims[2] || error("the function matrix must be square")
+function tvstm(A::PM, tf::Real, t0::Real = 0; solver = "", reltol = 1e-3, abstol = 1e-7, dt = (tf-t0)/10) where 
+         {T, PM <: Union{PeriodicFunctionMatrix{:c,T},HarmonicArray{:c,T},FourierFunctionMatrix{:c,T}}} 
+# function tvstm(A::PeriodicFunctionMatrix{:c,T}, tf::Real, t0::Real = 0; solver = "", reltol = 1e-3, abstol = 1e-7, dt = (tf-t0)/10) where {T}
+   n = size(A,1)
+   n == size(A,2) || error("the function matrix must be square")
 
-   isconstant(A) && ( return exp(A.f(t0)*(tf-t0)) )
+   #isconstant(A) && ( return exp(A.f(t0)*(tf-t0)) )
+   isconstant(A) && ( return exp(tpmeval(A,t0)*(tf-t0)) )
    
    T1 = promote_type(typeof(t0), typeof(tf))
 
@@ -42,7 +45,8 @@ function tvstm(A::PeriodicFunctionMatrix{:c,T}, tf::Real, t0::Real = 0; solver =
    u0 = Matrix{T}(I,n,n)
    tspan = (T1(t0),T1(tf))
    if solver != "linear" 
-      f!(du,u,p,t) = mul!(du,A.f(t),u)
+      #f!(du,u,p,t) = mul!(du,A.f(t),u)
+      f!(du,u,p,t) = mul!(du,tpmeval(A,t),u)
       prob = ODEProblem(f!, u0, tspan)
    end
    if solver == "stiff" 
@@ -66,7 +70,8 @@ function tvstm(A::PeriodicFunctionMatrix{:c,T}, tf::Real, t0::Real = 0; solver =
          A .= p(t)
       end
       DEop = DiffEqArrayOperator(ones(T,n,n),update_func=update_func!)     
-      prob = ODEProblem(DEop, u0, tspan, A.f)
+      #prob = ODEProblem(DEop, u0, tspan, A.f)
+      prob = ODEProblem(DEop, u0, tspan, t-> tpmeval(A,t))
       sol = solve(prob,MagnusGL6(), dt = dt, save_everystep = false)
    elseif solver == "symplectic" 
       # high accuracy symplectic
@@ -115,6 +120,7 @@ function monodromy(A::PeriodicFunctionMatrix{:c,T}, K::Int = 1; solver = "non-st
    n == A.dims[2] || error("the function matrix must be square")
    nperiod = A.nperiod
    Ts = A.period/K/nperiod
+
    M = Array{T,3}(undef, n, n, K) 
 
    # compute the matrix exponential for K = 1 and constant matrix
@@ -1152,18 +1158,19 @@ The keyword parameter `method` specifies the interpolation/extrapolation method 
 function ts2pfm(A::PeriodicTimeSeriesMatrix; method = "linear")
    N = length(A.values)
    N == 0 && error("empty time array not supported")
-   N == 1 && (return t -> A.values[1])
-   ts = (0:N-1)*(A.period/N)
+   N == 1 && (return PeriodicFunctionMatrix(t -> A.values[1], A.period; nperiod = A.nperiod, isconst = true))
+   #ts = (0:N-1)*(A.period/N)
+   ts = (0:N-1)*(A.period/N/A.nperiod)
    n1, n2 = size(A.values[1])
-   intparray = Array{Any,2}(undef,n1, n2)
-   if method == "linear"
-      [intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Linear(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
-   elseif method == "cubic"      
-      [intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Cubic(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
-   elseif method == "quadratic"      
-      [intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Quadratic(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
-   elseif method == "constant"      
+   intparray = Array{Any,2}(undef, n1, n2)
+   if method == "constant"      
       [intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Constant(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
+   elseif method == "linear" || N == 2
+      [intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Linear(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
+   elseif method == "quadratic" || N == 3     
+      [intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Quadratic(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
+   elseif method == "cubic"     
+      [intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Cubic(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
    else
       error("no such option method = $method")
    end
@@ -1221,7 +1228,7 @@ function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0
            tt = conj(2/M*(rfftop*temp)) 
            tt[1] = real(tt[1]/2)
            tt1 = view(tt,i1)
-          indr = i1[abs.(real(tt1)) .> tol]
+           indr = i1[abs.(real(tt1)) .> tol]
            nr = length(indr); 
            nr > 0 && (nr = indr[end])
            indi = i1[abs.(imag(tt1)) .> tol]
@@ -1232,8 +1239,9 @@ function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0
            AHR[i,j,indi] += im*imag(tt[indi])
        end
    end
-   nperiod = A.nperiod
-   if ncur >= 2 && squeeze
+   nperiod0 = A.nperiod
+   nperiod = 1
+   if ncur > 2 && squeeze
       nh = ncur-1
       s = falses(nh)
       for i = 1:nh
@@ -1241,7 +1249,7 @@ function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0
       end  
       t = Primes.factor(Vector,nh)
       s1 = copy(s)
-      for i = 1:length(t)
+     for i = 1:length(t)
           stry = true
           for j1 = 1:t[i]:nh
               stry = stry & all(view(s1,j1:j1+t[i]-2) .== false) 
@@ -1253,9 +1261,9 @@ function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0
              nh = div(nh,t[i])
           end
       end 
-      return HarmonicArray(AHR[:,:,[1;nperiod+1:nperiod:ncur]],A.period;nperiod)
+      return HarmonicArray(AHR[:,:,[1;nperiod+1:nperiod:ncur]],A.period;nperiod = nperiod*nperiod0)
    else
-      return HarmonicArray(AHR[:,:,1:max(1,ncur+1)],A.period;nperiod)
+      return HarmonicArray(AHR[:,:,1:max(1,ncur)],A.period;nperiod = nperiod0)
    end       
 
 end
@@ -1807,6 +1815,18 @@ function tvmeval(A::FourierFunctionMatrix, t::Union{Real,Vector{<:Real}} )
    te = isa(t,Real) ? [mod(t,A.period)] : mod.(t,A.period)
    return (A.M).(te)
 end
+function tpmeval(A::PeriodicFunctionMatrix, t::Real )
+"""
+     tpmeval(A, tval) -> Aval::Matrix
+
+Evaluate the time value of a continuous-time periodic matrix.
+
+For the periodic matrix `A(t)` and the time value `tval`, `Aval = A(tval)` is evaluated for the time value `t = tval`. 
+"""
+   return (A.f).(t)
+end
+tpmeval(A::FourierFunctionMatrix, t::Real ) = (A.M)(t)
+tpmeval(A::HarmonicArray, t::Real ) = hreval(A, t; exact = true) 
 
 """
     pmaverage(A) -> Am 

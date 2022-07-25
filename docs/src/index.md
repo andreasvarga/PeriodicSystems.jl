@@ -26,7 +26,7 @@ Many control applications are formulated as genuine
 periodic control problems as for example, satellite attitude control, helicopter forward flight control, orbital stabilization of underactuated systems, etc. Besides
 that, periodic systems represent a general framework to analyze and design multi-rate sampled-data systems. 
 
-The targeted functionality of this package is described in [1] and will cover both continuous-time and discrete-time periodic systems. The following categories of functions are implemented of planned:
+The targeted functionality of this package is described in [1] and will cover both continuous-time and discrete-time periodic systems. The following categories of functions are implemented or planned:
 
 **Building periodic system state-space models**
 
@@ -54,9 +54,14 @@ The targeted functionality of this package is described in [1] and will cover bo
 * **[`pszero`](@ref)**  Computation of the zeros of a periodic system.
 * **[`isstable`](@ref)**  Assessment of stability of a periodic system.
 
-**Solving periodic matrix equations**
+**Solving periodic Lyapunov equations**
 
-* **[`prlyap`](@ref)** Solution of reverse-time periodic discrete-time Lyapunov equation. 
+* **[`pclyap`](@ref)** Solution of periodic Lyapunov differential equations. 
+* **[`prclyap`](@ref)** Solution of reverse-time periodic Lyapunov differential equation equations. 
+* **[`pfclyap`](@ref)**  Solution of forward-time periodic Lyapunov differential equation equations.
+* **[`pgclyap`](@ref)** Computation of periodic generators for periodic Lyapunov differential equations.
+* **[`pdlyap`](@ref)** Solution of periodic discrete-time Lyapunov equations. 
+* **[`prlyap`](@ref)** Solution of reverse-time periodic discrete-time Lyapunov equations. 
 * **[`pflyap`](@ref)**  Solution of forward-time periodic discrete-time Lyapunov equations.
 
 

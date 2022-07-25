@@ -544,6 +544,13 @@ Ad = 0.5*PeriodicArray(rand(Float32,n,n,pa),pa);
 q = rand(n,n,pc); [q[:,:,i] = q[:,:,i]'+q[:,:,i] for i in 1:pc];
 Qd = PeriodicArray(q,pc);
 
+X = pdlyap(Ad, Qd, adj = true); 
+@test norm(Ad'*pmshift(X)*Ad-X+Qd) < 1.e-7 
+
+X = pdlyap(Ad, Qd, adj = false); 
+@test norm(Ad*X*Ad'-pmshift(X)+Qd) < 1.e-7 
+
+
 X = prlyap(Ad, Qd); 
 @test norm(Ad'*pmshift(X)*Ad-X+Qd) < 1.e-7 
 
@@ -597,7 +604,7 @@ X = pflyap(Ad, q)
 
 end 
 
-@testset "pdlyad" begin
+@testset "pslyapd" begin
 
 
 n = 5; pa = 1; pc = 1; p = lcm(pa,pc)
