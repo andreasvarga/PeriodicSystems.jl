@@ -320,7 +320,7 @@ function pseig(A::Vector{Matrix{T}}, k::Int = 1; rev::Bool = true, fast::Bool = 
    end
 end
 """
-     pcseig(A::PeriodicFunctionMatrix[, K = 1]; lifting = false, solver, reltol, abstol, dt) -> ce
+     psceig(A::PeriodicFunctionMatrix[, K = 1]; lifting = false, solver, reltol, abstol, dt) -> ce
 
 Compute the characteristic exponents of a periodic matrix.
 

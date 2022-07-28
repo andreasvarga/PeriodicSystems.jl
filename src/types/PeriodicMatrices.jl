@@ -328,8 +328,8 @@ function FourierFunctionMatrix{:c,T}(A::Fun, period::Real) where {T}
    denominator(ti) == 1 || error("only integer multiple periods supported")
    FourierFunctionMatrix{:c,eltype(domain(A))}(m == 1 ? reshape(A,n,m) : A, Float64(period), numerator(ti)) 
 end
-FourierFunctionMatrix(A::Fun, period::Real)  = 
-       FourierFunctionMatrix{:c,eltype(domain(A))}(A::Fun, period::Real) 
+FourierFunctionMatrix(A::Fun, period::Real; nperiod::Int = 1)  = 
+       FourierFunctionMatrix{:c,eltype(domain(A))}(A, period, nperiod) 
 FourierFunctionMatrix(A::Fun)  = FourierFunctionMatrix{:c,eltype(domain(A))}(A::Fun, domain(A).b) 
 function FourierFunctionMatrix{:c,T}(A::FourierFunctionMatrix, period::Real) where {T}
    period > 0 || error("period must be positive") 

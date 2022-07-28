@@ -1,8 +1,8 @@
 # Release Notes
 
-## Version 0.4 (WIP)
+## Version 0.4 
 
-This minor version includes several new functions for the solution of continuous- and discrete-time periodic Lyapunov equations and implements basic operations with discrete-time periodic matrices. 
+This minor version includes several new functions for the solution of continuous- and discrete-time periodic Lyapunov equations and implements basic operations with continuous- and discrete-time periodic matrices. 
 An enhanced version of funtion `psc2d` is provided, which fully exploits the structure information of the underlying periodic matrices. 
 
 ## Version 0.3.1

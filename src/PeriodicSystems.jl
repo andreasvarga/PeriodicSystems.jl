@@ -22,15 +22,17 @@ include("SLICOTtools.jl")
 using .SLICOTtools: mb03vd!, mb03vy!, mb03bd!, mb03wd!, mb03vw!
 
 
-import LinearAlgebra: BlasInt, BlasFloat, BlasReal, BlasComplex, copy_oftype, transpose, adjoint, opnorm, normalize, rdiv!, issymmetric
+import LinearAlgebra: BlasInt, BlasFloat, BlasReal, BlasComplex, copy_oftype, transpose, adjoint, opnorm, normalize, rdiv!, issymmetric, norm
 import Base: +, -, *, /, \, (==), (!=), ^, isapprox, iszero, convert, promote_op, size, length, ndims, 
              hcat, vcat, hvcat, inv, show, lastindex, require_one_based_indexing, print, show, one, zero, eltype
 import MatrixPencils: isregular, rmeval
 import MatrixEquations: sylvd2!, luslv!
 import DescriptorSystems: isstable
 import Polynomials: AbstractRationalFunction, AbstractPolynomial, poles, isconstant, variable, degree, pqs
+import Symbolics: derivative
 
-export PeriodicStateSpace, pschur, pschur1, pschur2, phess, phess1, psreduc_reg, psreduc_fast, check_psim, mshift, pseig, tvmeval, tpmeval, hreval, tvstm
+export PeriodicStateSpace, pschur, pschur1, pschur2, phess, phess1, psreduc_reg, psreduc_fast, check_psim, mshift, pseig, 
+       tvmeval, tpmeval, hreval, tvstm
 export ts2hr, ts2pfm, ts2ffm, pfm2hr, hr2psm, psm2hr, pm2pa, ffm2hr, pmaverage
 export monodromy, psceig
 export PeriodicArray, PeriodicMatrix
@@ -44,6 +46,7 @@ export pspole, pszero, isstable
 export pdlyap, prlyap, pflyap, pslyapd, pdlyaps!, pdlyaps1!, pdlyaps2!, pdlyaps3!, dpsylv2, dpsylv2!, pslyapdkr, dpsylv2krsol!, kronset!
 export pmshift
 export pclyap, pfclyap, prclyap, pgclyap
+export derivative
 
 abstract type AbstractDynamicalSystem end
 abstract type AbstractLTISystem <: AbstractDynamicalSystem end
