@@ -74,6 +74,7 @@ tt = Vector((1:500)*2*pi/500)
 
 solver = "non-stiff"
 for solver in ("non-stiff", "stiff", "symplectic", "noidea")
+    println("solver = $solver")
     @time Yt = pclyap(At, Ct; solver, K = 500, reltol = 1.e-10);
     @test maximum(norm.(Yt.f.(tt).-Xt.f.(tt))) < 1.e-6
 end

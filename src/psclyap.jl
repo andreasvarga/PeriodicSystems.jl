@@ -239,6 +239,7 @@ function tvclyap(A::PM1, C::PM2, tf, t0; adj = false, solver = "", reltol = 1e-3
          sol = solve(prob, AutoVern9(Rodas5(),nonstifftol = 11/10); reltol, abstol, save_everystep = false)
       end
    end
+   println("sol = $(sol(tf))")
    return MatrixEquations.vec2triu(sol(tf), her=true)     
 end
 function muladdcsym!(y::AbstractVector, A::AbstractMatrix, x::AbstractVector, C::AbstractMatrix)
