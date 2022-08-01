@@ -159,7 +159,6 @@ function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", 
    Ts = period/K/nperiod
    
    if isconstant(A) && isconstant(C)
-      #X = adj ? lyapc(A.f(0)',C.f(0)) :  lyapc(A.f(0),C.f(0))
       X = adj ? lyapc(tpmeval(A,0)', tpmeval(C,0)) :  lyapc(tpmeval(A,0), tpmeval(C,0))
    else
       T = promote_type(eltype(A),eltype(C),Float64)
@@ -239,7 +238,6 @@ function tvclyap(A::PM1, C::PM2, tf, t0; adj = false, solver = "", reltol = 1e-3
          sol = solve(prob, AutoVern9(Rodas5(),nonstifftol = 11/10); reltol, abstol, save_everystep = false)
       end
    end
-   println("sol = $(sol(tf))")
    return MatrixEquations.vec2triu(sol(tf), her=true)     
 end
 function muladdcsym!(y::AbstractVector, A::AbstractMatrix, x::AbstractVector, C::AbstractMatrix)
