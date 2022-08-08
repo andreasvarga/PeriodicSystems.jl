@@ -224,7 +224,7 @@ function tvclyap(A::PM1, C::PM2, tf, t0; adj = false, solver = "", reltol = 1e-3
       end
    elseif solver == "symplectic" 
       # high accuracy symplectic
-      sol = solve(prob, IRKGaussLegendre.IRKGL16(); reltol, abstol, save_everystep = false)
+      sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = true, reltol, abstol, save_everystep = false)
    else 
       if reltol > 1.e-4  
          # low accuracy automatic selection

@@ -234,28 +234,28 @@ tt = Vector((1:500)*2*pi/500)
 
 
 # Pitelkau's example - singular Lyapunov equations
-ω = 0.00103448
-period = 2*pi/ω
-a = [  0            0     5.318064566757217e-02                         0
-       0            0                         0      5.318064566757217e-02
-       -1.352134256362805e-03   0             0    -7.099273035392090e-02
-       0    -7.557182037479544e-04     3.781555288420663e-02             0
-];
-b = t->[0; 0; 0.1389735*10^-6*sin(ω*t); -0.3701336*10^-7*cos(ω*t)];
-c = [1 0 0 0;0 1 0 0];
-d = zeros(2,1);
-psysc = ps(a,PeriodicFunctionMatrix(b,period),c,d);
+# ω = 0.00103448
+# period = 2*pi/ω
+# a = [  0            0     5.318064566757217e-02                         0
+#        0            0                         0      5.318064566757217e-02
+#        -1.352134256362805e-03   0             0    -7.099273035392090e-02
+#        0    -7.557182037479544e-04     3.781555288420663e-02             0
+# ];
+# b = t->[0; 0; 0.1389735*10^-6*sin(ω*t); -0.3701336*10^-7*cos(ω*t)];
+# c = [1 0 0 0;0 1 0 0];
+# d = zeros(2,1);
+# psysc = ps(a,PeriodicFunctionMatrix(b,period),c,d);
 
-@time Qc = prclyap(psysc.A,psysc.B*transpose(psysc.B),K = 120, reltol = 1.e-10);
-@time Rc = pfclyap(psysc.A,transpose(psysc.C)*psysc.C, K = 120, reltol = 1.e-10);
-@test norm(Qc) > 1.e3 && norm(Rc) > 1.e3
+# @time Qc = prclyap(psysc.A,psysc.B*transpose(psysc.B),K = 120, reltol = 1.e-10);
+# @time Rc = pfclyap(psysc.A,transpose(psysc.C)*psysc.C, K = 120, reltol = 1.e-10);
+# @test norm(Qc) > 1.e3 && norm(Rc) > 1.e3
 
-K = 120;
-@time psys = psc2d(psysc,period/K,reltol = 1.e-10);
+# K = 120;
+# @time psys = psc2d(psysc,period/K,reltol = 1.e-10);
 
-@time Qd = prlyap(psys.A,psys.B*transpose(psys.B));
-@time Rd = prlyap(transpose(psys.A),transpose(psys.C)*psys.C);
-@test norm(Qd) > 1.e3 && norm(Rd) > 1.e3
+# @time Qd = prlyap(psys.A,psys.B*transpose(psys.B));
+# @time Rd = prlyap(transpose(psys.A),transpose(psys.C)*psys.C);
+# @test norm(Qd) > 1.e3 && norm(Rd) > 1.e3
 
 end # psclyap
 
