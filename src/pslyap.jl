@@ -1138,6 +1138,7 @@ function dpsylv2!(adj::Bool, n1::Int, n2::Int, KSCHUR::Int, AL::StridedArray{T,3
          end
       end
       ldiv!(qr!(R), Y )
+      any(!isfinite, Y) && throw("PS:SingularException: A has characteristic multipliers α and β such that αβ ≈ 1")
       i1 = 1
       for i = p+KSCHUR:-1:KSCHUR+1
           ic = mod(i-1,p)+1
@@ -1247,6 +1248,7 @@ function dpsylv2!(adj::Bool, n1::Int, n2::Int, KSCHUR::Int, AL::StridedArray{T,3
          end
       end
       ldiv!(qr!(R), Y )
+      any(!isfinite, Y) && throw("PS:SingularException: A has characteristic multipliers α and β such that αβ ≈ 1")
       i1 = 1
       for i = 1:p
           ic = mod(i+KSCHUR-1,p)+1
@@ -1457,6 +1459,9 @@ function dpsylv2krsol!(adj::Bool, n1::Int, n2::Int, KSCHUR::Int, AL::StridedArra
        ldiv!(UpperTriangular(UD[:,:,i]),view(YK,il2)) 
        il1 = il1 .- n12
    end
+
+   any(!isfinite, YK) && throw("PS:SingularException: A has characteristic multipliers α and β such that αβ ≈ 1")
+
    # Reorder solution blocks
    if adj
       i1 = 1
@@ -1558,6 +1563,7 @@ function _dpsylv2!(adj::Bool, n1::Int, n2::Int, AL::StridedArray{T,3}, AR::Strid
       reverse!(C,dims = 3)
       copyto!(Y, view(C,ii1,ii2,1:p))
       ldiv!(qr!(R), Y )
+      any(!isfinite, Y) && throw("PS:SingularException: A has characteristic multipliers α and β such that αβ ≈ 1")
       copyto!(view(C,ii1,ii2,1:p), lmul!(-1,Y))
       reverse!(C,dims = 3)
    else
@@ -1590,6 +1596,7 @@ function _dpsylv2!(adj::Bool, n1::Int, n2::Int, AL::StridedArray{T,3}, AR::Strid
          end
       end
       ldiv!(qr!(R), Y )
+      any(!isfinite, Y) && throw("PS:SingularException: A has characteristic multipliers α and β such that αβ ≈ 1")
       copyto!(view(C,ii1,ii2,1:p), lmul!(-1,Y))
    end
 end
@@ -1940,7 +1947,7 @@ function dpsylv2(REV::Bool, N1::Int, N2::Int, KSCHUR::Int, TL::StridedArray{T,3}
                  end
 
                  #CALL DGESV( 2, 1, ATMP, 2, JPIV, BTMP, 2, INFO )
-                 luslv!(ATMP,view(BTMP,1:2,1:1))
+                 luslv!(ATMP,view(BTMP,1:2,1:1)) && throw("PS:SingularException: A has characteristic multipliers α and β such that αβ ≈ 1")
                  #BTMP = ATMP\BTMP
                  Z[ 1, 1 ] = BTMP[ 1, 1 ]
                  Z[ 1, 2 ] = BTMP[ 2, 1 ]
@@ -1997,7 +2004,7 @@ function dpsylv2(REV::Bool, N1::Int, N2::Int, KSCHUR::Int, TL::StridedArray{T,3}
                  end
 
                  #CALL DGESV( 2, 1, ATMP, 2, JPIV, Z, 2, INFO )
-                 luslv!(ATMP,view(Z,1:2,1:1))
+                 luslv!(ATMP,view(Z,1:2,1:1)) && throw("PS:SingularException: A has characteristic multipliers α and β such that αβ ≈ 1")
                  #Z = ATMP\Z
                  X[ 1, 1, J1 ] = Z[ 1, 1 ]
                  X[ 2, 1, J1 ] = Z[ 2, 1 ]
@@ -2068,7 +2075,7 @@ function dpsylv2(REV::Bool, N1::Int, N2::Int, KSCHUR::Int, TL::StridedArray{T,3}
                  end
 
                  #CALL DGESV( 2, 2, ATMP, 2, JPIV, BTMP, 2, INFO )
-                 luslv!(ATMP,view(BTMP,1:2,1:2))
+                 luslv!(ATMP,view(BTMP,1:2,1:2)) && throw("PS:SingularException: A has characteristic multipliers α and β such that αβ ≈ 1")
                  #BTMP = ATMP\BTMP
                  Z[ 1, 1 ] = BTMP[ 1, 1 ]
                  Z[ 1, 2 ] = BTMP[ 2, 1 ]
@@ -2086,7 +2093,7 @@ function dpsylv2(REV::Bool, N1::Int, N2::Int, KSCHUR::Int, TL::StridedArray{T,3}
                  end
 
                  #CALL DGESV( 2, 2, ATMP, 2, JPIV, Z, 2, INFO )
-                 luslv!(ATMP,view(Z,1:2,1:2))
+                 luslv!(ATMP,view(Z,1:2,1:2)) && throw("PS:SingularException: A has characteristic multipliers α and β such that αβ ≈ 1")
                  #Z = ATMP\Z
                  X[ 1, 1, J1 ] = Z[ 1, 1 ]
                  X[ 1, 2, J1 ] = Z[ 1, 2 ]
@@ -2095,6 +2102,7 @@ function dpsylv2(REV::Bool, N1::Int, N2::Int, KSCHUR::Int, TL::StridedArray{T,3}
               end
           end
        end
+       any(!isfinite,X) && throw("PS:SingularException: A has characteristic multipliers α and β such that αβ ≈ 1")
        DNORM = zero(T)
        for J = 1:N2
           for I = 1:N1

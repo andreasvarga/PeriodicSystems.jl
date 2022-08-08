@@ -221,7 +221,7 @@ Qds = pmshift(Qdf);
 @test issymmetric(Qdf) && issymmetric(Qds) && isequal(pmshift(pmshift(Qdf,1),-1),Qdf) && iszero(Qdf-Qdf')
 
 D = rand(n,n)
-@test Ad*5 == 5*Ad  && iszero(Ad-Ad) && !iszero(Ad)
+@test Ad*5 == 5*Ad  && Ad*D ≈ -Ad*(-D) && iszero(Ad-Ad) && !iszero(Ad)
 @test PeriodicMatrix(D,2*pi) == PeriodicMatrix(D,4*pi) && 
       PeriodicMatrix(D,2*pi) ≈ PeriodicMatrix(D,4*pi)
 

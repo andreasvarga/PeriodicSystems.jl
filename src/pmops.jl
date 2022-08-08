@@ -126,8 +126,8 @@ function *(A::PeriodicMatrix, B::PeriodicMatrix)
     end
     return PeriodicMatrix(X, period; nperiod = div(K,p))
 end
-# *(A::PeriodicMatrix, C::AbstractMatrix) = *(A, PeriodicMatrix(C, A.Ts; nperiod = 1))
-# *(A::AbstractMatrix, C::PeriodicMatrix) = *(PeriodicMatrix(A, C.Ts; nperiod = 1), C)
+*(A::PeriodicMatrix, C::AbstractMatrix) = *(A, PeriodicMatrix(C, A.Ts; nperiod = 1))
+*(A::AbstractMatrix, C::PeriodicMatrix) = *(PeriodicMatrix(A, C.Ts; nperiod = 1), C)
 *(A::PeriodicMatrix, C::Real) = PeriodicMatrix(C.*A.M, A.period; nperiod = A.nperiod)
 *(A::Real, C::PeriodicMatrix) = PeriodicMatrix(A.*C.M, C.period; nperiod = C.nperiod)
 /(A::PeriodicMatrix, C::Real) = *(A, 1/C)
@@ -193,9 +193,9 @@ function *(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix)
     nperiod = gcd(A.nperiod,B.nperiod)
     T = promote_type(eltype(A),eltype(B))
     if isconstant(A) && isconstant(B)
-        return PeriodicFunctionMatrix{:c,T}(t -> A.f(0)*B.f(0), period, A.dims, nperiod, true)
+        return PeriodicFunctionMatrix{:c,T}(t -> A.f(0)*B.f(0), period, (A.dims[1],B.dims[2]), nperiod, true)
      else
-        return PeriodicFunctionMatrix{:c,T}(t -> A.f(t)*B.f(t), period, A.dims, nperiod, false)
+        return PeriodicFunctionMatrix{:c,T}(t -> A.f(t)*B.f(t), period, (A.dims[1],B.dims[2]), nperiod, false)
      end
  end
 *(A::PeriodicFunctionMatrix, C::AbstractMatrix) = *(A, PeriodicFunctionMatrix(C, A.period))
