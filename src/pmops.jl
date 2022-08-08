@@ -35,6 +35,7 @@ end
 +(A::AbstractMatrix, C::PeriodicArray) = +(PeriodicArray(A, C.Ts; nperiod = 1), C)
 -(A::PeriodicArray) = PeriodicArray(-A.M, A.period; nperiod = A.nperiod)
 -(A::PeriodicArray, B::PeriodicArray) = +(A,-B)
+
 function *(A::PeriodicArray, B::PeriodicArray)
     A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
     period = promote_period(A, B)
@@ -59,8 +60,18 @@ end
 *(A::AbstractMatrix, C::PeriodicArray) = *(PeriodicArray(A, C.Ts; nperiod = 1), C)
 *(A::PeriodicArray, C::Real) = PeriodicArray(C*A.M, A.period; nperiod = A.nperiod)
 *(A::Real, C::PeriodicArray) = PeriodicArray(A*C.M, C.period; nperiod = C.nperiod)
+/(A::PeriodicArray, C::Real) = *(A, 1/C)
 
 LinearAlgebra.issymmetric(A::PeriodicArray) = all([issymmetric(A.M[:,:,i]) for i in 1:A.dperiod])
+Base.iszero(A::PeriodicArray) = iszero(A.M)
+function ==(A::PeriodicArray, B::PeriodicArray)
+    isconstant(A) && isconstant(B) && (return isequal(A.M, B.M))
+    isequal(A.M, B.M) &&  (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
+end
+function Base.isapprox(A::PeriodicArray, B::PeriodicArray; rtol::Real = sqrt(eps(Float64)), atol::Real = 0)
+    isconstant(A) && isconstant(B) && (return isapprox(A.M, B.M; rtol, atol))
+    isapprox(A.M, B.M; rtol, atol) && (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
+end
 
 # Operations with periodic matrices
 function pmshift(A::PeriodicMatrix, k::Int = 1)
@@ -70,7 +81,7 @@ function LinearAlgebra.transpose(A::PeriodicMatrix)
     return PeriodicMatrix(copy.(transpose.(A.M)), A.period; nperiod = A.nperiod)
 end
 function LinearAlgebra.adjoint(A::PeriodicMatrix)
-    return PeriodicMatrix(copy.(adjoint.(A.M)), A.period; nperiod = A.nperiod)
+    return PeriodicMatrix(copy.(transpose.(A.M)), A.period; nperiod = A.nperiod)
 end
 function LinearAlgebra.norm(A::PeriodicMatrix, p::Real = 2)
     return norm(norm.(A.M, p) ,p)
@@ -93,8 +104,8 @@ function +(A::PeriodicMatrix, B::PeriodicMatrix)
     end
     return PeriodicMatrix(X, period; nperiod = div(K,p))
 end
-+(A::PeriodicMatrix, C::AbstractMatrix) = +(A, PeriodicMatrix(C, A.Ts; nperiod = 1))
-+(A::AbstractMatrix, C::PeriodicMatrix) = +(PeriodicMatrix(A, C.Ts; nperiod = 1), C)
+# +(A::PeriodicMatrix, C::AbstractMatrix) = +(A, PeriodicMatrix(C, A.Ts; nperiod = 1))
+# +(A::AbstractMatrix, C::PeriodicMatrix) = +(PeriodicMatrix(A, C.Ts; nperiod = 1), C)
 -(A::PeriodicMatrix) = PeriodicMatrix(-A.M, A.period; nperiod = A.nperiod)
 -(A::PeriodicMatrix, B::PeriodicMatrix) = +(A,-B)
 function *(A::PeriodicMatrix, B::PeriodicMatrix)
@@ -115,12 +126,23 @@ function *(A::PeriodicMatrix, B::PeriodicMatrix)
     end
     return PeriodicMatrix(X, period; nperiod = div(K,p))
 end
-*(A::PeriodicMatrix, C::AbstractMatrix) = *(A, PeriodicMatrix(C, A.Ts; nperiod = 1))
-*(A::AbstractMatrix, C::PeriodicMatrix) = *(PeriodicMatrix(A, C.Ts; nperiod = 1), C)
+# *(A::PeriodicMatrix, C::AbstractMatrix) = *(A, PeriodicMatrix(C, A.Ts; nperiod = 1))
+# *(A::AbstractMatrix, C::PeriodicMatrix) = *(PeriodicMatrix(A, C.Ts; nperiod = 1), C)
 *(A::PeriodicMatrix, C::Real) = PeriodicMatrix(C.*A.M, A.period; nperiod = A.nperiod)
 *(A::Real, C::PeriodicMatrix) = PeriodicMatrix(A.*C.M, C.period; nperiod = C.nperiod)
+/(A::PeriodicMatrix, C::Real) = *(A, 1/C)
 
 LinearAlgebra.issymmetric(A::PeriodicMatrix) = all([issymmetric(A.M[i]) for i in 1:A.dperiod])
+Base.iszero(A::PeriodicMatrix) = iszero(A.M)
+function ==(A::PeriodicMatrix, B::PeriodicMatrix)
+    isconstant(A) && isconstant(B) && (return isequal(A.M, B.M))
+    isequal(A.M, B.M) &&  (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
+end
+function Base.isapprox(A::PeriodicMatrix, B::PeriodicMatrix; rtol::Real = sqrt(eps(Float64)), atol::Real = 0)
+    isconstant(A) && isconstant(B) && (return isapprox(A.M, B.M; rtol, atol))
+    isapprox(A.M, B.M; rtol, atol) && (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
+end
+
   
 
 # Operations with periodic function matrices
@@ -180,8 +202,23 @@ function *(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix)
 *(A::AbstractMatrix, C::PeriodicFunctionMatrix) = *(PeriodicFunctionMatrix(A, C.period), C)
 *(A::PeriodicFunctionMatrix, C::Real) = PeriodicFunctionMatrix{:c,eltype(A)}(t -> C.*A.f(t), A.period, A.dims, A.nperiod,A._isconstant)
 *(A::Real, C::PeriodicFunctionMatrix) = PeriodicFunctionMatrix{:c,eltype(A)}(t -> A.*C.f(t), C.period, C.dims, C.nperiod,C._isconstant)
+/(A::PeriodicFunctionMatrix, C::Real) = *(A, 1/C)
+
+Base.iszero(A::PeriodicFunctionMatrix) = iszero(A.f(rand()*A.period))
+LinearAlgebra.issymmetric(A::PeriodicFunctionMatrix) = issymmetric(A.f(rand()*A.period))
+function ==(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix)
+    isconstant(A) && isconstant(B) && (return isequal(A.f(0), B.f(0)))
+    ts = rand()*A.period
+    isequal(A.f(ts), B.f(ts)) && (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
+end
+function Base.isapprox(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix; kwargs...)
+    isconstant(A) && isconstant(B) && (return isapprox(A.f(0), B.f(0); kwargs...))
+    ts = rand()*A.period
+    isapprox(A.f(ts), B.f(ts); kwargs...) && (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
+end
 
 # Operations with periodic symbolic matrices
+
 function derivative(A::PeriodicSymbolicMatrix) 
     @variables t   
     return PeriodicSymbolicMatrix{:c,Num}(Symbolics.derivative(A.F,t), A.period, nperiod = A.nperiod)
@@ -202,7 +239,7 @@ function norm(A::PeriodicSymbolicMatrix, p::Real = 2; K = 128)
         ts += Δ
     end 
     return nrm
-end
+end 
 function +(A::PeriodicSymbolicMatrix, B::PeriodicSymbolicMatrix)
     period = promote_period(A, B)
     nperiod = gcd(A.nperiod,B.nperiod)
@@ -230,6 +267,22 @@ function *(A::PeriodicSymbolicMatrix, B::PeriodicSymbolicMatrix)
 *(A::AbstractMatrix, C::PeriodicSymbolicMatrix) = *(PeriodicSymbolicMatrix(A, C.period), C)
 *(A::PeriodicSymbolicMatrix, C::Real) = PeriodicSymbolicMatrix(C*A.F, A.period; nperiod = A.nperiod)
 *(C::Real, A::PeriodicSymbolicMatrix) = PeriodicSymbolicMatrix(C*A.F, A.period; nperiod = A.nperiod)
+/(A::PeriodicSymbolicMatrix, C::Real) = *(A, 1/C)
+
+Base.iszero(A::PeriodicSymbolicMatrix) = iszero(A.F)
+LinearAlgebra.issymmetric(A::PeriodicSymbolicMatrix) = iszero(A.F-transpose(A.F))
+function ==(A::PeriodicSymbolicMatrix, B::PeriodicSymbolicMatrix)
+    isconstant(A) && isconstant(B) && (return iszero(A.F-B.F))
+    iszero(A.F-B.F) && (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
+end
+function Base.isapprox(A::PeriodicSymbolicMatrix, B::PeriodicSymbolicMatrix; rtol::Real = sqrt(eps(Float64)), atol::Real = 0)
+    @variables t   
+    ts = rand()*A.period
+    isconstant(A) && isconstant(B) && (return isapprox(Symbolics.unwrap.(substitute.(A.F, (Dict(t => ts),))), Symbolics.unwrap.(substitute.(B.F, (Dict(t => ts),))); rtol, atol))
+    isapprox(Symbolics.unwrap.(substitute.(A.F, (Dict(t => ts),))), Symbolics.unwrap.(substitute.(B.F, (Dict(t => ts),))); rtol, atol) && 
+        (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
+end
+
 
 # Operations with harmonic arrays
 function derivative(A::HarmonicArray{:c,T}) where {T}
@@ -262,12 +315,33 @@ function norm(A::HarmonicArray, p::Real = 2; K = 128)
     end 
     return nrm
 end
-+(A::HarmonicArray, B::HarmonicArray) = convert(HarmonicArray,convert(PeriodicFunctionMatrix,A) + convert(PeriodicFunctionMatrix,B))
-# function +(A::HarmonicArray, B::HarmonicArray)
-#     period = promote_period(A, B)
-#     nperiod = gcd(A.nperiod,B.nperiod)
-#     return HarmonicArray{:c,Num}(A.F + B.F, period; nperiod)
-# end
+function +(A::HarmonicArray, B::HarmonicArray)
+    if A.period == B.period && A.nperiod == B.nperiod
+       m, n, la = size(A.values)
+       mb, nb, lb = size(B.values)
+       (m, n) == (mb, nb) || throw(DimensionMismatch("A and B must have the same size"))
+       T = promote_type(eltype(A),eltype(B))
+       lmax = max(la,lb)
+       Ahr = zeros(Complex{T},n,m,lmax)
+       if la >= lb
+          Ahr = copy(A.values) 
+          Ahr[:,:,1:lb] .+= B.values[:,:,1:lb]  
+       else
+          Ahr = copy(B.values) 
+          Ahr[:,:,1:la] .+= A.values[:,:,1:la]  
+       end
+       tol = 10*eps(T)*max(norm(A.values,Inf),norm(B.values,Inf)) 
+       l = lmax
+       for i = lmax:-1:2
+           norm(Ahr[:,:,i],Inf) > tol && break
+           l -= 1
+       end
+       l < lmax && (Ahr = Ahr[:,:,1:l])
+       return HarmonicArray{:c,T}(Ahr, A.period, nperiod = A.nperiod) 
+    else
+       convert(HarmonicArray,convert(PeriodicFunctionMatrix,A) + convert(PeriodicFunctionMatrix,B))
+    end
+end
 +(A::HarmonicArray, C::AbstractMatrix) = +(A, HarmonicArray(C, A.period))
 +(A::AbstractMatrix, C::HarmonicArray) = +(HarmonicArray(A, C.period), C)
 -(A::HarmonicArray) = HarmonicArray(-A.values, A.period; nperiod = A.nperiod)
@@ -282,17 +356,22 @@ end
 (-)(J::UniformScaling{<:Real}, A::HarmonicArray) = +(-A,J)
 
 *(A::HarmonicArray, B::HarmonicArray) = convert(HarmonicArray,convert(PeriodicFunctionMatrix,A) * convert(PeriodicFunctionMatrix,B))
-# function *(A::HarmonicArray, B::HarmonicArray)
-#     period = promote_period(A, B)
-#     nperiod = gcd(A.nperiod,B.nperiod)
-#     return HarmonicArray{:c,Num}(A.F * B.F, period; nperiod)
-#  end
 *(A::HarmonicArray, C::AbstractMatrix) = *(A, HarmonicArray(C, A.period))
 *(A::AbstractMatrix, C::HarmonicArray) = *(HarmonicArray(A, C.period), C)
 *(A::HarmonicArray, C::Real) = HarmonicArray(C*A.values, A.period; nperiod = A.nperiod)
 *(C::Real, A::HarmonicArray) = HarmonicArray(C*A.values, A.period; nperiod = A.nperiod)
+/(A::HarmonicArray, C::Real) = *(A, 1/C)
 
-# Operations with Fourier function matrices
+Base.iszero(A::HarmonicArray) = all([iszero(A.values[:,:,i]) for i in 1:size(A.values,3)])
+LinearAlgebra.issymmetric(A::HarmonicArray) = all([issymmetric(A.values[:,:,i]) for i in 1:size(A.values,3)])
+function ==(A::HarmonicArray, B::HarmonicArray)
+    isconstant(A) && isconstant(B) && (return isequal(A.values, B.values))
+    isequal(A.values, B.values) && A.period*B.nperiod == B.period*A.nperiod
+end
+function Base.isapprox(A::HarmonicArray, B::HarmonicArray; kwargs...)
+    isconstant(A) && isconstant(B) && (return isapprox(A.values, B.values; kwargs...) )
+    isapprox(A.values, B.values; kwargs...) && A.period*B.nperiod == B.period*A.nperiod
+end
 derivative(A::FourierFunctionMatrix{:c,T}) where {T} = FourierFunctionMatrix{:c,T}(differentiate(A.M), A.period, A.nperiod)
 LinearAlgebra.transpose(A::FourierFunctionMatrix{:c,T}) where {T}  = FourierFunctionMatrix{:c,T}(transpose(A.M), A.period, A.nperiod)
 LinearAlgebra.adjoint(A::FourierFunctionMatrix) = transpose(A)
@@ -307,8 +386,13 @@ function norm(A::FourierFunctionMatrix, p::Real = 2; K = 128)
     return nrm  
 end
 function +(A::FourierFunctionMatrix, B::FourierFunctionMatrix)
-    A.period == B.period && A.nperiod == B.nperiod && (return FourierFunctionMatrix(A.M+B.M, A.period; nperiod = A.nperiod))
-    convert(FourierFunctionMatrix,convert(PeriodicFunctionMatrix,A) + convert(PeriodicFunctionMatrix,B))
+    period = promote_period(A, B)
+    nperiod = gcd(A.nperiod,B.nperiod)
+    domain(A.M) == domain(B.M) && (return FourierFunctionMatrix(A.M+B.M, period; nperiod))
+    #A.period == B.period && A.nperiod == B.nperiod 
+    #A.period == B.period && (return FourierFunctionMatrix(A.M+B.M, A.period))
+    FourierFunctionMatrix(Fun(t-> A.M(t),Fourier(0..period)),period)+FourierFunctionMatrix(Fun(t-> B.M(t),Fourier(0..period)),period)
+    #convert(FourierFunctionMatrix,convert(PeriodicFunctionMatrix,A) + convert(PeriodicFunctionMatrix,B))
 end
 +(A::FourierFunctionMatrix, C::AbstractMatrix) = +(A, FourierFunctionMatrix(C, A.period))
 +(A::AbstractMatrix, C::FourierFunctionMatrix) = +(FourierFunctionMatrix(A, C.period), C)
@@ -331,6 +415,22 @@ end
 *(A::AbstractMatrix, C::FourierFunctionMatrix) = *(FourierFunctionMatrix(A, C.period), C)
 *(A::FourierFunctionMatrix, C::Real) = FourierFunctionMatrix(C*A.M, A.period)
 *(C::Real, A::FourierFunctionMatrix) = FourierFunctionMatrix(C*A.M, A.period)
+/(A::FourierFunctionMatrix, C::Real) = *(A, 1/C)
+
+Base.iszero(A::FourierFunctionMatrix) = iszero(A.M)
+LinearAlgebra.issymmetric(A::FourierFunctionMatrix) = iszero(A.M-transpose(A.M))
+function ==(A::FourierFunctionMatrix, B::FourierFunctionMatrix)
+    isconstant(A) && isconstant(B) && (return iszero(A.M(0)-B.M(0)))
+    t = rationalize(A.period/B.period)
+    domain(A.M) == domain(B.M) && iszero(A.M-B.M) && (t.num == 1 || t.den == 1 || A.period*B.nperiod == B.period*A.nperiod)
+end
+function Base.isapprox(A::FourierFunctionMatrix, B::FourierFunctionMatrix; rtol::Real = sqrt(eps(Float64)), atol::Real = 0)
+    isconstant(A) && isconstant(B) && (return isapprox(A.M(0), B.M(0); rtol, atol))
+    ts = rand()*A.period
+    isapprox(A.M(ts), B.M(ts); rtol, atol) && 
+        (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
+end
+
 
 # Operations with periodic time-series matrices
 function derivative(A::PeriodicTimeSeriesMatrix{:c,T}) where {T}
@@ -383,3 +483,15 @@ end
 *(A::AbstractMatrix, C::PeriodicTimeSeriesMatrix) = *(PeriodicTimeSeriesMatrix(A, C.period), C)
 *(A::PeriodicTimeSeriesMatrix, C::Real) = PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(C))}([A.values[i]*C for i in 1:length(A)], A.period, A.nperiod)
 *(C::Real, A::PeriodicTimeSeriesMatrix) = PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(C))}([C*A.values[i] for i in 1:length(A)], A.period, A.nperiod)
+/(A::PeriodicTimeSeriesMatrix, C::Real) = *(A, 1/C)
+
+Base.iszero(A::PeriodicTimeSeriesMatrix) = iszero(A.values)
+LinearAlgebra.issymmetric(A::PeriodicTimeSeriesMatrix) = all(issymmetric.(A.values))
+function ==(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix)
+    isconstant(A) && isconstant(B) && (return isequal(A.values, B.values))
+    isequal(A.values, B.values) &&  (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
+end
+function Base.isapprox(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix; rtol::Real = sqrt(eps(Float64)), atol::Real = 0)
+    isconstant(A) && isconstant(B) && (return isapprox(A.values, B.values; rtol, atol))
+    isapprox(A.values, B.values; rtol, atol) && (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
+end

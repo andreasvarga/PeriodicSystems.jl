@@ -196,10 +196,6 @@ function tvclyap(A::PM1, C::PM2, tf, t0; adj = false, solver = "", reltol = 1e-3
    The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, together with
    the required relative accuracy `reltol` (default: `reltol = 1.e-3`) and 
    absolute accuracy `abstol` (default: `abstol = 1.e-7`) (see [`tvstm`](@ref)). 
-   For large values of `K`, parallel computation of the matrices of the discrete-time problem can be alternatively performed 
-   by starting Julia with several execution threads. 
-   The number of execution threads is controlled either by using the `-t/--threads` command line argument 
-   or by using the `JULIA_NUM_THREADS` environment variable.  
    """
    n = size(A,1)
    n == size(A,2) || error("the periodic matrix A must be square")

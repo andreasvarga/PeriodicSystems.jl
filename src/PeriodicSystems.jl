@@ -45,7 +45,7 @@ export ps2fls, hr2bt, hr2btupd, phasemat, ps2frls, DiagDerOp, ps2ls
 export pspole, pszero, isstable
 export pdlyap, prlyap, pflyap, pslyapd, pdlyaps!, pdlyaps1!, pdlyaps2!, pdlyaps3!, dpsylv2, dpsylv2!, pslyapdkr, dpsylv2krsol!, kronset!
 export pmshift
-export pclyap, pfclyap, prclyap, pgclyap
+export pclyap, pfclyap, prclyap, pgclyap, tvcric
 export derivative
 
 abstract type AbstractDynamicalSystem end

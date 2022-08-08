@@ -1,8 +1,8 @@
 """
      tvstm(A::PeriodicFunctionMatrix, tf, t0; solver, reltol, abstol, dt) -> Φ 
 
-Compute the state transition matrix for a linear ODE with time-varying coefficients. 
-For the given time-dependent square matrix function `A(t)`, initial time `t0` and 
+Compute the state transition matrix for a linear ODE with periodic time-varying coefficients. 
+For the given periodic square matrix `A(t)`, initial time `t0` and 
 final time `tf`, the state transition matrix `Φ(tf,t0)`
 is computed by integrating numerically the homogeneous linear ODE 
 

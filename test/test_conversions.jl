@@ -97,7 +97,7 @@ Bt = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,B).f.(ts),B.period)
 Ct = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,C).f.(tsc),C.period); 
 Dt = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,D).f.(tsd),D.period);
 
-#fails
+
 psysc4 = PeriodicStateSpace(At, Bt, Ct, Dt); 
 @time psys4 = psc2d(psysc4,Δ);
 @test norm(psys.A - psys4.A,Inf) < 1.e-7 && norm(psys.B - psys4.B) < 1.e-7 && 
@@ -105,7 +105,7 @@ psysc4 = PeriodicStateSpace(At, Bt, Ct, Dt);
 @time sys4 = psaverage(psysc4); 
 @test iszero(sys-sys4,atol=1.e-7)
 
-#fails
+
 A1=convert(PeriodicTimeSeriesMatrix,A)
 B1=convert(PeriodicTimeSeriesMatrix,B)
 C1=convert(PeriodicTimeSeriesMatrix,C)

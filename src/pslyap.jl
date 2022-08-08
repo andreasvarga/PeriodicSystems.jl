@@ -154,6 +154,7 @@ function pslyapd(A::AbstractVector{Matrix{T1}}, C::AbstractVector{Matrix{T2}}; a
    pa = length(A) 
    pc = length(C)
    ma, na = size.(A,1), size.(A,2) 
+   mc, nc = size.(C,1), size.(C,2) 
    p = lcm(pa,pc)
    all(ma .== view(na,mod.(1:pa,pa).+1)) || 
         error("the number of columns of A[i+1] must be equal to the number of rows of A[i]")
@@ -167,18 +168,15 @@ function pslyapd(A::AbstractVector{Matrix{T1}}, C::AbstractVector{Matrix{T2}}; a
 
    all([issymmetric(C[i]) for i in 1:pc]) || error("all C[i] must be symmetric matrices")
 
-   # sind = argmin(mp)
-   # nmin = mp[sind]
    n = maximum(na)
-
 
    T = promote_type(T1, T2)
    T <: BlasFloat  || (T = promote_type(Float64,T))
    A1 = zeros(T, n, n, pa)
    C1 = zeros(T, n, n, pc)
    [copyto!(view(A1,1:ma[i],1:na[i],i), T.(A[i])) for i in 1:pa]
-   adj ? [copyto!(view(C1,1:na[i],1:na[i],i), T.(C[i])) for i in 1:pc] :
-         [copyto!(view(C1,1:ma[i],1:ma[i],i), T.(C[i])) for i in 1:pc] 
+   adj ? [copyto!(view(C1,1:nc[i],1:nc[i],i), T.(C[i])) for i in 1:pc] :
+         [copyto!(view(C1,1:mc[i],1:mc[i],i), T.(C[i])) for i in 1:pc] 
 
    # Reduce A to Schur form and transform C
    AS, Q, _, KSCHUR = pschur(A1)
