@@ -9,6 +9,8 @@
 * **[`psreduc_reg`](@ref)**  Fast reduction of a lifted regular pencil corresponding to a product of matrices. 
 * **[`tvmeval`](@ref)**  Time response evaluation of a continuous-time periodic matrix. 
 * **[`hreval`](@ref)**  Evaluation of a harmonic array for a numerical or symbolic time value. 
+* **[`hrchop`](@ref)**  Removal of the negligible trailing terms of a harmonic representation. 
+* **[`hrtrunc`](@ref)**  Truncation of a harmonic representation.  
 * **[`pmaverage`](@ref)**  Evaluation of the time averaged matrix of a continuous-time periodic matrix. 
 * **[`pslyapd`](@ref)**  Solution of periodic discrete-time Lyapunov equations using periodic Schur decomposition. 
 * **[`pslyapdkr`](@ref)**  Solution of periodic discrete-time Lyapunov equations using Kronecker product expansions. 
@@ -24,6 +26,8 @@ tvstm
 psreduc_reg
 tvmeval
 hreval
+hrchop
+hrtrunc
 pmaverage
 pslyapd
 pslyapdkr

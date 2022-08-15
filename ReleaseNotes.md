@@ -1,5 +1,9 @@
 # Release Notes
 
+## Version 0.4.1
+
+This patch version implements additional operations for periodic matrices (e.g., inversion) and extends some existing methods to work with UniformScaling. Two functions for chopping and truncation of Harmonic Array representaions have been implemented. 
+
 ## Version 0.4 
 
 This minor version includes several new functions for the solution of continuous- and discrete-time periodic Lyapunov equations and implements basic operations with continuous- and discrete-time periodic matrices. 

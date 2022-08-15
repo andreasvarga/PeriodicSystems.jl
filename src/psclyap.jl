@@ -91,7 +91,7 @@ This function is merely an interface to [`pclyap`](@ref)) (see this function for
 """
 pfclyap(A::PeriodicFunctionMatrix, C::PeriodicFunctionMatrix; K::Int = 10, solver = "non-stiff", reltol = 1.e-3, abstol = 1.e-7)
 """
-    pfclyap(A, C; K = 10, solver, reltol, abstol) -> X
+    prclyap(A, C; K = 10, solver, reltol, abstol) -> X
 
 Solve the periodic reverse-time Lyapunov differential equation
 

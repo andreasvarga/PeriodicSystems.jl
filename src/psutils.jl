@@ -75,7 +75,7 @@ function tvstm(A::PM, tf::Real, t0::Real = 0; solver = "", reltol = 1e-3, abstol
       sol = solve(prob,MagnusGL6(), dt = dt, save_everystep = false)
    elseif solver == "symplectic" 
       # high accuracy symplectic
-      sol = solve(prob, IRKGaussLegendre.IRKGL16(); reltol, abstol, save_everystep = false)
+      sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = true, reltol, abstol, save_everystep = false)
    else 
       if reltol > 1.e-4  
          # low accuracy automatic selection
@@ -341,7 +341,7 @@ function psceig(at::Union{PeriodicSymbolicMatrix, PeriodicTimeSeriesMatrix}, K::
    return isreal(ce) ? real(ce) : ce
 end
 """
-    pcseig(Ahr::HarmonicArray[, N]; P, nperiod, shift, atol) -> ce
+    psceig(Ahr::HarmonicArray[, N]; P, nperiod, shift, atol) -> ce
 
 Compute the characteristic exponents of a continuous-time periodic matrix in _Harmonic Array_ representation. 
 
@@ -395,7 +395,7 @@ function psceig(Ahr::HarmonicArray{:c,T}, N::Int = max(10,size(Ahr.values,3)-1);
    return nv > n ? σ[sortperm(imag(σ),rev=true)][1:n] : σ[1:nv]
 end
 """
-    pcseig(A::FourierFunctionMatrix[, N]; P, atol) -> ce
+    psceig(A::FourierFunctionMatrix[, N]; P, atol) -> ce
 
 Compute the characteristic exponents of a continuous-time periodic matrix in _Fourier Function Matrix_ representation. 
 
@@ -437,7 +437,7 @@ function psceig(Afun::FourierFunctionMatrix{:c,T}, N::Int = max(10,maximum(ncoef
    return nv > n ? σ[sortperm(imag(σ),rev=true)][1:n] : σ[1:nv]
 end
 """
-    pcseig(A::AbstractPeriodicArray[, k]; kwargs...) -> ce
+    psceig(A::AbstractPeriodicArray[, k]; kwargs...) -> ce
 
 Compute the characteristic exponents of a cyclic matrix product of `p` matrices.
 
@@ -1176,9 +1176,8 @@ function ts2pfm(A::PeriodicTimeSeriesMatrix; method = "linear")
    end
    return PeriodicFunctionMatrix(t -> [intparray[i,j](t) for i in 1:n1, j in 1:n2 ], A.period; nperiod = A.nperiod, isconst = isconstant(A))
 end
-
 """
-     ts2hr(A::PeriodicTimeSeriesMatrix; atol = 0, rtol = √ϵ, n, squeeze = true) -> Ahr::HarmonicArray
+     ts2hr(A::PeriodicTimeSeriesMatrix; atol = 0, rtol, n, squeeze = true) -> Ahr::HarmonicArray
 
 Compute the harmonic (Fourier) approximation of a periodic matrix specified by a time series matrix. 
 The periodic matrix `A(t)` is specified as a continuous-time periodic time series matrix `A`, 
@@ -1198,7 +1197,7 @@ The order of the approximation `p` is determined using the maximum order specifi
 such that `Ac_k` and/or `As_k` are nonzero.
 The tolerance used to assess nonzero elements is `tol = max(atol, rtol*maxnorm)`, where 
 `maxnorm` is the maximum norm of the matrices contained in `A.values`. The default values of tolerances
-are `atol = 0` and `rtol = √ϵ`, where `ϵ` is the working machine precision.
+are `atol = 0` and `rtol = 10*p*ϵ`, where `ϵ` is the working machine precision.
 
 The resulting harmonic approximation `Ahr(t)` is returned in the harmonic array object `Ahr` 
 (see [`HarmonicArray`](@ref)). 
@@ -1219,7 +1218,7 @@ function ts2hr(A::PeriodicTimeSeriesMatrix{:c,T}; atol::Real = 0, rtol::Real = 0
    
    AHR = zeros(ComplexF64, n1, n2, n+1)
    T1 = promote_type(Float64,T)
-   tol = iszero(atol) ? (iszero(rtol) ? 10*M*sqrt(eps(T1))*maximum(norm.(A.values)) : rtol*maximum(norm.(A.values)) ) : atol
+   tol = iszero(atol) ? (iszero(rtol) ? 10*M*eps(T1)*maximum(norm.(A.values)) : rtol*maximum(norm.(A.values)) ) : atol
    i1 = 1:n+1   
    for i = 1:n1
        for j = 1:n2
@@ -1453,6 +1452,38 @@ function psm2hr(A::PeriodicSymbolicMatrix; nsample::Int = 128, NyquistFreq::Unio
    ts = (0:ns-1)*Δ
    return ts2hr(PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,A).f.(ts), A.period; nperiod = A.nperiod))
 end
+"""
+     hrchop(Ahr::HarmonicArray; tol) -> Ahrtrunc::HarmonicArray
+
+Remove the trailing terms of a harmonic representation by deleting those whose norms are below a certain tolerance. 
+"""
+function hrchop(ahr::HarmonicArray; tol::Real = sqrt(eps()) ) 
+   nrm = norm(ahr.values[:,:,1],1)
+   n3 = size(ahr.values,3)
+   for i = 2:n3
+       nrm = max(nrm,norm(ahr.values[:,:,i],1))
+   end
+   itrunc = 1
+   atol = tol*nrm
+   for i = n3:-1:1
+       @show 
+       if norm(ahr.values[:,:,i],1) > atol 
+          itrunc = i
+          break
+       end
+   end
+   return HarmonicArray(ahr.values[:,:,1:itrunc], ahr.period; nperiod = ahr.nperiod)
+end
+"""
+     hrtrunc(Ahr::HarmonicArray, n) -> Ahrtrunc::HarmonicArray
+
+Truncate a harmonic representation by deleting the trailing terms whose indices exceed certain number `n` of harmonics. 
+
+"""
+function hrtrunc(ahr::HarmonicArray, n::Int = size(ahr.values,3)-1) 
+   return HarmonicArray(ahr.values[:,:,1:max(1,max(n+1,size(ahr.values,3)))], ahr.period; nperiod = ahr.nperiod)
+end
+
 """
      hr2psm(Ahr::HarmonicArray, nrange) -> A::Matrix{Num}
 

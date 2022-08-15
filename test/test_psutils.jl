@@ -658,7 +658,9 @@ cvals2 = log.(complex(ev2))/(2pi)
 # end
 
 solver = "non-stiff"
-for solver in ("non-stiff", "stiff", "linear", "symplectic", "noidea")
+#for solver in ("non-stiff", "stiff", "linear", "symplectic", "noidea")
+for solver in ("non-stiff", "stiff", "linear", "noidea")
+      println("solver = $solver")
     @time cvals = psceig(Afun, 500; solver, reltol = 1.e-10, abstol = 1.e-10)
     @test isapprox(cvals, [0; -24], atol = 1.e-7)
 end
@@ -672,7 +674,8 @@ end
 @test eigvals(at(rand())) ≈ [-10,-1]
 T = pi/3;
 Afun=PeriodicFunctionMatrix(at,T);
-for solver in ("non-stiff", "stiff", "linear", "symplectic", "noidea")
+#for solver in ("non-stiff", "stiff", "linear", "symplectic", "noidea")
+for solver in ("non-stiff", "stiff", "linear", "noidea")
       @time cvals = psceig(Afun, 500; solver, reltol = 1.e-10)
       @test cvals ≈ [2; -13]
 end  

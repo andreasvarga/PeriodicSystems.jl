@@ -20,6 +20,8 @@ C(t) = [ -sin(t)  -1-sin(t)-(-1-10cos(t))*(1+cos(t));
 -1-sin(t)-(-1-10cos(t))*(1+cos(t))   cos(t)- 2(-24 - 19sin(t))*(1 + sin(t)) ]  # corresponding C
 Cd(t) = [ sin(t)  -1-cos(t)-(-1-10cos(t))*(1+sin(t));
 -1-cos(t)-(-1-10cos(t))*(1+sin(t))    -cos(t)-2(-24-19sin(t))*(1 + sin(t)) ] # corresponding Cd
+A1(t) = [0  1; -0.5*cos(t)-1 -24-19*sin(t)]  # invertible matrix
+A1inv(t) = [(24 + 19sin(t)) / (-1 - 0.5cos(t))  1 / (-1 - 0.5cos(t)); 1.0  0.0]  # invertible matrix
 
 
 # PeriodicFunctionMatrix
@@ -46,12 +48,14 @@ Xdert = PeriodicFunctionMatrix(Xder,16*pi,nperiod=8)
 
 D = rand(2,2)
 @test At+I == I+At && At*5 == 5*At && At*D ≈ -At*(-D) && iszero(At-At) && !iszero(At)
+@test inv(At)*At ≈ I ≈ At*inv(At) && At+I == I+At
 @test PeriodicFunctionMatrix(D,2*pi) == PeriodicFunctionMatrix(D,4*pi) && 
       PeriodicFunctionMatrix(D,2*pi) ≈ PeriodicFunctionMatrix(D,4*pi)
 
 
 # HarmonicArray
 Ah = convert(HarmonicArray,PeriodicFunctionMatrix(A,2*pi));
+Ah1 = convert(HarmonicArray,PeriodicFunctionMatrix(A1,2*pi));
 Ch = convert(HarmonicArray,PeriodicFunctionMatrix(C,2*pi));
 Cdh = convert(HarmonicArray,PeriodicFunctionMatrix(Cd,2*pi));
 Xh = convert(HarmonicArray,PeriodicFunctionMatrix(X,2*pi));
@@ -66,7 +70,10 @@ D = rand(2,2)
 @test Ah+I == I+Ah && Ah*5 == 5*Ah && Ah*D ≈ -Ah*(-D) && iszero(Ah-Ah) && !iszero(Ah)
 @test HarmonicArray(D,2*pi) == HarmonicArray(D,4*pi) && 
       HarmonicArray(D,2*pi) ≈ HarmonicArray(D,4*pi)
-
+Ah1i = inv(Ah1)
+@test Ah1i*Ah1 ≈ I ≈ Ah1*Ah1i 
+@test hrchop(Ah1i; tol = 1.e-10) ≈ hrchop(Ah1i; tol = eps()) ≈ hrchop(Ah1i; tol = 1.e-10) 
+@test hrtrunc(Ah1i) ≈ hrtrunc(Ah1i,10)
 
 Ah = convert(HarmonicArray,PeriodicFunctionMatrix(A,4*pi));
 Ch = convert(HarmonicArray,PeriodicFunctionMatrix(C,2*pi));
@@ -80,12 +87,12 @@ Xderh = convert(HarmonicArray,PeriodicFunctionMatrix(Xder,16*pi));
 
 # PeriodicSymbolicMatrix
 @variables t
-A1 = [0  1; -10*cos(t)-1 -24-19*sin(t)]
+A11 = [0  1; -10*cos(t)-1 -24-19*sin(t)]
 X1 =  [1+cos(t) 0; 0 1+sin(t)] 
 X1der = [-sin(t) 0; 0 cos(t)] 
-As = PeriodicSymbolicMatrix(A1,2*pi)
-Cs = PeriodicSymbolicMatrix(X1der - A1*X1-X1*A1', 2*pi)
-Cds = PeriodicSymbolicMatrix(-(A1'*X1+X1*A1+X1der),2*pi)
+As = PeriodicSymbolicMatrix(A11,2*pi)
+Cs = PeriodicSymbolicMatrix(X1der - A11*X1-X1*A11', 2*pi)
+Cds = PeriodicSymbolicMatrix(-(A11'*X1+X1*A11+X1der),2*pi)
 Xs = PeriodicSymbolicMatrix(X1,2*pi)
 Xders = PeriodicSymbolicMatrix(X1der,2*pi)
 
@@ -102,18 +109,23 @@ D = rand(2,2)
 @test PeriodicSymbolicMatrix(D,2*pi) == PeriodicSymbolicMatrix(D,4*pi) && 
       PeriodicSymbolicMatrix(D,2*pi) ≈ PeriodicSymbolicMatrix(D,4*pi)
 
-As = PeriodicSymbolicMatrix(A1,4*pi,nperiod=2)
-Cs = PeriodicSymbolicMatrix(X1der - A1*X1-X1*A1', 2*pi)
-Cds = PeriodicSymbolicMatrix(-(A1'*X1+X1*A1+X1der),2*pi)
+As = PeriodicSymbolicMatrix(A11,4*pi,nperiod=2)
+Cs = PeriodicSymbolicMatrix(X1der - A11*X1-X1*A11', 2*pi)
+Cds = PeriodicSymbolicMatrix(-(A11'*X1+X1*A11+X1der),2*pi)
 Xs = PeriodicSymbolicMatrix(X1,8*pi,nperiod=4)
 Xders = PeriodicSymbolicMatrix(X1der,16*pi,nperiod = 8)
 @test As*Xs+Xs*As'+Cs ==  derivative(Xs) == Xders
 @test As'*Xs+Xs*As+Cds == -derivative(Xs)
 @test As*Xs+Xs*As'+Cs ≈  derivative(Xs) ≈ Xders
-@test As'*Xs+Xs*As+Cds ≈ -derivative(Xs) 
+@test As'*Xs+Xs*As+Cds ≈ -derivative(Xs)
+
+@test inv(As)*As ≈ I ≈ As*inv(As) 
+@test inv(As)*As == I == As*inv(As) 
+
 
 # FourierFunctionMatrix
 Af = convert(FourierFunctionMatrix,PeriodicFunctionMatrix(A,2*pi));
+Af1 = convert(FourierFunctionMatrix,PeriodicFunctionMatrix(A1,2*pi));
 Cf = convert(FourierFunctionMatrix,PeriodicFunctionMatrix(C,2*pi));
 Cdf = convert(FourierFunctionMatrix,PeriodicFunctionMatrix(Cd,2*pi));
 Xf = convert(FourierFunctionMatrix,PeriodicFunctionMatrix(X,2*pi));
@@ -128,6 +140,8 @@ D = rand(2,2)
 @test Af+I == I+Af && Af*5 == 5*Af && Af*D ≈ -Af*(-D)  && iszero(Af-Af) && !iszero(Af)
 @test FourierFunctionMatrix(D,2*pi) == FourierFunctionMatrix(D,4*pi) && 
       FourierFunctionMatrix(D,2*pi) ≈ FourierFunctionMatrix(D,4*pi)
+@test inv(Af1)*Af1 ≈ I ≈ Af1*inv(Af1) 
+
 
 Af = convert(FourierFunctionMatrix,PeriodicFunctionMatrix(A,4*pi,nperiod=2));
 Cf = convert(FourierFunctionMatrix,PeriodicFunctionMatrix(C,2*pi));
@@ -139,7 +153,7 @@ Xderf = convert(FourierFunctionMatrix,PeriodicFunctionMatrix(Xder,16*pi,nperiod=
 @test norm(Af*Xf+Xf*Af'+Cf-derivative(Xf),Inf) < 1.e-7 && norm(derivative(Xf)- Xderf) < 1.e-7
 @test norm(Af'*Xf+Xf*Af+Cdf+derivative(Xf),1) < 1.e-7
 
-# FourierFunctionMatrix
+# PeriodicTimeSeriesMatrix
 Ats = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(A,2*pi));
 Cts = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(C,2*pi));
 Cdts = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(Cd,2*pi));
@@ -155,6 +169,8 @@ D = rand(2,2)
 @test Ats+I == I+Ats && Ats*5 == 5*Ats && Ats*D ≈ -Ats*(-D)  && iszero(Ats-Ats) && !iszero(Ats)
 @test PeriodicTimeSeriesMatrix(D,2*pi) == PeriodicTimeSeriesMatrix(D,4*pi) && 
       PeriodicTimeSeriesMatrix(D,2*pi) ≈ PeriodicTimeSeriesMatrix(D,4*pi)
+@test inv(Ats)*Ats ≈ I ≈ Ats*inv(Ats) 
+
 
 Ats = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(A,4*pi,nperiod=2));
 Cts = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(C,2*pi));
@@ -184,6 +200,7 @@ Xr = prlyap(Ad, Qdr);
 Qds = pmshift(Qdf); 
 
 @test issymmetric(Qdf) && issymmetric(Qds) && isequal(pmshift(pmshift(Qdf,1),-1),Qdf) && iszero(Qdf-Qdf')
+@test inv(Ad)*Ad ≈ I ≈ Ad*inv(Ad) && Ad+I == I+Ad
 
 D = rand(n,n)
 @test Ad*5 == 5*Ad && Ad*D ≈ -Ad*(-D)  && iszero(Ad-Ad) && !iszero(Ad)
@@ -219,6 +236,7 @@ Xr = prlyap(Ad, Qdr);
 Qds = pmshift(Qdf); 
 
 @test issymmetric(Qdf) && issymmetric(Qds) && isequal(pmshift(pmshift(Qdf,1),-1),Qdf) && iszero(Qdf-Qdf')
+@test inv(Ad)*Ad ≈ I ≈ Ad*inv(Ad) && Ad+I == I+Ad
 
 D = rand(n,n)
 @test Ad*5 == 5*Ad  && Ad*D ≈ -Ad*(-D) && iszero(Ad-Ad) && !iszero(Ad)
@@ -255,7 +273,8 @@ Qds = pmshift(Qdf);
 
 @test issymmetric(Qdf) && issymmetric(Qds) && isequal(pmshift(pmshift(Qdf,1),-1),Qdf) && iszero(Qdf-Qdf')
 
-@test Ad*5 == 5*Ad &&  iszero(Ad-Ad) && !iszero(Ad)
+@test Ad*5 == 5*Ad &&  iszero(Ad-Ad) && !iszero(Ad) && Qdf + I == I+Qdf
+@test_throws DimensionMismatch Ad ≈ I && Ad-I 
 
 
 Ad1 = PeriodicMatrix(Ad.M,2*pa;nperiod=2);

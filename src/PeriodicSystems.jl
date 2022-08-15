@@ -33,7 +33,7 @@ import Symbolics: derivative
 
 export PeriodicStateSpace, pschur, pschur1, pschur2, phess, phess1, psreduc_reg, psreduc_fast, check_psim, mshift, pseig, 
        tvmeval, tpmeval, hreval, tvstm
-export ts2hr, ts2pfm, ts2ffm, pfm2hr, hr2psm, psm2hr, pm2pa, ffm2hr, pmaverage
+export ts2hr, ts2pfm, ts2ffm, pfm2hr, hr2psm, psm2hr, pm2pa, ffm2hr, pmaverage, hrtrunc, hrchop
 export monodromy, psceig
 export PeriodicArray, PeriodicMatrix
 export PeriodicTimeSeriesMatrix, HarmonicArray, FourierFunctionMatrix, PeriodicFunctionMatrix,  PeriodicSymbolicMatrix

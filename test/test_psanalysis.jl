@@ -321,7 +321,7 @@ Dd = PeriodicArray(zeros(1,1,1), 1);
 psys = PeriodicStateSpace(Ad,Bd,Cd,Dd); 
 ev = pspole(psys)
 ev1 = pspole(psys; fast = true)
-@test sort(real(ev)) ≈ sort(real(ev1)) && norm(sort(imag(ev))-sort(imag(ev1))) < 1.e-7
+@test norm(sort(real(ev)) - sort(real(ev1))) < 1.e-7  && norm(sort(imag(ev))-sort(imag(ev1))) < 1.e-7
 
 z = pszero(psys,atol=1.e-7)
 z1 = gzero(ps2ls(psys),atol=1.e-7)

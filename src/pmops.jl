@@ -2,6 +2,11 @@
 function pmshift(A::PeriodicArray, k::Int = 1)
     return PeriodicArray(A.M[:,:,mod.(k:A.dperiod+k-1,A.dperiod).+1], A.period; nperiod = A.nperiod)
 end
+function LinearAlgebra.inv(A::PeriodicArray) 
+    x = similar(A.M)
+    [x[:,:,i] = inv(A.M[:,:,i]) for i in 1:size(A.M,3)]
+    return PeriodicArray(x, A.period; nperiod = A.nperiod)
+end
 function LinearAlgebra.transpose(A::PeriodicArray)
     return PeriodicArray(permutedims(A.M,(2,1,3)), A.period; nperiod = A.nperiod)
 end
@@ -35,6 +40,15 @@ end
 +(A::AbstractMatrix, C::PeriodicArray) = +(PeriodicArray(A, C.Ts; nperiod = 1), C)
 -(A::PeriodicArray) = PeriodicArray(-A.M, A.period; nperiod = A.nperiod)
 -(A::PeriodicArray, B::PeriodicArray) = +(A,-B)
+function (+)(A::PeriodicArray, J::UniformScaling{<:Real})
+    x = similar(A.M)
+    [x[:,:,i] = A.M[:,:,i] + J for i in 1:size(A.M,3)]
+    return PeriodicArray(x, A.period; nperiod = A.nperiod)
+end
+(+)(J::UniformScaling{<:Real}, A::PeriodicArray) = +(A,J)
+(-)(A::PeriodicArray, J::UniformScaling{<:Real}) = +(A,-J)
+(-)(J::UniformScaling{<:Real}, A::PeriodicArray) = +(-A,J)
+
 
 function *(A::PeriodicArray, B::PeriodicArray)
     A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
@@ -72,11 +86,17 @@ function Base.isapprox(A::PeriodicArray, B::PeriodicArray; rtol::Real = sqrt(eps
     isconstant(A) && isconstant(B) && (return isapprox(A.M, B.M; rtol, atol))
     isapprox(A.M, B.M; rtol, atol) && (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
 end
+function Base.isapprox(A::PeriodicArray, J::UniformScaling{<:Real}; kwargs...)
+    all([isapprox(A.M[:,:,i], J; kwargs...) for i in 1:size(A.M,3)])
+end
+Base.isapprox(J::UniformScaling{<:Real}, A::PeriodicArray; kwargs...) = isapprox(A, J; kwargs...)
+
 
 # Operations with periodic matrices
 function pmshift(A::PeriodicMatrix, k::Int = 1)
     return PeriodicMatrix(A.M[mod.(k:A.dperiod+k-1,A.dperiod).+1], A.period; nperiod = A.nperiod)
 end
+LinearAlgebra.inv(A::PeriodicMatrix) = PeriodicMatrix(inv.(A.M), A.period; nperiod = A.nperiod)
 function LinearAlgebra.transpose(A::PeriodicMatrix)
     return PeriodicMatrix(copy.(transpose.(A.M)), A.period; nperiod = A.nperiod)
 end
@@ -104,10 +124,15 @@ function +(A::PeriodicMatrix, B::PeriodicMatrix)
     end
     return PeriodicMatrix(X, period; nperiod = div(K,p))
 end
-# +(A::PeriodicMatrix, C::AbstractMatrix) = +(A, PeriodicMatrix(C, A.Ts; nperiod = 1))
-# +(A::AbstractMatrix, C::PeriodicMatrix) = +(PeriodicMatrix(A, C.Ts; nperiod = 1), C)
++(A::PeriodicMatrix, C::AbstractMatrix) = +(A, PeriodicMatrix(C, A.Ts; nperiod = 1))
++(A::AbstractMatrix, C::PeriodicMatrix) = +(PeriodicMatrix(A, C.Ts; nperiod = 1), C)
 -(A::PeriodicMatrix) = PeriodicMatrix(-A.M, A.period; nperiod = A.nperiod)
 -(A::PeriodicMatrix, B::PeriodicMatrix) = +(A,-B)
+(+)(A::PeriodicMatrix, J::UniformScaling{<:Real}) = PeriodicMatrix([A.M[i] + J for i in 1:length(A.M)], A.period; nperiod = A.nperiod)
+(+)(J::UniformScaling{<:Real}, A::PeriodicMatrix) = +(A,J)
+(-)(A::PeriodicMatrix, J::UniformScaling{<:Real}) = +(A,-J)
+(-)(J::UniformScaling{<:Real}, A::PeriodicMatrix) = +(-A,J)
+
 function *(A::PeriodicMatrix, B::PeriodicMatrix)
     A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
     period = promote_period(A, B)
@@ -142,14 +167,20 @@ function Base.isapprox(A::PeriodicMatrix, B::PeriodicMatrix; rtol::Real = sqrt(e
     isconstant(A) && isconstant(B) && (return isapprox(A.M, B.M; rtol, atol))
     isapprox(A.M, B.M; rtol, atol) && (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
 end
+function Base.isapprox(A::PeriodicMatrix, J::UniformScaling{<:Real}; kwargs...)
+    all([isapprox(A.M[i], J; kwargs...) for i in 1:length(A.M)])
+end
+Base.isapprox(J::UniformScaling{<:Real}, A::PeriodicMatrix; kwargs...) = isapprox(A, J; kwargs...)
 
-  
 
 # Operations with periodic function matrices
 function derivative(A::PeriodicFunctionMatrix{:c,T};  h = A.period*sqrt(eps(T)), method = "cd") where {T}
     isconstant(A) && (return PeriodicFunctionMatrix{:c,T}(t -> zeros(T,A.dims...), A.period, A.dims, A.nperiod, true))
     method == "cd" ? (return PeriodicFunctionMatrix{:c,T}(t -> (A.f(t+h)-A.f(t-h))/(2*h), A.period, A.dims, A.nperiod, false)) :
                      (return PeriodicFunctionMatrix{:c,T}(t -> (A.f(t+h)-A.f(t))/h, A.period, A.dims, A.nperiod, false))
+end
+function LinearAlgebra.inv(A::PeriodicFunctionMatrix{:c,T})  where {T}
+    return PeriodicFunctionMatrix{:c,T}(t -> inv(A.f(t)), A.period, A.dims, A.nperiod, A._isconstant)
 end
 function LinearAlgebra.transpose(A::PeriodicFunctionMatrix{:c,T})  where {T}
     return PeriodicFunctionMatrix{:c,T}(t -> transpose(A.f(t)), A.period, (A.dims[2],A.dims[1]), A.nperiod, A._isconstant)
@@ -216,6 +247,12 @@ function Base.isapprox(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix; kwa
     ts = rand()*A.period
     isapprox(A.f(ts), B.f(ts); kwargs...) && (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
 end
+function Base.isapprox(A::PeriodicFunctionMatrix, J::UniformScaling{<:Real}; kwargs...)
+    isconstant(A) && (return isapprox(A.f(0), J; kwargs...))
+    ts = rand()*A.period
+    isapprox(A.f(ts), J; kwargs...) 
+end
+Base.isapprox(J::UniformScaling{<:Real}, A::PeriodicFunctionMatrix; kwargs...) = isapprox(A, J; kwargs...)
 
 # Operations with periodic symbolic matrices
 
@@ -223,6 +260,7 @@ function derivative(A::PeriodicSymbolicMatrix)
     @variables t   
     return PeriodicSymbolicMatrix{:c,Num}(Symbolics.derivative(A.F,t), A.period, nperiod = A.nperiod)
 end
+LinearAlgebra.inv(A::PeriodicSymbolicMatrix) = PeriodicSymbolicMatrix(inv(A.F), A.period; nperiod = A.nperiod)
 function LinearAlgebra.transpose(A::PeriodicSymbolicMatrix)  
     return PeriodicSymbolicMatrix{:c,Num}(copy(transpose(A.F)), A.period, nperiod = A.nperiod)
 end
@@ -275,6 +313,8 @@ function ==(A::PeriodicSymbolicMatrix, B::PeriodicSymbolicMatrix)
     isconstant(A) && isconstant(B) && (return iszero(A.F-B.F))
     iszero(A.F-B.F) && (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
 end
+==(A::PeriodicSymbolicMatrix, J::UniformScaling{<:Real}) = iszero(A.F-J) 
+==(J::UniformScaling{<:Real},A::PeriodicSymbolicMatrix) = iszero(A.F-J) 
 function Base.isapprox(A::PeriodicSymbolicMatrix, B::PeriodicSymbolicMatrix; rtol::Real = sqrt(eps(Float64)), atol::Real = 0)
     @variables t   
     ts = rand()*A.period
@@ -282,6 +322,12 @@ function Base.isapprox(A::PeriodicSymbolicMatrix, B::PeriodicSymbolicMatrix; rto
     isapprox(Symbolics.unwrap.(substitute.(A.F, (Dict(t => ts),))), Symbolics.unwrap.(substitute.(B.F, (Dict(t => ts),))); rtol, atol) && 
         (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
 end
+function Base.isapprox(A::PeriodicSymbolicMatrix, J::UniformScaling{<:Real}; kwargs...)
+    @variables t   
+    ts = rand()*A.period
+    isapprox(Symbolics.unwrap.(substitute.(A.F, (Dict(t => ts),))), J; kwargs...) 
+end
+Base.isapprox(J::UniformScaling{<:Real}, A::PeriodicSymbolicMatrix; kwargs...) = isapprox(A, J; kwargs...)
 
 
 # Operations with harmonic arrays
@@ -295,6 +341,12 @@ function derivative(A::HarmonicArray{:c,T}) where {T}
         Ahr[:,:,i+1] .= complex.(imag(A.values[:,:,i+1])*(i*ω),real(A.values[:,:,i+1])*(-i*ω)) 
     end
     return HarmonicArray{:c,T}(Ahr, A.period, nperiod = A.nperiod)
+end
+function LinearAlgebra.inv(A::HarmonicArray)
+    convert(HarmonicArray,inv(convert(PeriodicFunctionMatrix,A)))
+    # ts = (0:127)*A.period/A.nperiod/128
+    # convert(HarmonicArray,PeriodicTimeSeriesMatrix(inv.(tvmeval(Ah,collect(ts))),2*pi))
+    #convert(HarmonicArray,inv(convert(PeriodicFunctionMatrix,A)))
 end
 function LinearAlgebra.transpose(A::HarmonicArray{:c,T}) where {T}  
     m, n, l = size(A.values)
@@ -368,11 +420,33 @@ function ==(A::HarmonicArray, B::HarmonicArray)
     isconstant(A) && isconstant(B) && (return isequal(A.values, B.values))
     isequal(A.values, B.values) && A.period*B.nperiod == B.period*A.nperiod
 end
-function Base.isapprox(A::HarmonicArray, B::HarmonicArray; kwargs...)
-    isconstant(A) && isconstant(B) && (return isapprox(A.values, B.values; kwargs...) )
-    isapprox(A.values, B.values; kwargs...) && A.period*B.nperiod == B.period*A.nperiod
+function Base.isapprox(A::HarmonicArray, B::HarmonicArray; rtol::Real = sqrt(eps(Float64)), atol::Real = 0)
+    isconstant(A) && isconstant(B) && (return isapprox(A.values, B.values; rtol, atol) )
+    na = size(A.values,3)
+    nb = size(B.values,3)
+    if na == nb
+       return isapprox(A.values, B.values; rtol, atol) && A.period*B.nperiod == B.period*A.nperiod
+    elseif na > nb
+        tol = atol+rtol*max(norm(A,1),norm(B,1))
+        return all([isapprox(A.values[:,:,i], B.values[:,:,i]; rtol, atol) for i in 1:nb]) && 
+              all([norm(A.values[:,:,i],1) < tol for i in nb+1:na])  && A.period*B.nperiod == B.period*A.nperiod
+    else
+        tol = atol+rtol*max(norm(A,1),norm(B,1))
+        return all([isapprox(A.values[:,:,i], B.values[:,:,i]; rtol, atol) for i in 1:na]) && 
+              all([norm(B.values[:,:,i],1) < tol for i in na+1:nb])  && A.period*B.nperiod == B.period*A.nperiod
+    end
 end
+function Base.isapprox(A::HarmonicArray, J::UniformScaling{<:Real}; kwargs...)
+    isconstant(A) && (return isapprox(tpmeval(A,0), J; kwargs...))
+    ts = rand()*A.period
+    isapprox(tpmeval(A,ts), J; kwargs...) 
+end
+Base.isapprox(J::UniformScaling{<:Real}, A::HarmonicArray; kwargs...) = isapprox(A, J; kwargs...)
+
+
+#FourierFunctionMatrices
 derivative(A::FourierFunctionMatrix{:c,T}) where {T} = FourierFunctionMatrix{:c,T}(differentiate(A.M), A.period, A.nperiod)
+LinearAlgebra.inv(A::FourierFunctionMatrix) = FourierFunctionMatrix(inv(A.M), A.period; nperiod = A.nperiod)
 LinearAlgebra.transpose(A::FourierFunctionMatrix{:c,T}) where {T}  = FourierFunctionMatrix{:c,T}(transpose(A.M), A.period, A.nperiod)
 LinearAlgebra.adjoint(A::FourierFunctionMatrix) = transpose(A)
 function norm(A::FourierFunctionMatrix, p::Real = 2; K = 128) 
@@ -430,6 +504,12 @@ function Base.isapprox(A::FourierFunctionMatrix, B::FourierFunctionMatrix; rtol:
     isapprox(A.M(ts), B.M(ts); rtol, atol) && 
         (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
 end
+function Base.isapprox(A::FourierFunctionMatrix, J::UniformScaling{<:Real}; kwargs...)
+    isconstant(A) && (return isapprox(A.M(0), J; kwargs...))
+    ts = rand()*A.period
+    isapprox(tpmeval(A,ts), J; kwargs...) 
+end
+Base.isapprox(J::UniformScaling{<:Real}, A::FourierFunctionMatrix; kwargs...) = isapprox(A, J; kwargs...)
 
 
 # Operations with periodic time-series matrices
@@ -438,6 +518,7 @@ function derivative(A::PeriodicTimeSeriesMatrix{:c,T}) where {T}
     #tvmdereval(A, (0:N-1)*A.period/A.nperiod/N)
     PeriodicTimeSeriesMatrix{:c,T}(tvmeval(derivative(convert(HarmonicArray,A)), collect((0:N-1)*A.period/A.nperiod/N)), A.period, A.nperiod)
 end
+LinearAlgebra.inv(A::PeriodicTimeSeriesMatrix) = PeriodicTimeSeriesMatrix(inv.(A.values), A.period; nperiod = A.nperiod)
 LinearAlgebra.transpose(A::PeriodicTimeSeriesMatrix{:c,T}) where {T} = 
     PeriodicTimeSeriesMatrix{:c,T}([copy(transpose(A.values[i])) for i in 1:length(A)], A.period, A.nperiod)
 LinearAlgebra.adjoint(A::PeriodicTimeSeriesMatrix) = transpose(A)
@@ -495,3 +576,7 @@ function Base.isapprox(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix;
     isconstant(A) && isconstant(B) && (return isapprox(A.values, B.values; rtol, atol))
     isapprox(A.values, B.values; rtol, atol) && (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
 end
+function Base.isapprox(A::PeriodicTimeSeriesMatrix, J::UniformScaling{<:Real}; kwargs...)
+    all([isapprox(A.values[i], J; kwargs...) for i in 1:length(A.values)])
+end
+Base.isapprox(J::UniformScaling{<:Real}, A::PeriodicTimeSeriesMatrix; kwargs...) = isapprox(A, J; kwargs...)

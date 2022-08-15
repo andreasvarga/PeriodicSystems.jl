@@ -12,35 +12,30 @@ println("Test_pclyap")
 
 @testset "pclyap" begin
 
+tt = Vector((1:500)*2*pi/500) 
 
 # generate symbolic periodic matrices
 @variables t
 A1 = [0  1; -10*cos(t)-1 -24-19*sin(t)]
 As = PeriodicSymbolicMatrix(A1,2*pi)
-Xs =  [1+cos(t) 0; 0 1+sin(t)] 
+X1 =  [1+cos(t) 0; 0 1+sin(t)] 
 Xdots = [-sin(t) 0; 0 cos(t)] 
-Cds = PeriodicSymbolicMatrix(-(A1'*Xs+Xs*A1+Xdots),2*pi)
-Cs = PeriodicSymbolicMatrix(Xdots - A1*Xs-Xs*A1', 2*pi)
+Xs = PeriodicSymbolicMatrix(X1, 2*pi)
+Cds = PeriodicSymbolicMatrix(-(A1'*X1+X1*A1+Xdots),2*pi)
+Cs = PeriodicSymbolicMatrix(Xdots - A1*X1-X1*A1', 2*pi)
 
 @time Ys = pclyap(As,Cs; K = 100, reltol = 1.e-10);
-@test substitute.(norm(Xs-Ys.F), (Dict(t => rand()),))[1] < 1.e-7
-
-Ls = As.F*Ys.F+Ys.F*transpose(As.F)+Cs.F.-Symbolics.derivative(Ys.F,t)
-@test norm(substitute.(Ls, (Dict(t => rand()),)),Inf) < 1.e-7
+@test substitute.(norm(X1-Ys.F), (Dict(t => rand()),))[1] < 1.e-7
+@test Xs ≈ Ys && norm(As*Ys+Ys*As'+Cs - derivative(Ys)) < 1.e-6
 
 @time Ys = pclyap(As,Cds; adj = true, K = 100, reltol = 1.e-10);
-@test substitute.(norm(Xs-Ys.F), (Dict(t => rand()),))[1] < 1.e-7
-
-Lds = transpose(As.F)*Ys.F+Ys.F*As.F+Cds.F.+Symbolics.derivative(Ys.F,t)
-@test norm(substitute.(Lds, (Dict(t => rand()),)),Inf) < 1.e-7
+@test Xs ≈ Ys && norm(As'*Ys+Ys*As+Cds + derivative(Ys)) < 1.e-6
 
 @time Ys = pfclyap(As,Cs; K = 100, reltol = 1.e-10);
-@test substitute.(norm(Xs-Ys.F), (Dict(t => rand()),))[1] < 1.e-7
+@test Xs ≈ Ys && norm(As*Ys+Ys*As'+Cs - derivative(Ys)) < 1.e-6
 
 @time Ys = prclyap(As,Cds; K = 100, reltol = 1.e-10);
-@test substitute.(norm(Xs-Ys.F), (Dict(t => rand()),))[1] < 1.e-7
-
-
+@test Xs ≈ Ys && norm(As'*Ys+Ys*As+Cds + derivative(Ys)) < 1.e-6
 
 
 # generate periodic function matrices
@@ -56,21 +51,17 @@ Ct = PeriodicFunctionMatrix(C,2*pi)
 Cdt = PeriodicFunctionMatrix(Cd,2*pi)
 Xt = PeriodicFunctionMatrix(X,2*pi)
 
-tt = Vector((1:500)*2*pi/500) 
 @time Yt = pclyap(At, Ct, K = 500, reltol = 1.e-10);
-@test maximum(norm.(Yt.f.(tt).-Xt.f.(tt))) < 1.e-7
-@test norm(At*Yt+Yt*At'+Ct-derivative(Yt)) < 1.e-7
-
+@test Xt ≈ Yt && norm(At*Yt+Yt*At'+Ct-derivative(Yt)) < 1.e-7
 
 @time Yt = pclyap(At, Cdt, K = 500, adj = true, reltol = 1.e-10)
-@test maximum(norm.(Yt.f.(tt).-Xt.f.(tt))) < 1.e-7
-@test norm(At'*Yt+Yt*At+Cdt+derivative(Yt)) < 1.e-7
+@test Xt ≈ Yt && norm(At'*Yt+Yt*At+Cdt+derivative(Yt)) < 1.e-7
 
-@time Y = pfclyap(At, Ct, K = 500, reltol = 1.e-10);
-@test maximum(norm.(Yt.f.(tt).-Xt.f.(tt))) < 1.e-7
+@time Yt = pfclyap(At, Ct, K = 500, reltol = 1.e-10);
+@test Xt ≈ Yt && norm(At*Yt+Yt*At'+Ct-derivative(Yt)) < 1.e-7
 
 @time Y = prclyap(At, Cdt, K = 500, reltol = 1.e-10)
-@test maximum(norm.(Yt.f.(tt).-Xt.f.(tt))) < 1.e-7
+@test Xt ≈ Yt && norm(At'*Yt+Yt*At+Cdt+derivative(Yt)) < 1.e-7
 
 solver = "non-stiff"
 #for solver in ("non-stiff", "stiff", "symplectic", "noidea")
