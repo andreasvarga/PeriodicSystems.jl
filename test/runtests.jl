@@ -11,6 +11,7 @@ include("test_pslifting.jl")
 include("test_psanalysis.jl")
 include("test_pslyap.jl")
 include("test_psclyap.jl")
+include("test_pscric.jl")
 end
 
 end

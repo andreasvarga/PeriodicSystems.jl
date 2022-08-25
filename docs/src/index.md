@@ -57,12 +57,21 @@ The targeted functionality of this package is described in [1] and will cover bo
 **Solving periodic Lyapunov equations**
 
 * **[`pclyap`](@ref)** Solution of periodic Lyapunov differential equations. 
-* **[`prclyap`](@ref)** Solution of reverse-time periodic Lyapunov differential equation equations. 
-* **[`pfclyap`](@ref)**  Solution of forward-time periodic Lyapunov differential equation equations.
+* **[`prclyap`](@ref)** Solution of reverse-time periodic Lyapunov differential equations. 
+* **[`pfclyap`](@ref)**  Solution of forward-time periodic Lyapunov differential equations.
 * **[`pgclyap`](@ref)** Computation of periodic generators for periodic Lyapunov differential equations.
 * **[`pdlyap`](@ref)** Solution of periodic discrete-time Lyapunov equations. 
 * **[`prlyap`](@ref)** Solution of reverse-time periodic discrete-time Lyapunov equations. 
 * **[`pflyap`](@ref)**  Solution of forward-time periodic discrete-time Lyapunov equations.
+
+**Solving periodic Riccati equations**
+
+* **[`pcric`](@ref)** Solution of periodic Riccati differential equations. 
+* **[`prcric`](@ref)** Solution of control-related reverse-time periodic Riccati differential equation. 
+* **[`pfcric`](@ref)**  Solution of filtering-related forward-time periodic Riccati differential equation.
+* **[`pgcric`](@ref)** Computation of periodic generators for periodic Riccati differential equations.
+
+
 
 
 **Simplification of periodic system models**

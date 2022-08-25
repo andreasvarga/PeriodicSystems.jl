@@ -17,9 +17,11 @@ using OrdinaryDiffEq
 using IRKGaussLegendre
 using Primes
 using ApproxFun
+#using PeriodicSchurDecompositions
+#using JLD
 
 include("SLICOTtools.jl")
-using .SLICOTtools: mb03vd!, mb03vy!, mb03bd!, mb03wd!, mb03vw!
+using .SLICOTtools: mb03vd!, mb03vy!, mb03bd!, mb03wd!, mb03vw!, mb03kd!
 
 
 import LinearAlgebra: BlasInt, BlasFloat, BlasReal, BlasComplex, copy_oftype, transpose, adjoint, opnorm, normalize, rdiv!, issymmetric, norm
@@ -32,21 +34,22 @@ import Polynomials: AbstractRationalFunction, AbstractPolynomial, poles, isconst
 import Symbolics: derivative
 
 export PeriodicStateSpace, pschur, pschur1, pschur2, phess, phess1, psreduc_reg, psreduc_fast, check_psim, mshift, pseig, 
-       tvmeval, tpmeval, hreval, tvstm
+       tvmeval, tpmeval, hreval, tvstm, psordschur!, psordschur1!
 export ts2hr, ts2pfm, ts2ffm, pfm2hr, hr2psm, psm2hr, pm2pa, ffm2hr, pmaverage, hrtrunc, hrchop
-export monodromy, psceig
+export monodromy, psceig, psceighr, psceigfr
 export PeriodicArray, PeriodicMatrix
 export PeriodicTimeSeriesMatrix, HarmonicArray, FourierFunctionMatrix, PeriodicFunctionMatrix,  PeriodicSymbolicMatrix
 export isperiodic, isconstant, iscontinuous, islti, set_period
-export mb03vd!, mb03vy!, mb03bd!, mb03wd!
+export mb03vd!, mb03vy!, mb03bd!, mb03wd!, mb03kd! 
 export ps
 export psaverage, psc2d, psmrc2d, psteval
 export ps2fls, hr2bt, hr2btupd, phasemat, ps2frls, DiagDerOp, ps2ls
 export pspole, pszero, isstable
 export pdlyap, prlyap, pflyap, pslyapd, pdlyaps!, pdlyaps1!, pdlyaps2!, pdlyaps3!, dpsylv2, dpsylv2!, pslyapdkr, dpsylv2krsol!, kronset!
 export pmshift
-export pclyap, pfclyap, prclyap, pgclyap, tvcric
-export derivative
+export pclyap, pfclyap, prclyap, pgclyap
+export pcric, prcric, pfcric, tvcric, pgcric
+export derivative, pmrand
 
 abstract type AbstractDynamicalSystem end
 abstract type AbstractLTISystem <: AbstractDynamicalSystem end
@@ -64,6 +67,7 @@ include("pslifting.jl")
 include("psanalysis.jl")
 include("pslyap.jl")
 include("psclyap.jl")
+include("pscric.jl")
 include("pmops.jl")
 include("psutils.jl")
 end

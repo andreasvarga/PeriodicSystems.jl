@@ -7,6 +7,7 @@ using Test
 using LinearAlgebra
 using LinearAlgebra: BlasInt
 using ApproxFun
+using MatrixPencils
 #using BenchmarkTools
 
 println("Test_psutils")
@@ -20,6 +21,7 @@ A1 = Matrix{Float64}(I,3,3); A2 = [   1.0   2.0   0.0; 4.0  -1.0   3.0; 0.0   3.
 E1 =  [2.0   0.0   1.0; 0.0  -2.0  -1.0; 0.0   0.0   3.0]; E2 = Matrix{Float64}(I,3,3); 
 E3 = [ 1.0   0.0   1.0; 0.0   4.0  -1.0; 0.0   0.0  -2.0];
 ev = eigvals(inv(E1)*A2*inv(E3))
+ihess = 2
 
 # using the SLICOT wrapper
 A = reshape([E1 A2 E3],3,3,3);
@@ -41,15 +43,17 @@ SCAL = Array{BlasInt,1}(undef, NMAX)
 IWORK = Array{BlasInt,1}(undef, LIWORK)
 DWORK = Array{Float64,1}(undef, LDWORK)
 
-mb03bd!('T','C','I',QIND,3,3,2,1,3,S,A,Q,ALPHAR, ALPHAI, BETA, SCAL, LIWORK, LDWORK)
+mb03bd!('T','C','I',QIND,3,3,ihess,1,3,S,A,Q,ALPHAR, ALPHAI, BETA, SCAL, LIWORK, LDWORK)
 
 poles = (ALPHAR+im*ALPHAI) ./ BETA .* (2. .^SCAL)
 
 @test sort(real(poles)) ≈ sort(real(ev)) && 
       sort(imag(poles)) ≈ sort(imag(ev))
 
-A = reshape([A2 inv(E3) inv(E1)],3,3,3);
-mb03wd!('S','I',3,3,1,3,1,3,A,Q,ALPHAR, ALPHAI, LDWORK)
+ev1 = eigvals(inv(A[:,:,1])*A[:,:,2]*inv(A[:,:,3]))
+
+Aw = reshape([A2 inv(E3) inv(E1)],3,3,3);
+mb03wd!('S','I',3,3,1,3,1,3,Aw,Q,ALPHAR, ALPHAI, LDWORK)
 
 poles = (ALPHAR+im*ALPHAI) 
 
@@ -57,7 +61,18 @@ poles = (ALPHAR+im*ALPHAI)
       sort(imag(poles)) ≈ sort(imag(ev))
 
 
+k = 3; nc = 3; kschur = ihess; n = [3,3,3]; ni = [0,0,0]; s = S; select = [0,0,1]; 
+t = zeros(0); [push!(t,A[:,:,k-i+1][:]...) for i in 1:k]
+q = zeros(0); [push!(q,Q[:,:,k-i+1][:]...) for i in 1:k]
+nn = nc*nc; ldt = nc*ones(Int,k); ixt = collect(1:nn:k*nn)
+ldq = ldt; ixq = ixt;
+tol = 20.; ldwork = max(42*k + max(nc,10), 80*k - 48) 
 
+m, info = mb03kd!('U','S', k, nc, kschur, n, ni, s, select, t, ldt, ixt, q, ldq, ixq, tol, ldwork)
+T = zeros(3,3,3); [T[:,:,k-i+1] = reshape(t[ixt[i]:ixt[i]+nn-1],nc,nc) for i in 1:k]
+ev2 = eigvals(inv(T[:,:,1])*T[:,:,2]*inv(T[:,:,3]))
+@test sort(real(poles)) ≈ sort(real(ev2)) && 
+      sort(imag(poles)) ≈ sort(imag(ev2))
 
 # MB03VD example
 A1 = [1.5 -.7 3.5 -.7; 1.  0.  2.  3.; 1.5 -.7 2.5 -.3; 1.  0.  2.  1.]; 
@@ -288,6 +303,35 @@ a, e = psreduc_reg(A); eigs = eigvals(a,e);
 @test sort(real(eigs)) ≈ sort(real(ev)) && 
       sort(imag(eigs)) ≈ sort(imag(ev))
 
+AA = [A[:,:,3], A[:,:,2], A[:,:,1]];
+@time S, Z, eigs, ischur, α, γ = pschur(AA; rev = false);
+@time psordschur!(S, Z, [1,1,0,1].> 0; sind = ischur, rev = false)  
+@test check_psim(AA, Z, S; rev = false)  
+MatrixPencils.ordeigvals(S[1]*S[2]*S[3]) 
+
+AA = [A[:,:,1], A[:,:,2], A[:,:,3]];
+@time S, Z, eigs, ischur, α, γ = pschur(AA; rev = true);
+@time psordschur!(S,Z,[1,1,0,1].> 0; sind=ischur, rev = true)  
+@test check_psim(AA,Z,S; rev = true)  
+MatrixPencils.ordeigvals(S[3]*S[2]*S[1])  
+
+AA = [A[:,:,3], A[:,:,2], A[:,:,1]];
+@time S, Z, eigs, ischur, α, γ = pschur(AA; rev = false);
+@time psordschur!(S, Z, [1,1,0,1].> 0; sind = ischur, rev = false)  
+@test check_psim(AA, Z, S; rev = false)  
+MatrixPencils.ordeigvals(S[1]*S[2]*S[3]) 
+
+@time S, Z, eigs, ischur, α, γ = pschur(A; rev = true);
+@time psordschur!(S,Z,[1,1,0,1].> 0; sind=ischur, rev = true)  
+@test check_psim(A,Z,S; rev = true)  
+MatrixPencils.ordeigvals(S[:,:,3]*S[:,:,2]*S[:,:,1])  
+
+@time S, Z, eigs, ischur, α, γ = pschur(A; rev = false);
+@time psordschur!(S, Z, [1,0,1,1].> 0; sind = ischur, rev = false)  
+@test check_psim(A, Z, S; rev = false)  
+MatrixPencils.ordeigvals(S[:,:,1]*S[:,:,2]*S[:,:,3])  
+
+
 A = [A1, A2, A3];
 @time eigs = pseig(A); ev = pseig(A,fast = true);
 @test sort(real(eigs)) ≈ sort(real(ev)) && 
@@ -329,6 +373,17 @@ ev = eigvals(prod(A)); nmin = minimum(size.(A,1))
 @test sort(real(eigs)) ≈ sort(real(ev)) && 
       isapprox(sort(imag(eigs)),sort(imag(ev)), atol = 1.e-7)
 
+A = [A3, A2, A1];
+@time S, Z, eigs, ischur, α, γ = pschur(A; rev = false);
+@time psordschur1!(S, Z, [0,1,1].> 0; sind = ischur, rev = false)  
+@test check_psim(A, Z, S; rev = false)  
+MatrixPencils.ordeigvals(S[1]*S[2]*S[3]) 
+
+A = [A1, A2, A3];
+@time S, Z, eigs, ischur, α, γ = pschur(A; rev = true);
+@time psordschur1!(S,Z,[0,1,1].> 0; sind=ischur, rev = true)  
+@test check_psim(A,Z,S; rev = true)  
+MatrixPencils.ordeigvals(S[3]*S[2]*S[1])  
 
 # periodic time-varying matrices from IFAC2005 paper
 @variables t

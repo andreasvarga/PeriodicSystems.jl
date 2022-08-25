@@ -25,7 +25,6 @@ Cds = PeriodicSymbolicMatrix(-(A1'*X1+X1*A1+Xdots),2*pi)
 Cs = PeriodicSymbolicMatrix(Xdots - A1*X1-X1*A1', 2*pi)
 
 @time Ys = pclyap(As,Cs; K = 100, reltol = 1.e-10);
-@test substitute.(norm(X1-Ys.F), (Dict(t => rand()),))[1] < 1.e-7
 @test Xs ≈ Ys && norm(As*Ys+Ys*As'+Cs - derivative(Ys)) < 1.e-6
 
 @time Ys = pclyap(As,Cds; adj = true, K = 100, reltol = 1.e-10);
@@ -68,51 +67,45 @@ solver = "non-stiff"
 for solver in ("non-stiff", "stiff", "noidea")
         println("solver = $solver")
     @time Yt = pclyap(At, Ct; solver, K = 500, reltol = 1.e-10, abstol = 1.e-10);
-    @test maximum(norm.(Yt.f.(tt).-Xt.f.(tt))) < 1.e-6
+    @test Xt ≈ Yt
+    #@test maximum(norm.(Yt.f.(tt).-Xt.f.(tt))) < 1.e-6
 end
 
 
 # solve using harmonic arrays
-tt = Vector((1:500)*2*pi/500) 
 Ah = convert(HarmonicArray,At);
 Ch = convert(HarmonicArray,Ct);
 Cdh = convert(HarmonicArray,Cdt);
 Xh = convert(HarmonicArray,Xt);
 
 @time Yh = pclyap(Ah, Ch, K = 500, reltol = 1.e-10);
-@test maximum(norm.(tvmeval(Yh,tt).-Xt.f.(tt))) < 1.e-7
-@test norm(Ah*Yh+Yh*Ah'+Ch-derivative(Yh)) < 1.e-7
+@test Xh ≈ Yh && norm(Ah*Yh+Yh*Ah'+Ch-derivative(Yh)) < 1.e-7
 
-@time Y = pclyap(Ah, Cdh, K = 500, adj = true, reltol = 1.e-10)
-@test maximum(norm.(tvmeval(Y,tt).-Xt.f.(tt))) < 1.e-7
-@test norm(Ah'*Yh+Yh*Ah+Cdh+derivative(Yh)) < 1.e-7
+@time Yh = pclyap(Ah, Cdh, K = 500, adj = true, reltol = 1.e-10)
+@test Xh ≈ Yh && norm(Ah'*Yh+Yh*Ah+Cdh+derivative(Yh)) < 1.e-7
 
-@time Y = pfclyap(Ah, Ch, K = 500, reltol = 1.e-10);
-@test maximum(norm.(tvmeval(Y,tt).-Xt.f.(tt))) < 1.e-7
+@time Yh = pfclyap(Ah, Ch, K = 500, reltol = 1.e-10);
+@test Xh ≈ Yh && norm(Ah*Yh+Yh*Ah'+Ch-derivative(Yh)) < 1.e-7
 
-@time Y = prclyap(Ah, Cdh, K = 500, reltol = 1.e-10)
-@test maximum(norm.(tvmeval(Y,tt).-Xt.f.(tt))) < 1.e-7
-
+@time Yh = prclyap(Ah, Cdh, K = 500, reltol = 1.e-10)
+@test Xh ≈ Yh && norm(Ah'*Yh+Yh*Ah+Cdh+derivative(Yh)) < 1.e-7
 
 # solve using Fourier function matrices
 Af = convert(FourierFunctionMatrix,At);
 Cf = convert(FourierFunctionMatrix,Ct); 
 Cdf = convert(FourierFunctionMatrix,Cdt)
 Xf = convert(FourierFunctionMatrix,Xt);
-tt = Vector((1:500)*2*pi/500) 
 @time Yf = pclyap(Af, Cf, K = 500, reltol = 1.e-10);
-@test maximum(norm.(tvmeval(Yf,tt).-Xt.f.(tt))) < 1.e-7
-@test norm(Af*Yf+Yf*Af'+Cf-derivative(Yf)) < 1.e-7
+@test Xf ≈ Yf && norm(Af*Yf+Yf*Af'+Cf-derivative(Yf)) < 1.e-7
 
 @time Yf = pclyap(Af, Cdf, K = 500, adj = true, reltol = 1.e-10)
-@test maximum(norm.(tvmeval(Yf,tt).-Xt.f.(tt))) < 1.e-7
-@test norm(Af'*Yf+Yf*Af+Cdf+derivative(Yf)) < 1.e-7
+@test Xf ≈ Yf && norm(Af'*Yf+Yf*Af+Cdf+derivative(Yf)) < 1.e-7
 
-@time Yf = pfclyap(convert(FourierFunctionMatrix,At), convert(FourierFunctionMatrix,Ct), K = 500, reltol = 1.e-10);
-@test maximum(norm.(tvmeval(Yf,tt).-Xt.f.(tt))) < 1.e-7
+@time Yf = pfclyap(Af, Cf, K = 500, reltol = 1.e-10);
+@test Xf ≈ Yf && norm(Af*Yf+Yf*Af'+Cf-derivative(Yf)) < 1.e-7
 
-@time Yf = prclyap(convert(FourierFunctionMatrix,At), convert(FourierFunctionMatrix,Cdt), K = 500, reltol = 1.e-10)
-@test maximum(norm.(tvmeval(Yf,tt).-Xt.f.(tt))) < 1.e-7
+@time Yf = prclyap(Af, Cdf, K = 500, reltol = 1.e-10)
+@test Xf ≈ Yf && norm(Af'*Yf+Yf*Af+Cdf+derivative(Yf)) < 1.e-7
 
 
 # solve using periodic time-series matrices

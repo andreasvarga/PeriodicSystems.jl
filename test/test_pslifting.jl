@@ -29,15 +29,15 @@ At = PeriodicFunctionMatrix(t -> [0 1; -10*cos(t) -24-10*sin(t)],2pi);
 
 # using Fourier series
 Afun = FourierFunctionMatrix(Fun(t -> [0 1; -10*cos(t) -24-10*sin(t)],Fourier(0..2π)))
-ev1 = psceig(Afun,50)
+ev1 = psceigfr(Afun,50)
 @test isapprox(sort(real(ev)),sort(real(ev1)),rtol=1.e-6) && norm(imag(ev1)) < 1.e-10
 
-ev3 = psceig(Afun,60)
+ev3 = psceigfr(Afun,60)
 @test isapprox(sort(real(ev)),sort(real(ev3)),rtol=1.e-6) && norm(imag(ev3)) < 1.e-10
 
 # using Toeplitz operator truncation
 Ahr = convert(HarmonicArray,PeriodicFunctionMatrix(t -> [0 1; -10*cos(t) -24-10*sin(t)],2pi));
-ev2 = psceig(Ahr,50)
+ev2 = psceighr(Ahr,50)
 @test sort(ev) ≈ sort(real(ev2[sortperm(imag(ev2),by=abs)][1:2]))
 
 
@@ -54,46 +54,46 @@ At2 = PeriodicFunctionMatrix(t -> [-1-sin(2*t)^2 2-0.5*sin(4*t); -2-0.5*sin(4*t)
 
 # using Fourier series
 Afun = FourierFunctionMatrix(Fun(t -> [-1-sin(2*t)^2 2-0.5*sin(4*t); -2-0.5*sin(4*t) -1-cos(2*t)^2],Fourier(0..π/2)))
-ev3 = psceig(Afun)
+ev3 = psceigfr(Afun)
 @test sort(real(ev3)) ≈ sort([-1;-2]) && sort(imag(ev3)) ≈ [2;2] 
 
 
 # using Toeplitz operator truncation period pi/2
 Ahr = convert(HarmonicArray,PeriodicFunctionMatrix(t -> [-1-sin(2*t)^2 2-0.5*sin(4*t); -2-0.5*sin(4*t) -1-cos(2*t)^2],pi/2));
 Asym = convert(PeriodicSymbolicMatrix,Ahr); Asym.F
-ev3 = psceig(Ahr,5)
+ev3 = psceighr(Ahr,5)
 @test sort(real(ev3)) ≈ sort([-1;-2]) && sort(imag(ev3)) ≈ [2;2] 
 
 # simple period
-ev4 = psceig(Ahr,50)
+ev4 = psceighr(Ahr,50)
 @test sort(real(ev4)) ≈ sort([-1;-2]) && sort(imag(ev4)) ≈ [2;2] 
 
 # double period
-ev5 = psceig(Ahr,50; P = 2)
+ev5 = psceighr(Ahr,50; P = 2)
 @test sort(real(ev5)) ≈ sort([-1;-2]) && norm(imag(ev5)) < 1.e-10 
 
 
 # using Fourier series truncation period pi
-ev4 = psceig(Afun,P = 2)
+ev4 = psceigfr(Afun,P = 2)
 @test sort(real(ev4)) ≈ sort([-1;-2]) && norm(imag(ev4)) < 1.e-10 
 
 
 # using Toeplitz operator truncation period pi
 Ahr2 = convert(HarmonicArray,PeriodicFunctionMatrix(t -> [-1-sin(2*t)^2 2-0.5*sin(4*t); -2-0.5*sin(4*t) -1-cos(2*t)^2],pi));
 Asym2 = convert(PeriodicSymbolicMatrix,Ahr2); Asym2.F
-ev3 = psceig(Ahr2,5)
+ev3 = psceighr(Ahr2,5)
 @test sort(real(ev3)) ≈ sort([-1;-2]) && norm(imag(ev3)) < 1.e-10 
 
-ev4 = psceig(Ahr,50; P = 2)
+ev4 = psceighr(Ahr,50; P = 2)
 @test sort(real(ev4)) ≈ sort([-1;-2]) && norm(imag(ev4)) < 1.e-10 
 
 # constant matrix case
 Q = convert(HarmonicArray,PeriodicFunctionMatrix([-1 0; 0 -2],pi/2));
-N = 5; ev1 = psceig(Q,N)
+N = 5; ev1 = psceighr(Q,N)
 @test sort(real(ev1)) ≈ sort([-1;-2]) && norm(imag(ev1)) < 1.e-10
 
 QF = convert(FourierFunctionMatrix,Q)
-N = 5; ev2 = psceig(QF,N)
+N = 5; ev2 = psceigfr(QF,N)
 @test sort(real(ev2)) ≈ sort([-1;-2]) && norm(imag(ev2)) < 1.e-10
 
 
@@ -105,13 +105,13 @@ A = PeriodicFunctionMatrix(t -> [-1-sin(2*t)^2 2-0.5*sin(4*t); -2-0.5*sin(4*t) -
 
 # Fourier approach
 Afun = FourierFunctionMatrix(Fun(t -> [-1-sin(2*t)^2 2-0.5*sin(4*t); -2-0.5*sin(4*t) -1-cos(2*t)^2],Fourier(0..π)))
-ev1 = psceig(Afun)
+ev1 = psceigfr(Afun)
 @test sort(real(ev)) ≈ sort(real(ev1)) && norm(imag(ev1)) < 1.e-10
 
-ev2 = psceig(Afun,5)
+ev2 = psceigfr(Afun,5)
 @test sort(real(ev)) ≈ sort(real(ev2)) && norm(imag(ev2)) < 1.e-10
 
-ev3 = psceig(Afun,20)
+ev3 = psceigfr(Afun,20)
 @test sort(real(ev)) ≈ sort(real(ev3)) && norm(imag(ev3)) < 1.e-10
 
 
@@ -130,7 +130,7 @@ c = [0 1]; d = [0];
 
 # using Harmonic Array based lifting
 psyschr = ps(HarmonicArray,a,b,c,d)
-ev = psceig(psyschr.A,20)
+ev = psceighr(psyschr.A,20)
 
 syshr = ps2fls(psyschr,20)
 p = gpole(syshr,atol=1.e-7);  p = p[sortperm(imag(p),by=abs)][1:2];
@@ -145,7 +145,7 @@ Z = convert(HarmonicArray,PeriodicFunctionMatrix(t -> [(-2+3*sin(t))/(2-sin(t))]
 
 # using Fourier Function Matrix based lifting
 psysc = ps(FourierFunctionMatrix,a,b,c,d);
-ev1 = psceig(psysc.A,30)
+ev1 = psceigfr(psysc.A,30)
 
 sys = ps2frls(psysc,20);
 p = gpole(sys,atol=1.e-7);  p = p[sortperm(imag(p),by=abs)][1:4]; 
@@ -167,7 +167,7 @@ c = [1 1]; d = [0];
 
 # using Harmonic Array based lifting
 psyschr = ps(HarmonicArray,a1,b1,c,d);
-ev = psceig(psyschr.A)
+ev = psceighr(psyschr.A)
 
 syshr = ps2fls(psyschr,60);
 p = gpole(syshr,atol=1.e-7);  p = p[sortperm(imag(p),by=abs)][1:2]
@@ -180,7 +180,7 @@ z = gzero(syshr,atol=1.e-7); z = z[isfinite.(z)]; #  Question: How to handle inf
 
 # using Fourier Function Matrix based lifting
 psysc = ps(FourierFunctionMatrix,a1,b1,c,d);
-ev = psceig(psysc.A)
+ev = psceigfr(psysc.A)
 
 sys = ps2frls(psysc,60);
 p = gpole(sys,atol=1.e-7);  p = p[sortperm(imag(p),by=abs)][1:2]

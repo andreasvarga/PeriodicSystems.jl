@@ -14,10 +14,11 @@ Depending on the underlying periodic matrix type `PM`, the optional argument `K`
 
 - if `PM = PeriodicMatrix` or `PM = PeriodicArray`, then `K` is the starting sample time (default: `K = 1`)  and `kwargs` are the keyword arguments of  [`psceig(::PeriodicMatrix)`](@ref); 
 """
-function pspole(psys::PeriodicStateSpace, K::Int; kwargs...)
-    return psceig(psys.A,K; kwargs...)
-end
-pspole(psys::PeriodicStateSpace; kwargs...) = psceig(psys.A; kwargs...)
+pspole(psys::PeriodicStateSpace{<: PeriodicArray}, N::Int = 1; kwargs...) = psceig(psys.A, N; kwargs...)
+pspole(psys::PeriodicStateSpace{<: PeriodicMatrix}, N::Int = 1; kwargs...) = psceig(psys.A, N; kwargs...)
+pspole(psys::PeriodicStateSpace{<: PeriodicFunctionMatrix}, N::Int = 10; kwargs...) = psceig(psys.A, N; kwargs...)
+pspole(psys::PeriodicStateSpace{<: HarmonicArray}, N::Int = 10; kwargs...) = psceighr(psys.A, N; kwargs...)
+pspole(psys::PeriodicStateSpace{<: FourierFunctionMatrix}, N::Int = 10; kwargs...)  = psceigfr(psys.A, N; kwargs...)
 """
     pszero(psys::PeriodicStateSpace{HarmonicArray}[, N]; P, atol, rtol, fast) -> val
     pszero(psys::PeriodicStateSpace{PeriodicFunctionMatrix}[, N]; P, atol, rtol, fast) -> val

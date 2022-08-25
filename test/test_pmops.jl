@@ -73,7 +73,7 @@ D = rand(2,2)
 Ah1i = inv(Ah1)
 @test Ah1i*Ah1 ≈ I ≈ Ah1*Ah1i 
 @test hrchop(Ah1i; tol = 1.e-10) ≈ hrchop(Ah1i; tol = eps()) ≈ hrchop(Ah1i; tol = 1.e-10) 
-@test hrtrunc(Ah1i) ≈ hrtrunc(Ah1i,10)
+@test hrtrunc(Ah1i,19) ≈ hrtrunc(Ah1i,20)
 
 Ah = convert(HarmonicArray,PeriodicFunctionMatrix(A,4*pi));
 Ch = convert(HarmonicArray,PeriodicFunctionMatrix(C,2*pi));

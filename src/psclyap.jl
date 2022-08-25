@@ -204,8 +204,8 @@ function tvclyap(A::PM1, C::PM2, tf, t0; adj = false, solver = "", reltol = 1e-3
    # using OrdinaryDiffEq
    u0 = zeros(T,div(n*(n+1),2))
    tspan = (T(t0),T(tf))
-   f!(du,u,p,t) = adj ? muladdcsym!(du, -tpmeval(A,t)', u, -tpmeval(C,t)) : muladdcsym!(du, tpmeval(A,t), u, tpmeval(C,t))
-   prob = ODEProblem(f!, u0, tspan)
+   fclyap!(du,u,p,t) = adj ? muladdcsym!(du, -tpmeval(A,t)', u, -tpmeval(C,t)) : muladdcsym!(du, tpmeval(A,t), u, tpmeval(C,t))
+   prob = ODEProblem(fclyap!, u0, tspan)
    if solver == "stiff" 
       if reltol > 1.e-4  
          # standard stiff

@@ -30,14 +30,14 @@ psys = ps(At,HarmonicArray(rand(2,1),2*pi),rand(1,2))
 # using Fourier series
 Afun = FourierFunctionMatrix(Fun(t -> [0 1; -10*cos(t) -24-10*sin(t)],Fourier(0..2π)))
 psys = ps(Afun,FourierFunctionMatrix(rand(2,1),2*pi),rand(1,2))
-@time ev1 = pspole(psys,50)
+@time ev1 = pspole(psys,200)
 @test isapprox(sort(real(ev)),sort(real(ev1)),rtol=1.e-6) && norm(imag(ev1)) < 1.e-10
 
 
 # using Toeplitz operator truncation
 Ahr = convert(HarmonicArray,PeriodicFunctionMatrix(t -> [0 1; -10*cos(t) -24-10*sin(t)],2pi));
 psys = ps(Ahr,rand(2,1),rand(1,2))
-@time ev2 = pspole(psys,50)
+@time ev2 = pspole(psys,100)
 @test sort(ev) ≈ sort(real(ev2[sortperm(imag(ev2),by=abs)][1:2]))
 
 

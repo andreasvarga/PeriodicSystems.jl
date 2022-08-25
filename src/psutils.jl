@@ -1,5 +1,5 @@
 """
-     tvstm(A::PeriodicFunctionMatrix, tf, t0; solver, reltol, abstol, dt) -> Φ 
+     tvstm(A, tf, t0; solver, reltol, abstol, dt) -> Φ 
 
 Compute the state transition matrix for a linear ODE with periodic time-varying coefficients. 
 For the given periodic square matrix `A(t)`, initial time `t0` and 
@@ -8,7 +8,9 @@ is computed by integrating numerically the homogeneous linear ODE
 
       dΦ(t,t0)/dt = A(t)Φ(t,t0),  Φ(t0,t0) = I
 
-on the time interval `[t0,tf]`. The ODE solver to be employed can be 
+on the time interval `[t0,tf]`. `A(t)` can be specified as a PeriodicFunctionMatrix, HarmonicArray or FourierFunctionMatrix. 
+
+The ODE solver to be employed can be 
 specified using the keyword argument `solver` (see below), together with
 the required relative accuracy `reltol` (default: `reltol = 1.e-3`), 
 absolute accuracy `abstol` (default: `abstol = 1.e-7`) and/or 
@@ -32,11 +34,9 @@ The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/Ordi
 """
 function tvstm(A::PM, tf::Real, t0::Real = 0; solver = "", reltol = 1e-3, abstol = 1e-7, dt = (tf-t0)/10) where 
          {T, PM <: Union{PeriodicFunctionMatrix{:c,T},HarmonicArray{:c,T},FourierFunctionMatrix{:c,T}}} 
-# function tvstm(A::PeriodicFunctionMatrix{:c,T}, tf::Real, t0::Real = 0; solver = "", reltol = 1e-3, abstol = 1e-7, dt = (tf-t0)/10) where {T}
    n = size(A,1)
    n == size(A,2) || error("the function matrix must be square")
 
-   #isconstant(A) && ( return exp(A.f(t0)*(tf-t0)) )
    isconstant(A) && ( return exp(tpmeval(A,t0)*(tf-t0)) )
    
    T1 = promote_type(typeof(t0), typeof(tf))
@@ -45,9 +45,8 @@ function tvstm(A::PM, tf::Real, t0::Real = 0; solver = "", reltol = 1e-3, abstol
    u0 = Matrix{T}(I,n,n)
    tspan = (T1(t0),T1(tf))
    if solver != "linear" 
-      #f!(du,u,p,t) = mul!(du,A.f(t),u)
-      f!(du,u,p,t) = mul!(du,tpmeval(A,t),u)
-      prob = ODEProblem(f!, u0, tspan)
+      LPVODE!(du,u,p,t) = mul!(du,tpmeval(A,t),u)
+      prob = ODEProblem(LPVODE!, u0, tspan)
    end
    if solver == "stiff" 
       if reltol > 1.e-4  
@@ -89,15 +88,17 @@ function tvstm(A::PM, tf::Real, t0::Real = 0; solver = "", reltol = 1e-3, abstol
    return sol(tf)     
 end
 """ 
-     monodromy(A::PeriodicFunctionMatrix[, K = 1]; solver, reltol, abstol, dt) -> Ψ::PeriodicArray 
+     monodromy(A[, K = 1]; solver, reltol, abstol, dt) -> Ψ::PeriodicArray 
 
 Compute the monodromy matrix for a linear ODE with periodic time-varying coefficients. 
 
-For the given square periodic function matrix `A(t)` of period `T` and subperiod `T′ = T/k`, where 
+For the given square periodic matrix `A(t)` of period `T` and subperiod `T′ = T/k`, where 
 `k` is the number of subperiods,  
 the monodromy matrix `Ψ = Φ(T′,0)` is computed, where `Φ(t,τ)` is the state transition matrix satisfying the homogeneous linear ODE 
 
     dΦ(t,τ)/dt = A(t)Φ(t,τ),  Φ(τ,τ) = I. 
+
+`A(t)` can be specified as a PeriodicFunctionMatrix, HarmonicArray or FourierFunctionMatrix. 
 
 If `K > 1`, then `Ψ = Φ(T′,0)` is determined as a product of `K` matrices 
 `Ψ = Ψ_K*...*Ψ_1`, where for `Δ := T′/K`, `Ψ_i = Φ(iΔ,(i-1)Δ)` is the 
@@ -115,21 +116,22 @@ by starting Julia with several execution threads.
 The number of execution threads is controlled either by using the `-t/--threads` command line argument 
 or by using the `JULIA_NUM_THREADS` environment variable.  
 """
-function monodromy(A::PeriodicFunctionMatrix{:c,T}, K::Int = 1; solver = "non-stiff", reltol = 1e-3, abstol = 1e-7, dt = A.period/max(K,100)) where T
-   n = A.dims[1]
-   n == A.dims[2] || error("the function matrix must be square")
+function monodromy(A::PM, K::Int = 1; solver = "non-stiff", reltol = 1e-3, abstol = 1e-7, dt = A.period/max(K,100)) where
+         {T, PM <: Union{PeriodicFunctionMatrix{:c,T},HarmonicArray{:c,T},FourierFunctionMatrix{:c,T}}} 
+   n = size(A,1)
+   n == size(A,2) || error("the periodic matrix must be square")
    nperiod = A.nperiod
    Ts = A.period/K/nperiod
 
-   M = Array{T,3}(undef, n, n, K) 
+   M = Array{float(T),3}(undef, n, n, K) 
 
    # compute the matrix exponential for K = 1 and constant matrix
-   K == 1 && isconstant(A) && ( M[:,:,1] = exp(A.f(0)*Ts); return PeriodicArray(M, A.period; nperiod) )
+   K == 1 && isconstant(A) && ( M[:,:,1] = exp(tpmeval(A,0)*Ts); return PeriodicArray(M, A.period; nperiod) )
 
    K >= 100 ? dt = Ts : dt = Ts*K/100/nperiod
 
    Threads.@threads for i = 1:K
-       @inbounds M[:,:,i] = tvstm(A, i*Ts, (i-1)*Ts; solver = solver, reltol = reltol, abstol = abstol, dt = dt) 
+      @inbounds M[:,:,i] = tvstm(A, i*Ts, (i-1)*Ts; solver = solver, reltol = reltol, abstol = abstol, dt = dt) 
    end
    return PeriodicArray(M,A.period; nperiod)
 end
@@ -167,9 +169,10 @@ _References_
     Systems and Control Letters, 50:371-381, 2003.
 
 """
-function pseig(at::PeriodicFunctionMatrix{:c,T}, K::Int = 1; lifting::Bool = false, solver = "non-stiff", reltol = 1e-3, abstol = 1e-7, dt = at.period/100/at.nperiod) where T
-   n = at.dims[1]
-   n == at.dims[2] || error("the function matrix must be square")
+function pseig(at::PM, K::Int = 1; lifting::Bool = false, solver = "non-stiff", reltol = 1e-3, abstol = 1e-7, dt = at.period/100/at.nperiod) where 
+   {T, PM <: Union{PeriodicFunctionMatrix{:c,T},HarmonicArray{:c,T},FourierFunctionMatrix{:c,T}}} 
+   n = size(at,1)
+   n == size(at,2) || error("the periodic matrix must be square")
    nperiod = at.nperiod
    t = 0  
    Ts = at.period/K/nperiod
@@ -200,8 +203,8 @@ function pseig(at::PeriodicFunctionMatrix{:c,T}, K::Int = 1; lifting::Bool = fal
 end
 pseig(at::PeriodicSymbolicMatrix{:c,T}, K::Int = 1; kwargs...) where T = 
     pseig(convert(PeriodicFunctionMatrix,at),K; kwargs...)
-pseig(at::HarmonicArray{:c,T}, K::Int = 1; kwargs...) where T = 
-    pseig(convert(PeriodicFunctionMatrix,at),K; kwargs...)
+# pseig(at::HarmonicArray{:c,T}, K::Int = 1; kwargs...) where T = 
+#     pseig(convert(PeriodicFunctionMatrix,at),K; kwargs...)
 pseig(at::PeriodicTimeSeriesMatrix{:c,T}, K::Int = 1; kwargs...) where T = 
     pseig(convert(PeriodicFunctionMatrix,at),K; kwargs...)
 """
@@ -332,7 +335,8 @@ For available options see [`pseig(::PeriodicFunctionMatrix)`](@ref).
 For a given square discrete-time periodic matrix `A(t)` of discrete period `N`,  
 the characteristic exponents `ce` are computed as `ev.^-N`. 
 """
-function psceig(at::PeriodicFunctionMatrix, K::Int = 1; kwargs...) 
+function psceig(at::PM, K::Int = 1; kwargs...) where
+   {T, PM <: Union{PeriodicFunctionMatrix{:c,T},HarmonicArray{:c,T},FourierFunctionMatrix{:c,T}}} 
    ce = log.(complex(pseig(at, K; kwargs...)))/at.period
    return isreal(ce) ? real(ce) : ce
 end
@@ -341,7 +345,7 @@ function psceig(at::Union{PeriodicSymbolicMatrix, PeriodicTimeSeriesMatrix}, K::
    return isreal(ce) ? real(ce) : ce
 end
 """
-    psceig(Ahr::HarmonicArray[, N]; P, nperiod, shift, atol) -> ce
+    psceighr(Ahr::HarmonicArray[, N]; P, nperiod, shift, atol) -> ce
 
 Compute the characteristic exponents of a continuous-time periodic matrix in _Harmonic Array_ representation. 
 
@@ -376,7 +380,7 @@ _References_
     Spectral characteristics and eigenvalues computation of the harmonic state operators in continuous-time periodic systems. 
     Systems and Control Letters, 53:141–155, 2004.
 """
-function psceig(Ahr::HarmonicArray{:c,T}, N::Int = max(10,size(Ahr.values,3)-1); P::Int = 1, nperiod::Int = Ahr.nperiod, shift::Real = 0, atol::Real = 1.e-10) where T
+function psceighr(Ahr::HarmonicArray{:c,T}, N::Int = max(10,size(Ahr.values,3)-1); P::Int = 1, nperiod::Int = Ahr.nperiod, shift::Real = 0, atol::Real = 1.e-10) where T
    n = size(Ahr,1)
    n == size(Ahr,2) || error("the periodic matrix must be square") 
    (N == 0 || isconstant(Ahr)) && (return eigvals(real(Ahr.values[:,:,1])))
@@ -392,10 +396,11 @@ function psceig(Ahr::HarmonicArray{:c,T}, N::Int = max(10,size(Ahr.values,3)-1);
    end
    nv = length(σ)
    nv < n && @warn "number of eigenvalues is less than the order of matrix, try again with increased number of harmonics"
-   return nv > n ? σ[sortperm(imag(σ),rev=true)][1:n] : σ[1:nv]
+   ce = nv > n ? σ[sortperm(imag(σ),rev=true)][1:n] : σ[1:nv]
+   return isreal(ce) ? real(ce) : ce
 end
 """
-    psceig(A::FourierFunctionMatrix[, N]; P, atol) -> ce
+    psceigfr(A::FourierFunctionMatrix[, N]; P, atol) -> ce
 
 Compute the characteristic exponents of a continuous-time periodic matrix in _Fourier Function Matrix_ representation. 
 
@@ -410,7 +415,7 @@ The default value used for `N` is `N = max(10,p-1)`, where `p` the number of har
 The keyword argument `atol` (default: `atol = 1.e-10`) is a tolerance on the magnitude of the trailing components of the 
 associated eigenvectors used to validate their asymptotic (exponential) decay. Only eigenvalues satisfying this check are returned in `ce`. 
 """
-function psceig(Afun::FourierFunctionMatrix{:c,T}, N::Int = max(10,maximum(ncoefficients.(Matrix(Afun.M)))); P::Int = 1, atol::Real = 1.e-10) where T
+function psceigfr(Afun::FourierFunctionMatrix{:c,T}, N::Int = max(10,maximum(ncoefficients.(Matrix(Afun.M)))); P::Int = 1, atol::Real = 1.e-10) where T
    n = size(Afun,1)
    n == size(Afun,2) || error("the periodic matrix must be square") 
    (N == 0 || isconstant(Afun)) && (return eigvals(getindex.(coefficients.(Matrix(Afun.M)),1)))
@@ -434,7 +439,8 @@ function psceig(Afun::FourierFunctionMatrix{:c,T}, N::Int = max(10,maximum(ncoef
    end
    nv = length(σ)
    nv < n && @warn "number of eigenvalues is less than the order of matrix, try again with increased number of harmonics"
-   return nv > n ? σ[sortperm(imag(σ),rev=true)][1:n] : σ[1:nv]
+   ce = nv > n ? σ[sortperm(imag(σ),rev=true)][1:n] : σ[1:nv]
+   return isreal(ce) ? real(ce) : ce
 end
 """
     psceig(A::AbstractPeriodicArray[, k]; kwargs...) -> ce
@@ -795,6 +801,135 @@ function pschur(A::Array{Float64,3}; rev::Bool = true, sind::Int = 1, withZ::Boo
       return S, withZ ? Z : nothing, ev, sind, α, γ
    end
 end
+"""
+     psordschur!(S, Z, select; rev, sind) 
+
+Reorder the eigenvalues of the product `Π = S[p]*...*S[2]*S[1]`, if `rev = true` (default) or `Π = S[1]*S[2]*...*S[p]`
+if `rev = false`, where `Π` is in real Schur form, such that the selected eigenvalues in the logical array `select` are moved into the leading positions. 
+The `p`-vectors `S` and `Z` contain the matrices `S[1]`, `...`, `S[p]` in a periodic Schur form, with `S[sind]` in real Schur form, 
+and the corresponding orthogonal transformation matrices `Z[1]`, `...`, `Z[p]`, respectively.  `S` and `Z` are overwritten by the updated matrices. 
+A conjugate pair of eigenvalues must be either both included or both excluded via `select`.    
+"""
+function psordschur!(S::AbstractVector{Matrix{T}}, Z::AbstractVector{Matrix{T}}, select::Union{Vector{Bool},BitVector}; rev::Bool = true, sind::Int = 1) where T
+   k = length(S) 
+   m = size.(S,1); n = size.(S,2) 
+   nc = n[1]; 
+   (all(m .== nc) && all(n .== nc)) || error("all elements of S must be square matrices of same dimension")
+   k == length(Z) || error("S and Z must have the same length")
+   (all(size.(Z,1) .== nc) && all(size.(Z,2) .== nc)) || error("all elements of Z must be square matrices of same dimension with S")
+   kschur = sind
+   ni = zeros(Int,k)
+   s = ones(Int,k)
+   t = zeros(0)
+   rev ? [push!(t,S[i][:]...) for i in 1:k] : [push!(t,S[k-i+1][:]...) for i in 1:k]
+   nn = nc*nc
+   ldt = n; ixt = collect(1:nn:k*nn)
+   q = Z[1][:]
+   rev ? [push!(q,Z[i][:]...) for i in 2:k] : [push!(q,Z[k-i+1][:]...) for i in 1:k-1]
+   ldq = ldt; ixq = ixt;
+   tol = 20. 
+   ldwork = max(42*k + max(nc,10), 80*k - 48) 
+
+   _, info = mb03kd!('U','N', k, nc, kschur, n, ni, s, Int.(select), t, ldt, ixt, q, ldq, ixq, tol, ldwork)
+
+   info == 1 && error("reordering failed because some eigenvalues are too close to separate") 
+   
+
+   rev ? [S[i] = reshape(view(t,ixt[i]:ixt[i]+nn-1),nc,nc) for i in 1:k] : [S[k-i+1] = reshape(view(t,ixt[i]:ixt[i]+nn-1),nc,nc) for i in 1:k] 
+   rev ? [Z[i] = reshape(view(q,ixq[i]:ixq[i]+nn-1),nc,nc) for i in 1:k] : 
+         (Z[1] = reshape(view(q,ixq[1]:ixq[1]+nn-1),nc,nc); [Z[k-i+2] = reshape(view(q,ixq[i]:ixq[i]+nn-1),nc,nc) for i in 2:k])
+
+   return nothing
+end
+"""
+     psordschur!(S, Z, select; rev, sind) 
+
+Reorder the eigenvalues of the product `Π = S[:,:,p]*...*S[:,:,2]*S[:,:,1]`, if `rev = true` (default) or `Π = S[:,:,1]*S[:,:,2]*...*S[:,:,p]`
+if `rev = false`, where `Π` is in real Schur form, such that the selected eigenvalues in the logical array `select` are moved into the leading positions. 
+The 3-dimensional arrays `S` and `Z` contain the matrices `S[:,:,1]`, `...`, `S[:,:,p]` in a periodic Schur form, with `S[:,:,sind]` in real Schur form, 
+and the corresponding orthogonal transformation matrices `Z[:,:,1]`, `...`, `Z[:,:,p]`, respectively.  `S` and `Z` are overwritten by the updated matrices. 
+A conjugate pair of eigenvalues must be either both included or both excluded via `select`.    
+"""
+function psordschur!(S::Array{T,3}, Z::Array{T,3}, select::Union{Vector{Bool},BitVector}; rev::Bool = true, sind::Int = 1) where T
+
+   mc, nc, k = size(S) 
+   mc == nc || error("S must have the same first and second dimensions")
+   mz, nz, kz = size(Z) 
+   k == kz || error("S and Z must have the same length")
+   mz == nz == nc || error("Z must have the same first and second dimensions as S")
+   kschur = sind
+   ni = zeros(Int,k)
+   s = ones(Int,k)
+   t = zeros(0)
+   rev ? [push!(t,S[:,:,i][:]...) for i in 1:k] : [push!(t,S[:,:,k-i+1][:]...) for i in 1:k]
+   nn = nc*nc
+   ldt = nc*ones(Int,k); ixt = collect(1:nn:k*nn)
+   q = Z[:,:,1][:]
+   rev ? [push!(q,Z[:,:,i][:]...) for i in 2:k] : [push!(q,Z[:,:,k-i+1][:]...) for i in 1:k-1]
+   ldq = ldt; ixq = ixt;
+   tol = 20. 
+   ldwork = max(42*k + max(nc,10), 80*k - 48) 
+
+   _, info = mb03kd!('U','N', k, nc, kschur, ldt, ni, s, Int.(select), t, ldt, ixt, q, ldq, ixq, tol, ldwork)
+
+   info == 1 && error("reordering failed because some eigenvalues are too close to separate") 
+   
+
+   rev ? [S[:,:,i] = reshape(view(t,ixt[i]:ixt[i]+nn-1),nc,nc) for i in 1:k] : [S[:,:,k-i+1] = reshape(view(t,ixt[i]:ixt[i]+nn-1),nc,nc) for i in 1:k] 
+   rev ? [Z[:,:,i] = reshape(view(q,ixq[i]:ixq[i]+nn-1),nc,nc) for i in 1:k] : 
+         (Z[:,:,1] = reshape(view(q,ixq[1]:ixq[1]+nn-1),nc,nc); [Z[:,:,k-i+2] = reshape(view(q,ixq[i]:ixq[i]+nn-1),nc,nc) for i in 2:k])
+
+   return nothing
+end
+"""
+     psordschur1!(S, Z, select; rev, sind) 
+
+Reorder the core eigenvalues of the product `Π = S[p]*...*S[2]*S[1]`, if `rev = true` (default) or `Π = S[1]*S[2]*...*S[p]`
+if `rev = false`, where `Π` is in real Schur form, such that the selected eigenvalues in the logical array `select` are moved into the leading positions. 
+The `p`-vectors `S` and `Z` contain the matrices `S[1]`, `...`, `S[p]` in an extended periodic Schur form, with the leading square block of 
+`S[sind]` in real Schur form, and the corresponding orthogonal transformation matrices `Z[1]`, `...`, `Z[p]`, respectively.  `S` and `Z` are overwritten by the updated matrices. 
+A conjugate pair of eigenvalues must be either both included or both excluded via `select`.  The dimension of select must be equal to the number of
+core eigenvalues (i.e., the minimum dimension of matrices in the vector `S`).  
+"""
+function psordschur1!(S::AbstractVector{Matrix{T}}, Z::AbstractVector{Matrix{T}}, select::Union{Vector{Bool},BitVector}; rev::Bool = true, sind::Int = 1) where T
+
+   k = length(S) 
+   m = size.(S,1); n = size.(S,2) 
+   rev || (reverse!(m); reverse!(n))
+   ldq = rev ? n : [m[end];m[1:end-1]]
+   nc = minimum(n)
+   nmax = maximum(n)
+   kschur = sind
+   ni = zeros(Int,k)
+   s = ones(Int,k)
+   t = zeros(0)
+   rev ? [push!(t,S[i][:]...) for i in 1:k] : [push!(t,S[k-i+1][:]...) for i in 1:k]
+   # nn = nmax*nmax
+   # ldt = nmax*ones(Int,k); ixt = collect(1:nn:k*nn)
+   ldt = m; ixt = [1;(cumsum(m.*n).+1)[1:end-1]]
+   q = Z[1][:]
+   rev ? [push!(q,Z[i][:]...) for i in 2:k] : [push!(q,Z[k-i+1][:]...) for i in 1:k-1]
+   #[push!(q,Z[i][:]...) for i in 1:k] 
+   #ldq = ldt; ixq = ixt;
+   #ldq = n; ixq = [1;(cumsum(n.*n).+1)[1:end-1]]
+   #ldq = m; 
+   rev || (m1 = [m[end];m[1:end-1]])
+   ixq = rev ? [1;(cumsum(n.*n).+1)[1:end-1]] : [1;(cumsum(m1.*m1).+1)[1:end-1]]
+   tol = 20. 
+   ldwork = max(42*k + max(nc,10), 80*k - 48) 
+
+   _, info = mb03kd!('U','N', k, nc, kschur, n, ni, s, Int.(select), t, ldt, ixt, q, ldq, ixq, tol, ldwork)
+
+   info == 1 && error("reordering failed because some eigenvalues are too close to separate") 
+   
+
+   rev ? [S[i] = reshape(view(t,ixt[i]:ixt[i]+m[i]*n[i]-1),m[i],n[i]) for i in 1:k] : [S[k-i+1] = reshape(view(t,ixt[i]:ixt[i]+m[i]*n[i]-1),m[i],n[i]) for i in 1:k] 
+   rev ? [Z[i] = reshape(view(q,ixq[i]:ixq[i]+n[i]*n[i]-1),n[i],n[i]) for i in 1:k] : 
+         (Z[1] = reshape(view(q,ixq[1]:ixq[1]+n[1]*n[1]-1),n[1],n[1]); [Z[k-i+2] = reshape(view(q,ixq[i]:ixq[i]+n[i]*n[i]-1),n[i],n[i]) for i in 2:k])
+
+   return nothing
+end
+
 function pschur1(A::Array{Float64,3}; rev::Bool = true, sind::Int = 1, withZ::Bool = true)
    n = size(A,1)
    n == size(A,2) || error("A must have equal first and second dimensions") 
@@ -1481,7 +1616,7 @@ Truncate a harmonic representation by deleting the trailing terms whose indices 
 
 """
 function hrtrunc(ahr::HarmonicArray, n::Int = size(ahr.values,3)-1) 
-   return HarmonicArray(ahr.values[:,:,1:max(1,max(n+1,size(ahr.values,3)))], ahr.period; nperiod = ahr.nperiod)
+   return HarmonicArray(ahr.values[:,:,1:max(1,min(n+1,size(ahr.values,3)))], ahr.period; nperiod = ahr.nperiod)
 end
 
 """

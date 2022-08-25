@@ -1,8 +1,12 @@
 # Release Notes
 
+## Version 0.4.2
+
+This patch version implements functions for the solution of periodic differential Riccati equations. A new wrapper has been implemented for the SLICOT routine `MB03KD` to reorder the eigenvalues of a formal matrix product. Based on this, new functions `psordschur!` and `psordschur1!`  have been implemented to reorder the eigenvalues of a direct or reverse oriented product of matrices.  
+
 ## Version 0.4.1
 
-This patch version implements additional operations for periodic matrices (e.g., inversion) and extends some existing methods to work with UniformScaling. Two functions for chopping and truncation of Harmonic Array representaions have been implemented. 
+This patch version implements additional operations for periodic matrices (e.g., inversion) and extends some existing methods to work with UniformScaling. Two functions for chopping and truncation of Harmonic Array representations have been implemented. 
 
 ## Version 0.4 
 

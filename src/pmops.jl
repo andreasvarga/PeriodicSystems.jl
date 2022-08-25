@@ -40,6 +40,8 @@ end
 +(A::AbstractMatrix, C::PeriodicArray) = +(PeriodicArray(A, C.Ts; nperiod = 1), C)
 -(A::PeriodicArray) = PeriodicArray(-A.M, A.period; nperiod = A.nperiod)
 -(A::PeriodicArray, B::PeriodicArray) = +(A,-B)
+-(A::PeriodicArray, C::AbstractMatrix) = +(A,-C)
+-(A::AbstractMatrix, C::PeriodicArray) = +(A, -C)
 function (+)(A::PeriodicArray, J::UniformScaling{<:Real})
     x = similar(A.M)
     [x[:,:,i] = A.M[:,:,i] + J for i in 1:size(A.M,3)]
@@ -128,6 +130,8 @@ end
 +(A::AbstractMatrix, C::PeriodicMatrix) = +(PeriodicMatrix(A, C.Ts; nperiod = 1), C)
 -(A::PeriodicMatrix) = PeriodicMatrix(-A.M, A.period; nperiod = A.nperiod)
 -(A::PeriodicMatrix, B::PeriodicMatrix) = +(A,-B)
+-(A::PeriodicMatrix, C::AbstractMatrix) = +(A,-C)
+-(A::AbstractMatrix, C::PeriodicMatrix) = +(A, -C)
 (+)(A::PeriodicMatrix, J::UniformScaling{<:Real}) = PeriodicMatrix([A.M[i] + J for i in 1:length(A.M)], A.period; nperiod = A.nperiod)
 (+)(J::UniformScaling{<:Real}, A::PeriodicMatrix) = +(A,J)
 (-)(A::PeriodicMatrix, J::UniformScaling{<:Real}) = +(A,-J)
@@ -213,6 +217,8 @@ end
 +(A::AbstractMatrix, C::PeriodicFunctionMatrix) = +(PeriodicFunctionMatrix(A, C.period), C)
 -(A::PeriodicFunctionMatrix) = PeriodicFunctionMatrix{:c,eltype(A)}(t -> -A.f(t), A.period, A.dims, A.nperiod,A._isconstant)
 -(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix) = +(A,-B)
+-(A::PeriodicFunctionMatrix, C::AbstractMatrix) = +(A,-C)
+-(A::AbstractMatrix, C::PeriodicFunctionMatrix) = +(A, -C)
 (+)(A::PeriodicFunctionMatrix, J::UniformScaling{<:Real}) = PeriodicFunctionMatrix{:c,eltype(A)}(t -> A.f(t)+J, A.period, A.dims, A.nperiod,A._isconstant)
 (+)(J::UniformScaling{<:Real}, A::PeriodicFunctionMatrix) = +(A,J)
 (-)(A::PeriodicFunctionMatrix, J::UniformScaling{<:Real}) = +(A,-J)
@@ -267,6 +273,10 @@ end
 function LinearAlgebra.adjoint(A::PeriodicSymbolicMatrix)  
     return PeriodicSymbolicMatrix{:c,Num}(copy(adjoint(A.F)), A.period, nperiod = A.nperiod)
 end
+function Symbolics.simplify(A::PeriodicSymbolicMatrix)
+    return PeriodicSymbolicMatrix{:c,Num}(Symbolics.simplify.(A.F), A.period; nperiod = A.nperiod)
+end
+
 function norm(A::PeriodicSymbolicMatrix, p::Real = 2; K = 128) 
     @variables t   
     nrm = 0. 
@@ -281,12 +291,15 @@ end
 function +(A::PeriodicSymbolicMatrix, B::PeriodicSymbolicMatrix)
     period = promote_period(A, B)
     nperiod = gcd(A.nperiod,B.nperiod)
+    #return PeriodicSymbolicMatrix{:c,Num}(Symbolics.simplify.(A.F + B.F), period; nperiod)
     return PeriodicSymbolicMatrix{:c,Num}(A.F + B.F, period; nperiod)
 end
 +(A::PeriodicSymbolicMatrix, C::AbstractMatrix) = +(A, PeriodicSymbolicMatrix(C, A.period))
 +(A::AbstractMatrix, C::PeriodicSymbolicMatrix) = +(PeriodicSymbolicMatrix(A, C.period), C)
 -(A::PeriodicSymbolicMatrix) = PeriodicSymbolicMatrix(-A.F, A.period; nperiod = A.nperiod)
 -(A::PeriodicSymbolicMatrix, B::PeriodicSymbolicMatrix) = +(A,-B)
+-(A::PeriodicSymbolicMatrix, C::AbstractMatrix) = +(A,-C)
+-(A::AbstractMatrix, C::PeriodicSymbolicMatrix) = +(A, -C)
 function (+)(A::PeriodicSymbolicMatrix, J::UniformScaling{<:Real}) 
     n = size(A,1)
     n == size(A,2) || throw(DimensionMismatch("A must be square"))
@@ -331,6 +344,10 @@ Base.isapprox(J::UniformScaling{<:Real}, A::PeriodicSymbolicMatrix; kwargs...) =
 
 
 # Operations with harmonic arrays
+function pmrand(::Type{T}, n::Int, m::Int, period::Real = 2*pi; nh::Int = 1) where {T}
+    HarmonicArray(rand(T,n,m), [rand(T,n,m) for i in 1:nh], [rand(T,n,m) for i in 1:nh], period) 
+end    
+pmrand(n::Int, m::Int, period::Real = 2*pi; nh::Int = 1) = pmrand(Float64, n, m, period; nh)
 function derivative(A::HarmonicArray{:c,T}) where {T}
     m, n, l = size(A.values)
     isconstant(A) && (return HarmonicArray{:c,T}(zeros(Complex{T}, m, n, 1), A.period, A.nperiod)) 
@@ -398,6 +415,8 @@ end
 +(A::AbstractMatrix, C::HarmonicArray) = +(HarmonicArray(A, C.period), C)
 -(A::HarmonicArray) = HarmonicArray(-A.values, A.period; nperiod = A.nperiod)
 -(A::HarmonicArray, B::HarmonicArray) = +(A,-B)
+-(A::HarmonicArray, C::AbstractMatrix) = +(A,-C)
+-(A::AbstractMatrix, C::HarmonicArray) = +(A, -C)
 function (+)(A::HarmonicArray, J::UniformScaling{<:Real}) 
     n = size(A,1)
     n == size(A,2) || throw(DimensionMismatch("A must be square"))
@@ -472,6 +491,8 @@ end
 +(A::AbstractMatrix, C::FourierFunctionMatrix) = +(FourierFunctionMatrix(A, C.period), C)
 -(A::FourierFunctionMatrix) = FourierFunctionMatrix(-A.M, A.period)
 -(A::FourierFunctionMatrix, B::FourierFunctionMatrix) = +(A,-B)
+-(A::FourierFunctionMatrix, C::AbstractMatrix) = +(A,-C)
+-(A::AbstractMatrix, C::FourierFunctionMatrix) = +(A, -C)
 function (+)(A::FourierFunctionMatrix, J::UniformScaling{<:Real}) 
     n = size(A,1)
     n == size(A,2) || throw(DimensionMismatch("A must be square"))
@@ -542,6 +563,9 @@ end
 +(A::AbstractMatrix, C::PeriodicTimeSeriesMatrix) = +(PeriodicTimeSeriesMatrix(A, C.period), C)
 -(A::PeriodicTimeSeriesMatrix) = PeriodicTimeSeriesMatrix{:c,eltype(A)}([-A.values[i] for i in 1:length(A)], A.period, A.nperiod)
 -(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix) = +(A,-B)
+-(A::PeriodicTimeSeriesMatrix, C::AbstractMatrix) = +(A,-C)
+-(A::AbstractMatrix, C::PeriodicTimeSeriesMatrix) = +(A, -C)
+
 function (+)(A::PeriodicTimeSeriesMatrix, J::UniformScaling{<:Real}) 
     n = size(A,1)
     n == size(A,2) || throw(DimensionMismatch("A must be square"))
@@ -555,7 +579,7 @@ function *(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix)
     A.period == B.period && A.nperiod == B.nperiod && length(A) == length(B) &&
         (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([A.values[i]*B.values[i] for i in 1:length(A)], A.period, A.nperiod))
     isconstant(A) && 
-       (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([A.values[1]*B.values[1] for i in 1:length(B)], B.period, B.nperiod))
+       (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([A.values[1]*B.values[i] for i in 1:length(B)], B.period, B.nperiod))
     isconstant(B) && 
        (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([A.values[i]*B.values[1] for i in 1:length(A)], A.period, A.nperiod))
     convert(PeriodicTimeSeriesMatrix,convert(HarmonicArray,A) * convert(HarmonicArray,B))
