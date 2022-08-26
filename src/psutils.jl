@@ -860,12 +860,16 @@ function psordschur!(S::Array{T,3}, Z::Array{T,3}, select::Union{Vector{Bool},Bi
    kschur = sind
    ni = zeros(Int,k)
    s = ones(Int,k)
-   t = zeros(0)
-   rev ? [push!(t,S[:,:,i][:]...) for i in 1:k] : [push!(t,S[:,:,k-i+1][:]...) for i in 1:k]
+   if rev
+      t = view(S,:); q = view(Z,:)
+   else
+      t = zeros(0); [push!(t,S[:,:,k-i+1][:]...) for i in 1:k]
+      # rev ? [push!(t,S[:,:,i][:]...) for i in 1:k] : [push!(t,S[:,:,k-i+1][:]...) for i in 1:k]
+      q = Z[:,:,1][:]; [push!(q,Z[:,:,k-i+1][:]...) for i in 1:k-1]
+      #rev ? [push!(q,Z[:,:,i][:]...) for i in 2:k] : [push!(q,Z[:,:,k-i+1][:]...) for i in 1:k-1]
+   end
    nn = nc*nc
    ldt = nc*ones(Int,k); ixt = collect(1:nn:k*nn)
-   q = Z[:,:,1][:]
-   rev ? [push!(q,Z[:,:,i][:]...) for i in 2:k] : [push!(q,Z[:,:,k-i+1][:]...) for i in 1:k-1]
    ldq = ldt; ixq = ixt;
    tol = 20. 
    ldwork = max(42*k + max(nc,10), 80*k - 48) 
@@ -874,10 +878,14 @@ function psordschur!(S::Array{T,3}, Z::Array{T,3}, select::Union{Vector{Bool},Bi
 
    info == 1 && error("reordering failed because some eigenvalues are too close to separate") 
    
-
-   rev ? [S[:,:,i] = reshape(view(t,ixt[i]:ixt[i]+nn-1),nc,nc) for i in 1:k] : [S[:,:,k-i+1] = reshape(view(t,ixt[i]:ixt[i]+nn-1),nc,nc) for i in 1:k] 
-   rev ? [Z[:,:,i] = reshape(view(q,ixq[i]:ixq[i]+nn-1),nc,nc) for i in 1:k] : 
-         (Z[:,:,1] = reshape(view(q,ixq[1]:ixq[1]+nn-1),nc,nc); [Z[:,:,k-i+2] = reshape(view(q,ixq[i]:ixq[i]+nn-1),nc,nc) for i in 2:k])
+   if !rev
+      [S[:,:,k-i+1] = reshape(view(t,ixt[i]:ixt[i]+nn-1),nc,nc) for i in 1:k] 
+      Z[:,:,1] = reshape(view(q,ixq[1]:ixq[1]+nn-1),nc,nc); [
+      Z[:,:,k-i+2] = reshape(view(q,ixq[i]:ixq[i]+nn-1),nc,nc) for i in 2:k]
+   end
+   # rev ? [S[:,:,i] = reshape(view(t,ixt[i]:ixt[i]+nn-1),nc,nc) for i in 1:k] : [S[:,:,k-i+1] = reshape(view(t,ixt[i]:ixt[i]+nn-1),nc,nc) for i in 1:k] 
+   # rev ? [Z[:,:,i] = reshape(view(q,ixq[i]:ixq[i]+nn-1),nc,nc) for i in 1:k] : 
+   #       (Z[:,:,1] = reshape(view(q,ixq[1]:ixq[1]+nn-1),nc,nc); [Z[:,:,k-i+2] = reshape(view(q,ixq[i]:ixq[i]+nn-1),nc,nc) for i in 2:k])
 
    return nothing
 end

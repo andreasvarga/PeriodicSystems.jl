@@ -250,18 +250,12 @@ function pgcric(A::PM1, R::PM3, Q::PM4, K::Int = 1; adj = false, rtol::Real = si
    T = promote_type(eltype(A),eltype(Q),eltype(R),Float64)
    n2 = n+n
    #hpd = Array{T,3}(undef, n2, n2, K) 
-   hpd = Vector{Matrix{T}}(undef, K) 
-   # Threads.@threads for i = 1:K
-   #    @inbounds hpd[:,:,i]  = tvcric(A, R, Q, (i-1)*Ts, i*Ts; adj, solver, reltol, abstol) 
-   # end
-   for i = 1:K
-       hpd[i]  = tvcric(A, R, Q, i*Ts, (i-1)*Ts; adj, solver, reltol, abstol, dt) 
-   end
    i1 = 1:n; i2 = n+1:n2
    if K == 1
-      SF = schur(hpd[1])
+      hpd  = tvcric(A, R, Q, Ts, 0; adj, solver, reltol, abstol)
+      SF = schur(hpd)
       select = abs.(SF.values) .< 1
-      n == count(select .== true) || error("The simplectic pencil is not dichotomic")
+      n == count(select .== true) || error("The symplectic pencil is not dichotomic")
       ordschur!(SF, select)
       x = SF.Z[i2,i1]/SF.Z[i1,i1]; x = (x+x')/2
       EVALS = SF.values[i1]
@@ -269,6 +263,10 @@ function pgcric(A::PM1, R::PM3, Q::PM4, K::Int = 1; adj = false, rtol::Real = si
       ce = log.(complex(EVALS))/period
       return X, isreal(ce) ? real(ce) : ce 
    elseif !fast
+      hpd = Array{T,3}(undef, n2, n2, K) 
+      Threads.@threads for i = 1:K
+         @inbounds hpd[:,:,i]  = tvcric(A, R, Q, i*Ts, (i-1)*Ts; adj, solver, reltol, abstol) 
+      end
       # this code is based on SLICOT tools
       S, Z, ev, sind, = PeriodicSystems.pschur(hpd)
       select = adj ? abs.(ev) .< 1 : abs.(ev) .> 1
@@ -276,12 +274,17 @@ function pgcric(A::PM1, R::PM3, Q::PM4, K::Int = 1; adj = false, rtol::Real = si
       EVALS =  adj ? ev[select] : ev[.!select]
       X = similar(Vector{Matrix{T}},K)
       for i = 1:K
-          x = Z[i][i2,i1]/Z[i][i1,i1];  
+          #x = Z1[i][i2,i1]/Z1[i][i1,i1];  
+          x = Z[i2,i1,i]/Z[i1,i1,i];  
           x = (x+x')/2
           X[i] = x
       end
       
       # this experimental code is based on tools provided in the PeriodicSchurDecompositions package
+      # hpd = Vector{Matrix{T}}(undef, K) 
+      # Threads.@threads for i = 1:K
+      #    @inbounds hpd[i]  = tvcric(A, R, Q, i*Ts, (i-1)*Ts; adj, solver, reltol, abstol, dt) 
+      # end
       # PSF = PeriodicSchurDecompositions.pschur(hpd,:L)
       # select = adj ? abs.(PSF.values) .< 1 : abs.(PSF.values) .> 1
       # @show PSF.values
@@ -296,6 +299,10 @@ function pgcric(A::PM1, R::PM3, Q::PM4, K::Int = 1; adj = false, rtol::Real = si
       ce = log.(complex(EVALS))/period
       return PeriodicTimeSeriesMatrix(X, period; nperiod), isreal(ce) ? real(ce) : ce    
    else
+      hpd = Vector{Matrix{T}}(undef, K) 
+      Threads.@threads for i = 1:K
+         @inbounds hpd[i]  = tvcric(A, R, Q, i*Ts, (i-1)*Ts; adj, solver, reltol, abstol, dt) 
+      end
       a, e = psreduc_reg(hpd)
       # Compute the ordered QZ decomposition with large eigenvalues in the
       # leading positions. Only Z is used.

@@ -158,18 +158,13 @@ ev = psceig(HarmonicArray(a,2pi))
 PM = HarmonicArray
 for PM in (PeriodicFunctionMatrix, HarmonicArray)
     psysc = ps(a,convert(PM,PeriodicFunctionMatrix(b,period)),c,d);
-    #psysc = ps(a,PeriodicFunctionMatrix(b,period),c,d);
-
-
 
     @time X, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 200, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = false); 
-
     clev = psceig(psysc.A-psysc.B*F,500)
     @test norm(sort(real(clev)) - sort(real(EVALS))) < 1.e-7 && norm(sort(imag(clev)) - sort(imag(EVALS))) < 1.e-7 
     @test norm(psysc.A'*X+X*psysc.A+q-X*psysc.B*inv(r)*psysc.B'*X +derivative(X))/norm(X) < 1.e-7 
 
     @time X, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 200, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = true); 
-
     clev = psceig(psysc.A-psysc.B*F,500)
     @test norm(sort(real(clev)) - sort(real(EVALS))) < 1.e-1 && norm(sort(imag(clev)) - sort(imag(EVALS))) < 1.e-1 
     @test norm(psysc.A'*X+X*psysc.A+q-X*psysc.B*inv(r)*psysc.B'*X +derivative(X))/norm(X) < 1.e-7 
