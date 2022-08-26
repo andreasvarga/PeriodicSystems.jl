@@ -305,29 +305,34 @@ a, e = psreduc_reg(A); eigs = eigvals(a,e);
 
 AA = [A[:,:,3], A[:,:,2], A[:,:,1]];
 @time S, Z, eigs, ischur, α, γ = pschur(AA; rev = false);
-@time psordschur!(S, Z, [1,1,0,1].> 0; sind = ischur, rev = false)  
+select =  real(eigs) .< 0
+@time psordschur!(S, Z, select; sind = ischur, rev = false)  
 @test check_psim(AA, Z, S; rev = false)  
 MatrixPencils.ordeigvals(S[1]*S[2]*S[3]) 
 
 AA = [A[:,:,1], A[:,:,2], A[:,:,3]];
 @time S, Z, eigs, ischur, α, γ = pschur(AA; rev = true);
-@time psordschur!(S,Z,[1,1,0,1].> 0; sind=ischur, rev = true)  
+select =  real(eigs) .< 0
+@time psordschur!(S, Z, select; sind=ischur, rev = true)  
 @test check_psim(AA,Z,S; rev = true)  
 MatrixPencils.ordeigvals(S[3]*S[2]*S[1])  
 
 AA = [A[:,:,3], A[:,:,2], A[:,:,1]];
 @time S, Z, eigs, ischur, α, γ = pschur(AA; rev = false);
-@time psordschur!(S, Z, [1,1,0,1].> 0; sind = ischur, rev = false)  
+select =  real(eigs) .< 0
+@time psordschur!(S, Z, select; sind = ischur, rev = false)  
 @test check_psim(AA, Z, S; rev = false)  
 MatrixPencils.ordeigvals(S[1]*S[2]*S[3]) 
 
 @time S, Z, eigs, ischur, α, γ = pschur(A; rev = true);
-@time psordschur!(S,Z,[1,1,0,1].> 0; sind=ischur, rev = true)  
+select =  real(eigs) .< 0
+@time psordschur!(S, Z, select; sind=ischur, rev = true)  
 @test check_psim(A,Z,S; rev = true)  
 MatrixPencils.ordeigvals(S[:,:,3]*S[:,:,2]*S[:,:,1])  
 
 @time S, Z, eigs, ischur, α, γ = pschur(A; rev = false);
-@time psordschur!(S, Z, [1,0,1,1].> 0; sind = ischur, rev = false)  
+select =  real(eigs) .< 0
+@time psordschur!(S, Z, select; sind = ischur, rev = false)  
 @test check_psim(A, Z, S; rev = false)  
 MatrixPencils.ordeigvals(S[:,:,1]*S[:,:,2]*S[:,:,3])  
 
@@ -375,13 +380,15 @@ ev = eigvals(prod(A)); nmin = minimum(size.(A,1))
 
 A = [A3, A2, A1];
 @time S, Z, eigs, ischur, α, γ = pschur(A; rev = false);
-@time psordschur1!(S, Z, [0,1,1].> 0; sind = ischur, rev = false)  
+select =  (real(eigs) .< 0)[1:3]
+@time psordschur1!(S, Z, select; sind = ischur, rev = false)  
 @test check_psim(A, Z, S; rev = false)  
 MatrixPencils.ordeigvals(S[1]*S[2]*S[3]) 
 
 A = [A1, A2, A3];
 @time S, Z, eigs, ischur, α, γ = pschur(A; rev = true);
-@time psordschur1!(S,Z,[0,1,1].> 0; sind=ischur, rev = true)  
+select =  (real(eigs) .< 0)[1:3]
+@time psordschur1!(S,Z,select; sind=ischur, rev = true)  
 @test check_psim(A,Z,S; rev = true)  
 MatrixPencils.ordeigvals(S[3]*S[2]*S[1])  
 
