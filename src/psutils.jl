@@ -817,7 +817,7 @@ function psordschur!(S::AbstractVector{Matrix{T}}, Z::AbstractVector{Matrix{T}},
    (all(m .== nc) && all(n .== nc)) || error("all elements of S must be square matrices of same dimension")
    k == length(Z) || error("S and Z must have the same length")
    (all(size.(Z,1) .== nc) && all(size.(Z,2) .== nc)) || error("all elements of Z must be square matrices of same dimension with S")
-   kschur = sind
+   kschur = rev ? sind : k-sind+1
    ni = zeros(Int,k)
    s = ones(Int,k)
    t = zeros(0)
@@ -857,7 +857,7 @@ function psordschur!(S::Array{T,3}, Z::Array{T,3}, select::Union{Vector{Bool},Bi
    mz, nz, kz = size(Z) 
    k == kz || error("S and Z must have the same length")
    mz == nz == nc || error("Z must have the same first and second dimensions as S")
-   kschur = sind
+   kschur = rev ? sind : k-sind+1
    ni = zeros(Int,k)
    s = ones(Int,k)
    if rev
@@ -906,21 +906,14 @@ function psordschur1!(S::AbstractVector{Matrix{T}}, Z::AbstractVector{Matrix{T}}
    rev || (reverse!(m); reverse!(n))
    ldq = rev ? n : [m[end];m[1:end-1]]
    nc = minimum(n)
-   nmax = maximum(n)
-   kschur = sind
+   kschur = rev ? sind : k-sind+1
    ni = zeros(Int,k)
    s = ones(Int,k)
    t = zeros(0)
    rev ? [push!(t,S[i][:]...) for i in 1:k] : [push!(t,S[k-i+1][:]...) for i in 1:k]
-   # nn = nmax*nmax
-   # ldt = nmax*ones(Int,k); ixt = collect(1:nn:k*nn)
    ldt = m; ixt = [1;(cumsum(m.*n).+1)[1:end-1]]
    q = Z[1][:]
    rev ? [push!(q,Z[i][:]...) for i in 2:k] : [push!(q,Z[k-i+1][:]...) for i in 1:k-1]
-   #[push!(q,Z[i][:]...) for i in 1:k] 
-   #ldq = ldt; ixq = ixt;
-   #ldq = n; ixq = [1;(cumsum(n.*n).+1)[1:end-1]]
-   #ldq = m; 
    rev || (m1 = [m[end];m[1:end-1]])
    ixq = rev ? [1;(cumsum(n.*n).+1)[1:end-1]] : [1;(cumsum(m1.*m1).+1)[1:end-1]]
    tol = 20. 
