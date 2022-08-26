@@ -38,7 +38,7 @@ psys = ps(Afun,FourierFunctionMatrix(rand(2,1),2*pi),rand(1,2))
 Ahr = convert(HarmonicArray,PeriodicFunctionMatrix(t -> [0 1; -10*cos(t) -24-10*sin(t)],2pi));
 psys = ps(Ahr,rand(2,1),rand(1,2))
 @time ev2 = pspole(psys,100)
-@test sort(ev) ≈ sort(real(ev2[sortperm(imag(ev2),by=abs)][1:2]))
+@test norm(sort(ev) - sort(real(ev2[sortperm(imag(ev2),by=abs)][1:2])) < 1.e-6
 
 
 # example Zhou, Hagiwara SCL 2002 period pi/2 and pi
