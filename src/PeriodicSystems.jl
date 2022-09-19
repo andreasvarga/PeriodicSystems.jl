@@ -17,7 +17,7 @@ using OrdinaryDiffEq
 using IRKGaussLegendre
 using Primes
 using ApproxFun
-#using PeriodicSchurDecompositions
+using PeriodicSchurDecompositions
 #using JLD
 
 include("SLICOTtools.jl")
@@ -33,8 +33,8 @@ import DescriptorSystems: isstable
 import Polynomials: AbstractRationalFunction, AbstractPolynomial, poles, isconstant, variable, degree, pqs
 import Symbolics: derivative
 
-export PeriodicStateSpace, pschur, pschur1, pschur2, phess, phess1, psreduc_reg, psreduc_fast, check_psim, mshift, pseig, 
-       tvmeval, tpmeval, hreval, tvstm, psordschur!, psordschur1!
+export PeriodicStateSpace, pschur, pschur!, pschur1, pschur2, pgschur, pgschur!, phess, phess!, phess1, psreduc_reg, psreduc_fast, check_psim, mshift, pseig, 
+       tvmeval, tpmeval, hreval, tvstm, psordschur!, psordschur1!, pgordschur!
 export ts2hr, ts2pfm, ts2ffm, pfm2hr, hr2psm, psm2hr, pm2pa, ffm2hr, pmaverage, hrtrunc, hrchop
 export monodromy, psceig, psceighr, psceigfr
 export PeriodicArray, PeriodicMatrix
@@ -48,7 +48,7 @@ export pspole, pszero, isstable
 export pdlyap, prlyap, pflyap, pslyapd, pdlyaps!, pdlyaps1!, pdlyaps2!, pdlyaps3!, dpsylv2, dpsylv2!, pslyapdkr, dpsylv2krsol!, kronset!
 export pmshift
 export pclyap, pfclyap, prclyap, pgclyap
-export pcric, prcric, pfcric, tvcric, pgcric
+export pcric, prcric, pfcric, tvcric, pgcric, prdare
 export derivative, pmrand
 
 abstract type AbstractDynamicalSystem end
@@ -68,6 +68,8 @@ include("psanalysis.jl")
 include("pslyap.jl")
 include("psclyap.jl")
 include("pscric.jl")
+#include("psdric.jl")
 include("pmops.jl")
+include("psfutils.jl")
 include("psutils.jl")
 end

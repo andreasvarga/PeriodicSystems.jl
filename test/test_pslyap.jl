@@ -898,10 +898,11 @@ for adj in (false,true)
 end
 
 
-# # benchmark
+# benchmark
 # using BenchmarkTools
 # using MatrixEquations
 # p = 5; n = 400; pc = 5
+# p = 200; n = 8; pc = 200
 # a = 0.1*rand(n,n,p); q = rand(n,n,pc); x = rand(n,n,pc); [x[:,:,i] = x[:,:,i]'+x[:,:,i] for i in 1:pc];
 # a[:,:,1] = 0.01*schur(rand(n,n)).T; [a[:,:,i] = triu(a[:,:,i]) for i in 2:p]; 
 # ip = mod.(0:pc-1,p).+1; ip1 = mod.(ip,p).+1;  
@@ -929,7 +930,7 @@ end
 # @test norm(rez) < 1.e-5  
 
 
-
+# KSCHUR = 1
 # @btime pdlyaps!(KSCHUR, a, copy(qs); adj = true); 
 # @btime pdlyaps1!(KSCHUR, a, copy(qs); adj = true); 
 # @btime pdlyaps2!(KSCHUR, a, copy(qs); adj = true); 

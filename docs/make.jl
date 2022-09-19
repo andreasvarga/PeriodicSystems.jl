@@ -25,6 +25,7 @@ makedocs(
    #      "model_matching.md"
          ],
      "Utilities" => [
+      "pschur.md",
       "pstools.md",
       "psconv.md",
       "slicot.md"

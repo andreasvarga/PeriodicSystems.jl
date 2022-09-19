@@ -78,6 +78,19 @@ The targeted functionality of this package is described in [1] and will cover bo
 
 **Periodic output and state feedback controller design** 
 
+**Periodic Schur decompositions**
+
+* **[`phess`](@ref)**  Periodic Hessenberg decomposition of a product of matrices.
+* **[`pschur`](@ref)**  Periodic Schur decompositions of products or quotient products of matrices. 
+* **[`psordschur!`](@ref)**  Reordering of periodic Schur decompositions of products or quotient products of matrices.
+* **[`psordschur1!`](@ref)**  Reordering of periodic Schur decompositions of products or quotient products of square matrices.
+* **[`pgschur`](@ref)**  Generalized real periodic Schur decomposition of a formal product of matrices.
+* **[`pgschur`](@ref)**  Generalized real periodic Schur decomposition of a formal product of matrices.
+* **[`pgschur!`](@ref)**  Generalized real periodic Schur decompositions of formal products of matrices (in place computation).
+* **[`pgschur`](@ref)**  Generalized real periodic Schur decompositions of formal products of matrices.
+* **[`pgordschur!`](@ref)**  Reordering of generalized real periodic Schur decompositions a formal products of matrices.
+
+
 
 
 ## [Release Notes](https://github.com/andreasvarga/PeriodicSystems.jl/blob/master/ReleaseNotes.md)

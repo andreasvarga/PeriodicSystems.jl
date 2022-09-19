@@ -46,29 +46,29 @@ _References_
     Numerical Linear Algebra with Applications, 15:809-835, 2008.
     
 """
-function pcric(A::PeriodicFunctionMatrix, R::PeriodicFunctionMatrix, Q::PeriodicFunctionMatrix; K::Int = 10, adj = false, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true)
-   X, EVALS = pgcric(A, R, Q, K;  adj, solver, reltol, abstol, dt, fast)
+function pcric(A::PeriodicFunctionMatrix, R::PeriodicFunctionMatrix, Q::PeriodicFunctionMatrix; K::Int = 10, adj = false, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true)
+   X, EVALS = pgcric(A, R, Q, K;  adj, solver, reltol, abstol, dt, fast, PSD_SLICOT)
    return convert(PeriodicFunctionMatrix,convert(HarmonicArray,X)), EVALS
 end
-function pcric(A::PeriodicSymbolicMatrix, R::PeriodicSymbolicMatrix, Q::PeriodicSymbolicMatrix; K::Int = 10, adj = false, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true)
+function pcric(A::PeriodicSymbolicMatrix, R::PeriodicSymbolicMatrix, Q::PeriodicSymbolicMatrix; K::Int = 10, adj = false, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true)
    #X, EVALS = pgcric(convert(PeriodicFunctionMatrix,A), convert(PeriodicFunctionMatrix,R), convert(PeriodicFunctionMatrix,Q), K;  adj, solver, reltol, abstol, dt, fast)
-   X, EVALS = pgcric(convert(HarmonicArray,A), convert(HarmonicArray,R), convert(HarmonicArray,Q), K;  adj, solver, reltol, abstol, dt, fast)
+   X, EVALS = pgcric(convert(HarmonicArray,A), convert(HarmonicArray,R), convert(HarmonicArray,Q), K;  adj, solver, reltol, abstol, dt, fast, PSD_SLICOT)
    return convert(PeriodicSymbolicMatrix,X), EVALS
 end
-function pcric(A::HarmonicArray, R::HarmonicArray, Q::HarmonicArray; K::Int = 10, adj = false, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true)
-   X, EVALS = pgcric(A, R, Q, K;  adj, solver, reltol, abstol, dt, fast)
+function pcric(A::HarmonicArray, R::HarmonicArray, Q::HarmonicArray; K::Int = 10, adj = false, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true)
+   X, EVALS = pgcric(A, R, Q, K;  adj, solver, reltol, abstol, dt, fast, PSD_SLICOT)
    return convert(HarmonicArray, X), EVALS
 end
-function pcric(A::FourierFunctionMatrix, R::FourierFunctionMatrix, Q::FourierFunctionMatrix; K::Int = 10, adj = false, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true)
-   X, EVALS = pgcric(A, R, Q, K;  adj, solver, reltol, abstol, dt, fast)
+function pcric(A::FourierFunctionMatrix, R::FourierFunctionMatrix, Q::FourierFunctionMatrix; K::Int = 10, adj = false, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true)
+   X, EVALS = pgcric(A, R, Q, K;  adj, solver, reltol, abstol, dt, fast, PSD_SLICOT)
    return convert(FourierFunctionMatrix, X), EVALS
 end
-function pcric(A::PeriodicTimeSeriesMatrix, R::PeriodicTimeSeriesMatrix, Q::PeriodicTimeSeriesMatrix; K::Int = 10, adj = false, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true)
-   pgcric(convert(HarmonicArray,A), convert(HarmonicArray,R), convert(HarmonicArray,Q), K;  adj, solver, reltol, abstol, dt, fast)
+function pcric(A::PeriodicTimeSeriesMatrix, R::PeriodicTimeSeriesMatrix, Q::PeriodicTimeSeriesMatrix; K::Int = 10, adj = false, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true)
+   pgcric(convert(HarmonicArray,A), convert(HarmonicArray,R), convert(HarmonicArray,Q), K;  adj, solver, reltol, abstol, dt, fast, PSD_SLICOT)
 end
 for PM in (:PeriodicFunctionMatrix, :PeriodicSymbolicMatrix, :HarmonicArray, :FourierFunctionMatrix, :PeriodicTimeSeriesMatrix)
    @eval begin
-      function prcric(A::$PM, B::$PM, R::$PM, Q::$PM; K::Int = 10, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true) 
+      function prcric(A::$PM, B::$PM, R::$PM, Q::$PM; K::Int = 10, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true) 
          n = size(A,1)
          n == size(A,2) || error("the periodic matrix A must be square")
          n == size(B,1) || error("the periodic matrix B must have the same number of rows as A")
@@ -78,10 +78,10 @@ for PM in (:PeriodicFunctionMatrix, :PeriodicSymbolicMatrix, :HarmonicArray, :Fo
          issymmetric(R) || error("the periodic matrix R must be symmetric")
          issymmetric(Q) || error("the periodic matrix Q must be symmetric")
          tr = B*inv(R)*B'
-         X, EVALS = pcric(A, (tr+tr')/2, Q; K, adj = true, solver, reltol, abstol, dt, fast)
+         X, EVALS = pcric(A, (tr+tr')/2, Q; K, adj = true, solver, reltol, abstol, dt, fast, PSD_SLICOT)
          return X, EVALS, inv(R)*transpose(B)*X
       end
-      function prcric(A::$PM, B::$PM, R::AbstractMatrix, Q::AbstractMatrix; K::Int = 10, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true) 
+      function prcric(A::$PM, B::$PM, R::AbstractMatrix, Q::AbstractMatrix; K::Int = 10, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true) 
          n = size(A,1)
          n == size(A,2) || error("the periodic matrix A must be square")
          n == size(B,1) || error("the periodic matrix B must have the same number of rows as A")
@@ -91,10 +91,10 @@ for PM in (:PeriodicFunctionMatrix, :PeriodicSymbolicMatrix, :HarmonicArray, :Fo
          issymmetric(R) || error("the matrix R must be symmetric")
          issymmetric(Q) || error("the matrix Q must be symmetric")
          tr = B*$PM(inv(R), A.period)*B'
-         X, EVALS = pcric(A, (tr+tr')/2, $PM(Q, A.period); K, adj = true, solver, reltol, abstol, dt, fast)
+         X, EVALS = pcric(A, (tr+tr')/2, $PM(Q, A.period); K, adj = true, solver, reltol, abstol, dt, fast, PSD_SLICOT)
          return X, EVALS, inv(R)*B'*X
       end
-      function pfcric(A::$PM, C::$PM, R::$PM, Q::$PM; K::Int = 10, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true) 
+      function pfcric(A::$PM, C::$PM, R::$PM, Q::$PM; K::Int = 10, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true) 
          n = size(A,1)
          n == size(A,2) || error("the periodic matrix A must be square")
          n == size(C,2) || error("the periodic matrix C must have the same number of columns as A")
@@ -104,10 +104,10 @@ for PM in (:PeriodicFunctionMatrix, :PeriodicSymbolicMatrix, :HarmonicArray, :Fo
          issymmetric(R) || error("the periodic matrix R must be symmetric")
          issymmetric(Q) || error("the periodic matrix Q must be symmetric")
          tr = C'*inv(R)*C
-         X, EVALS = pcric(A, (tr+tr')/2, Q; K, adj = false, solver, reltol, abstol, dt, fast)
+         X, EVALS = pcric(A, (tr+tr')/2, Q; K, adj = false, solver, reltol, abstol, dt, fast, PSD_SLICOT)
          return X, EVALS, (X*C')*inv(R)
       end
-      function pfcric(A::$PM, C::$PM, R::AbstractMatrix, Q::AbstractMatrix; K::Int = 10, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true) 
+      function pfcric(A::$PM, C::$PM, R::AbstractMatrix, Q::AbstractMatrix; K::Int = 10, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true) 
          n = size(A,1)
          n == size(A,2) || error("the periodic matrix A must be square")
          n == size(C,2) || error("the periodic matrix C must have the same number of columns as A")
@@ -117,7 +117,7 @@ for PM in (:PeriodicFunctionMatrix, :PeriodicSymbolicMatrix, :HarmonicArray, :Fo
          issymmetric(R) || error("the matrix R must be symmetric")
          issymmetric(Q) || error("the matrix Q must be symmetric")
          tr = C'*$PM(inv(R), A.period; nperiod = A.nperiod)*C
-         X, EVALS = pcric(A, (tr+tr')/2, $PM(Q, A.period; nperiod = A.nperiod); K, adj = false, solver, reltol, abstol, dt, fast)
+         X, EVALS = pcric(A, (tr+tr')/2, $PM(Q, A.period; nperiod = A.nperiod); K, adj = false, solver, reltol, abstol, dt, fast, PSD_SLICOT)
          return X, EVALS, (X*C')*inv(R)
       end
    end
@@ -176,7 +176,7 @@ is adjusted accordingly.
 prcric(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix, R::PeriodicFunctionMatrix, Q::PeriodicFunctionMatrix)
 
 """
-    pgcric(A, B, R, Q[, K = 1]; adj = false, solver, reltol, abstol) -> (X, EVALS)
+    pgcric(A, R, Q[, K = 1]; adj = false, solver, reltol, abstol, fast, PSD_SLICOT) -> (X, EVALS)
 
 Compute periodic generators for the periodic Riccati differential equation in the _filtering_ form
 
@@ -222,7 +222,7 @@ _References_
     
 """
 function pgcric(A::PM1, R::PM3, Q::PM4, K::Int = 1; adj = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), 
-   solver = "symplectic", reltol = 1e-4, abstol = 1e-7, dt = 0.0, fast = true) where
+   PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1e-4, abstol = 1e-7, dt = 0.0, fast = false) where
    {PM1 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}, 
    PM3 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix},
    PM4 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}} 
@@ -262,43 +262,8 @@ function pgcric(A::PM1, R::PM3, Q::PM4, K::Int = 1; adj = false, rtol::Real = si
       X = PeriodicTimeSeriesMatrix([x], period; nperiod)
       ce = log.(complex(EVALS))/period
       return X, isreal(ce) ? real(ce) : ce 
-   elseif !fast
-      hpd = Array{T,3}(undef, n2, n2, K) 
-      Threads.@threads for i = 1:K
-         @inbounds hpd[:,:,i]  = tvcric(A, R, Q, i*Ts, (i-1)*Ts; adj, solver, reltol, abstol) 
-      end
-      # this code is based on SLICOT tools
-      S, Z, ev, sind, = PeriodicSystems.pschur(hpd)
-      select = adj ? abs.(ev) .< 1 : abs.(ev) .> 1
-      psordschur!(S, Z, select; sind)
-      EVALS =  adj ? ev[select] : ev[.!select]
-      X = similar(Vector{Matrix{T}},K)
-      for i = 1:K
-          #x = Z1[i][i2,i1]/Z1[i][i1,i1];  
-          x = Z[i2,i1,i]/Z[i1,i1,i];  
-          x = (x+x')/2
-          X[i] = x
-      end
-      
-      # this experimental code is based on tools provided in the PeriodicSchurDecompositions package
-      # hpd = Vector{Matrix{T}}(undef, K) 
-      # Threads.@threads for i = 1:K
-      #    @inbounds hpd[i]  = tvcric(A, R, Q, i*Ts, (i-1)*Ts; adj, solver, reltol, abstol, dt) 
-      # end
-      # PSF = PeriodicSchurDecompositions.pschur(hpd,:L)
-      # select = adj ? abs.(PSF.values) .< 1 : abs.(PSF.values) .> 1
-      # @show PSF.values
-      # ordschur!(PSF, select)
-      # EVALS = adj ? PSF.values[i1] : PSF.values[i2]
-      # X = similar(Vector{Matrix{T}},K)
-      # for i = 1:K
-      #     x = PSF.Z[i][i2,i1]/PSF.Z[i][i1,i1];  
-      #     x = (x+x')/2
-      #     X[i] = x
-      # end
-      ce = log.(complex(EVALS))/period
-      return PeriodicTimeSeriesMatrix(X, period; nperiod), isreal(ce) ? real(ce) : ce    
-   else
+   end
+   if fast
       hpd = Vector{Matrix{T}}(undef, K) 
       Threads.@threads for i = 1:K
          @inbounds hpd[i]  = tvcric(A, R, Q, i*Ts, (i-1)*Ts; adj, solver, reltol, abstol, dt) 
@@ -346,6 +311,43 @@ function pgcric(A::PM1, R::PM3, Q::PM4, K::Int = 1; adj = false, rtol::Real = si
       ce = log.(complex(EVALS))/period
       return PeriodicTimeSeriesMatrix(X, period; nperiod), isreal(ce) ? real(ce) : ce  
    end
+   if PSD_SLICOT
+      hpd = Array{T,3}(undef, n2, n2, K) 
+      Threads.@threads for i = 1:K
+         @inbounds hpd[:,:,i]  = tvcric(A, R, Q, i*Ts, (i-1)*Ts; adj, solver, reltol, abstol) 
+      end
+      # this code is based on SLICOT tools
+      S, Z, ev, sind, = PeriodicSystems.pschur(hpd)
+      select = adj ? abs.(ev) .< 1 : abs.(ev) .> 1
+      psordschur!(S, Z, select; schurindex = sind)
+      EVALS =  adj ? ev[select] : ev[.!select]
+      X = similar(Vector{Matrix{T}},K)
+      for i = 1:K
+          #x = Z1[i][i2,i1]/Z1[i][i1,i1];  
+          x = Z[i2,i1,i]/Z[i1,i1,i];  
+          x = (x+x')/2
+          X[i] = x
+      end
+   else
+      # this experimental code is based on tools provided in the PeriodicSchurDecompositions package
+      hpd = Vector{Matrix{T}}(undef, K) 
+      Threads.@threads for i = 1:K
+         @inbounds hpd[i]  = tvcric(A, R, Q, i*Ts, (i-1)*Ts; adj, solver, reltol, abstol, dt) 
+      end
+      PSF = PeriodicSchurDecompositions.pschur(hpd,:L)
+      select = adj ? abs.(PSF.values) .< 1 : abs.(PSF.values) .> 1
+      # @show PSF.values
+      ordschur!(PSF, select)
+      EVALS = adj ? PSF.values[i1] : PSF.values[i2]
+      X = similar(Vector{Matrix{T}},K)
+      for i = 1:K
+          x = PSF.Z[i][i2,i1]/PSF.Z[i][i1,i1];  
+          x = (x+x')/2
+          X[i] = x
+      end
+   end
+   ce = log.(complex(EVALS))/period
+   return PeriodicTimeSeriesMatrix(X, period; nperiod), isreal(ce) ? real(ce) : ce    
 end
 function tvcric(A::PM1, R::PM3, Q::PM4, tf, t0; adj = false, solver = "symplectic", reltol = 1e-4, abstol = 1e-7, dt = 0.0) where
     {PM1 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}, 

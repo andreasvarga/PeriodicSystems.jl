@@ -1,8 +1,9 @@
 # Release Notes
 
+
 ## Version 0.4.2
 
-This patch version implements functions for the solution of periodic differential Riccati equations. A new wrapper has been implemented for the SLICOT routine `MB03KD` to reorder the eigenvalues of a formal matrix product. Based on this, new functions `psordschur!` and `psordschur1!`  have been implemented to reorder the eigenvalues of a direct or reverse oriented product of matrices.  
+This patch version implements functions for the solution of periodic differential Riccati equations. A new wrapper has been implemented for the SLICOT routine `MB03KD` to reorder the eigenvalues of a formal matrix product. This patch version also implements a collection of functions to compute real periodic Schur decompositions based on wrappers of SLICOT routines.   
 
 ## Version 0.4.1
 
