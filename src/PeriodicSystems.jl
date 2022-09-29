@@ -1,5 +1,7 @@
 module PeriodicSystems
 
+const withAPFUN = false
+
 #using SLICOTMath
 using SLICOT_jll
 using DescriptorSystems
@@ -16,7 +18,7 @@ using Symbolics
 using OrdinaryDiffEq
 using IRKGaussLegendre
 using Primes
-using ApproxFun
+withAPFUN && (using ApproxFun)
 using PeriodicSchurDecompositions
 #using JLD
 
@@ -25,13 +27,15 @@ using .SLICOTtools: mb03vd!, mb03vy!, mb03bd!, mb03wd!, mb03vw!, mb03kd!
 
 
 import LinearAlgebra: BlasInt, BlasFloat, BlasReal, BlasComplex, copy_oftype, transpose, adjoint, opnorm, normalize, rdiv!, issymmetric, norm
-import Base: +, -, *, /, \, (==), (!=), ^, isapprox, iszero, convert, promote_op, size, length, ndims, 
+import Base: +, -, *, /, \, (==), (!=), ^, isapprox, iszero, convert, promote_op, size, length, ndims, reverse,
              hcat, vcat, hvcat, inv, show, lastindex, require_one_based_indexing, print, show, one, zero, eltype
 import MatrixPencils: isregular, rmeval
 import MatrixEquations: sylvd2!, luslv!
 import DescriptorSystems: isstable
 import Polynomials: AbstractRationalFunction, AbstractPolynomial, poles, isconstant, variable, degree, pqs
 import Symbolics: derivative
+
+export withAPFUN
 
 export PeriodicStateSpace, pschur, pschur!, pschur1, pschur2, pgschur, pgschur!, phess, phess!, phess1, psreduc_reg, psreduc_fast, check_psim, mshift, pseig, 
        tvmeval, tpmeval, hreval, tvstm, psordschur!, psordschur1!, pgordschur!
@@ -48,7 +52,7 @@ export pspole, pszero, isstable
 export pdlyap, prlyap, pflyap, pslyapd, pdlyaps!, pdlyaps1!, pdlyaps2!, pdlyaps3!, dpsylv2, dpsylv2!, pslyapdkr, dpsylv2krsol!, kronset!
 export pmshift
 export pclyap, pfclyap, prclyap, pgclyap
-export pcric, prcric, pfcric, tvcric, pgcric, prdare
+export pcric, prcric, pfcric, tvcric, pgcric, prdric, pfdric
 export derivative, pmrand
 
 abstract type AbstractDynamicalSystem end
@@ -68,7 +72,7 @@ include("psanalysis.jl")
 include("pslyap.jl")
 include("psclyap.jl")
 include("pscric.jl")
-#include("psdric.jl")
+include("psdric.jl")
 include("pmops.jl")
 include("psfutils.jl")
 include("psutils.jl")

@@ -936,7 +936,7 @@ REFERENCES
     2001), Como (Italy), August 27-28 2001. Periodic Control
     Systems 2001 (IFAC Proceedings Volumes), Pergamon.
 """
-function pgschur(A::Array{Float64,3}, S::Union{AbstractVector{Bool},BitVector}; kwargs...)
+function pgschur(A::AbstractArray{Float64,3}, S::Union{AbstractVector{Bool},BitVector}; kwargs...)
    pgschur!(copy(A), S; kwargs...)
 end
 """
@@ -944,7 +944,7 @@ end
 
 Same as `pgschur` but uses the input matrix `A` as workspace.
 """
-function pgschur!(A::Array{Float64,3}, S::Union{AbstractVector{Bool},BitVector}; rev::Bool = true, withZ::Bool = true, schurindex::Int = 1)
+function pgschur!(A::AbstractArray{Float64,3}, S::Union{AbstractVector{Bool},BitVector}; rev::Bool = true, withZ::Bool = true, schurindex::Int = 1)
    n = size(A,1)
    n == size(A,2) || throw(DimensionMismatch("A must have equal first and second dimensions"))
    p = size(A,3)
@@ -1138,7 +1138,7 @@ and the corresponding orthogonal transformation matrices `Z[:,:,1]`, `...`, `Z[:
 `S` and `Z` are overwritten by the updated matrices. 
 A conjugate pair of eigenvalues must be either both included or both excluded via `select`.    
 """
-function pgordschur!(S::Array{Float64,3}, s::Union{AbstractVector{Bool},BitVector}, Z::Array{Float64,3}, select::Union{AbstractVector{Bool},BitVector}; rev::Bool = true, schurindex::Int = 1) 
+function pgordschur!(S::AbstractArray{Float64,3}, s::Union{AbstractVector{Bool},BitVector}, Z::AbstractArray{Float64,3}, select::Union{AbstractVector{Bool},BitVector}; rev::Bool = true, schurindex::Int = 1) 
 
    mc, nc, k = size(S) 
    mc == nc || error("S must have the same first and second dimensions")
