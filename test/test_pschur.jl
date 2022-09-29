@@ -230,10 +230,10 @@ ev = eigvals(A[:,:,1]*A[:,:,2]*A[:,:,3])
       sort(imag(eigs)) ≈ sort(imag(ev))
 
 
-i1 = reverse(1:K)
-@time a, e = psreduc_reg(view(A,:,:,i1)); eigs = eigvals(a,e);
-@test sort(real(eigs)) ≈ sort(real(ev)) && 
-      sort(imag(eigs)) ≈ sort(imag(ev))
+# i1 = reverse(1:K)
+# @time a, e = psreduc_reg(view(A,:,:,i1)); eigs = eigvals(a,e);
+# @test sort(real(eigs)) ≈ sort(real(ev)) && 
+#       sort(imag(eigs)) ≈ sort(imag(ev))
 
 # modified MB03VD example
 A1 = [1.5 -.7 3.5 -.7; 1.  0.  2.  3.; 1.5 -.7 2.5 -.3; 1.  0.  2.  1.]; 
@@ -294,10 +294,10 @@ ev = eigvals(A[:,:,3]*A[:,:,2]*A[:,:,1])
 @test sort(real(eigs)) ≈ sort(real(ev)) && 
       sort(imag(eigs)) ≈ sort(imag(ev))
 
-ev = eigvals(A[:,:,3]*A[:,:,2]*A[:,:,1])
-a, e = psreduc_reg(A); eigs = eigvals(a,e);
-@test sort(real(eigs)) ≈ sort(real(ev)) && 
-      sort(imag(eigs)) ≈ sort(imag(ev))
+# ev = eigvals(A[:,:,3]*A[:,:,2]*A[:,:,1])
+# a, e = psreduc_reg(A); eigs = eigvals(a,e);
+# @test sort(real(eigs)) ≈ sort(real(ev)) && 
+#       sort(imag(eigs)) ≈ sort(imag(ev))
 
 AA = [A[:,:,3], A[:,:,2], A[:,:,1]];
 @time S, Z, eigs, ischur, α, γ = pschur(AA; rev = false);
