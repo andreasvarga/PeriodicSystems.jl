@@ -1,12 +1,9 @@
 module Test_pschur
 
 using PeriodicSystems
-using DescriptorSystems
-using Symbolics
 using Test
 using LinearAlgebra
 using LinearAlgebra: BlasInt
-using ApproxFun
 using MatrixPencils
 #using BenchmarkTools
 
