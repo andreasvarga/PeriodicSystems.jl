@@ -163,11 +163,13 @@ for PM in (PeriodicFunctionMatrix, HarmonicArray)
 
     @time X, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 200, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true); 
     clev = psceig(psysc.A-psysc.B*F,500)
+    println("EVALS = $EVALS, clev = $clev")
     @test norm(sort(real(clev)) - sort(real(EVALS))) < 1.e-7 && norm(sort(imag(clev)) - sort(imag(EVALS))) < 1.e-7 
     @test norm(psysc.A'*X+X*psysc.A+q-X*psysc.B*inv(r)*psysc.B'*X +derivative(X))/norm(X) < 1.e-7 
 
     @time X, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 200, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = false ); 
     clev = psceig(psysc.A-psysc.B*F,500)
+    println("EVALS = $EVALS, clev = $clev")
     @test norm(sort(real(clev)) - sort(real(EVALS))) < 1.e-7 && norm(sort(imag(clev)) - sort(imag(EVALS))) < 1.e-7 
     @test norm(psysc.A'*X+X*psysc.A+q-X*psysc.B*inv(r)*psysc.B'*X +derivative(X))/norm(X) < 1.e-7 
 
