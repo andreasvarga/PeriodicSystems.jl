@@ -9,7 +9,9 @@ Solve the periodic Riccati differential equation
 or 
 
      .                                                
-    -X(t) = A(t)'X(t) + X(t)A(t) + Q(t) - X(t)R(t)X(t) , if adj = true. 
+    -X(t) = A(t)'X(t) + X(t)A(t) + Q(t) - X(t)R(t)X(t) , if adj = true
+    
+and compute the stable closed-loop characteristic multipliers in `EVALS` (see [`pgcric`](@ref) for details).
 
 The periodic matrices `A`, `R` and `Q` must have the same type, the same dimensions and commensurate periods, 
 and additionally `R` and `Q` must be symmetric. The resulting symmetric periodic solution `X` has the period 
@@ -132,8 +134,8 @@ Compute the symmetric stabilizing solution `X(t)` of the periodic filtering rela
 
 the periodic stabilizing Kalman gain 
 
-                         -1
-    F(t) = -X(t)C(t)'R(t)   
+                        -1
+    F(t) = X(t)C(t)'R(t)   
 
 and the corresponding stable characteristic multipliers `EVALS` of `A(t)-F(t)C(t)`. 
 
@@ -158,8 +160,8 @@ Compute the symmetric stabilizing solution `X(t)` of the periodic control relate
 
 the periodic stabilizing state-feedback gain 
 
-                -1
-    F(t) = -R(t)  B(t)'X(t) 
+               -1
+    F(t) = R(t)  B(t)'X(t) 
 
 and the corresponding stable characteristic multipliers `EVALS` of `A(t)-B(t)F(t)`. 
 
@@ -279,7 +281,7 @@ function pgcric(A::PM1, R::PM3, Q::PM4, K::Int = 1; adj = false, rtol::Real = si
       all(isfinite.(SF.values)) || @warn "possible accuracy loss"
       #@show a, e, SF.values
       select = adj ? abs.(SF.values) .> 1 : abs.(SF.values) .< 1
-      n == count(select .== true) || error("The simplectic pencil is not dichotomic")
+      n == count(select .== true) || error("The symplectic pencil is not dichotomic")
       ordschur!(SF, select)
       EVALS = adj ? SF.values[i2] : SF.values[i1]
       # compute the periodic generator in t = 0

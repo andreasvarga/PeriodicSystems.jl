@@ -1,6 +1,6 @@
 module PeriodicSystems
 
-const withAPFUN = false
+const withAPFUN = true
 
 #using SLICOTMath
 using SLICOT_jll
@@ -63,17 +63,17 @@ abstract type AbstractPeriodicStateSpace <: AbstractLTVSystem end
 
 abstract type AbstractPeriodicArray{Domain,T} end
 
-# include("types/PeriodicMatrices.jl")
-# include("types/PeriodicStateSpace.jl")
-# include("ps.jl")
-# include("conversions.jl")
-# include("pslifting.jl")
-# include("psanalysis.jl")
-# include("pslyap.jl")
-# include("psclyap.jl")
-# include("pscric.jl")
-# include("psdric.jl")
-# include("pmops.jl")
+include("types/PeriodicMatrices.jl")
+include("types/PeriodicStateSpace.jl")
+include("ps.jl")
+include("conversions.jl")
+include("pslifting.jl")
+include("psanalysis.jl")
+include("pslyap.jl")
+include("psclyap.jl")
+include("pscric.jl")
+include("psdric.jl")
+include("pmops.jl")
 include("psfutils.jl")
-# include("psutils.jl")
+include("psutils.jl")
 end

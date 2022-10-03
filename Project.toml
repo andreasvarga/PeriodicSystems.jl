@@ -1,7 +1,7 @@
 name = "PeriodicSystems"
 uuid = "5decd0d0-8a5f-11ec-2edd-87b25cbcd17e"
 authors = ["Andreas Varga <varga.andreas@gmail.com>"]
-version = "0.4.2"
+version = "0.5"
 
 [deps]
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
@@ -17,6 +17,7 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SLICOT_jll = "545525a2-e20e-568b-b87f-b40a06098995"
 Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 Primes = "27ebfcd6-29c5-5fa9-bf4b-fb8fc14df3ae"
+ApproxFun = "28f2ccd6-bb30-5033-b560-165f7b14dc2f"
 PeriodicSchurDecompositions = "e5aedecb-f6c0-4c91-b6ff-fbae4296f459"
 
 [compat]
@@ -32,6 +33,7 @@ Polynomials = "3"
 SLICOT_jll = "5.8"
 Symbolics = "4"
 Primes = "0.5"
+ApproxFun = "0.13"
 PeriodicSchurDecompositions = "0.1.1"
 julia = "1.7"
 

@@ -256,7 +256,7 @@ function pschur!(A::AbstractArray{Float64,3}, ilh::Tuple{Int,Int} = (1, size(A,1
    SCAL = Array{BlasInt,1}(undef, n)
    withZ && (compQ = 'U')
    SLICOTtools.mb03bd!('T','C',compQ, QIND, p, n, hc, ilo, ihi, SIND, A, Z, ALPHAR, ALPHAI, BETA, SCAL, LIWORK, LDWORK)
-   α = complex.(ALPHAR, ALPHAI)
+   α = complex.(ALPHAR, ALPHAI) ./ BETA
    γ = 2. .^SCAL
    ev = α .* γ
 
@@ -330,7 +330,7 @@ function pschur1(A::Array{Float64,3}; rev::Bool = true, sind::Int = 1, withZ::Bo
    BETA = Array{Float64,1}(undef, n)
    SCAL = Array{BlasInt,1}(undef, n)
    SLICOTtools.mb03bd!('T','C',compQ, QIND, p, n, 1, ilo, ihi, ones(BlasInt,p), S, Z, ALPHAR, ALPHAI, BETA, SCAL, LIWORK, LDWORK)
-   α = complex.(ALPHAR, ALPHAI)
+   α = complex.(ALPHAR, ALPHAI) ./ BETA
    γ = 2. .^SCAL
    ev = α .* γ
 
@@ -550,7 +550,7 @@ function pschur(A::AbstractVector{Matrix{T}}; rev::Bool = true, withZ::Bool = tr
    # use ilo = 1 and ihi = nmin
    withZ && (compQ = 'U')
    SLICOTtools.mb03bd!('T','C', compQ, QIND, p, n, hc, ilo, nmin, SIND, St, Zt, ALPHAR, ALPHAI, BETA, SCAL, LIWORK, LDWORK)
-   α = complex.(ALPHAR, ALPHAI)
+   α = complex.(ALPHAR, ALPHAI) ./ BETA
    γ = 2. .^SCAL
    ev = α .* γ
 
@@ -627,7 +627,7 @@ function pschur1(A::AbstractVector{Matrix{T}}; rev::Bool = true, withZ::Bool = t
    SCAL = Array{BlasInt,1}(undef, n)
    # use ilo = 1 and ihi = nmin
    SLICOTtools.mb03bd!('T','C', compQ, QIND, p, n, 1, ilo, nmin, ones(BlasInt,p), St, Zt, ALPHAR, ALPHAI, BETA, SCAL, LIWORK, LDWORK)
-   α = complex.(ALPHAR, ALPHAI)
+   α = complex.(ALPHAR, ALPHAI) ./ BETA
    γ = 2. .^SCAL
    ev = α .* γ
 
@@ -872,8 +872,10 @@ function pgschur(A::AbstractVector{Matrix{T}}, S::Union{AbstractVector{Bool},Bit
    else
       schurindex = 1
    end  
-
-   St = zeros(Float64, n, n, p)
+   ZERA = zeros(n,n)
+   EYE = eye(Float64,n,n)
+   St = Array{Float64,3}(undef,n, n, p)
+   [(S[i] ? copyto!(view(St,:,:,i), ZERA) : copyto!(view(St,:,:,i), EYE) ) for i in 1:p]
    [copyto!(view(St,1:mp[i],1:np[i],i), A[i]) for i in 1:p]
    St, Zt, ev, ischur, α, γ = pgschur!(St, S; rev, withZ, schurindex)
    if rev
@@ -986,10 +988,10 @@ function pgschur!(A::AbstractArray{Float64,3}, S::Union{AbstractVector{Bool},Bit
    SCAL = Array{BlasInt,1}(undef, n)
    withZ && (compQ = 'U')
    SLICOTtools.mb03bd!('T','C',compQ, QIND, p, n, hc, ilo, ihi, SIND, A, Z, ALPHAR, ALPHAI, BETA, SCAL, LIWORK, LDWORK)
-   α = complex.(ALPHAR, ALPHAI)
+   α = complex.(ALPHAR, ALPHAI) ./ BETA
    γ = 2. .^SCAL
    ev = α .* γ
-
+   
    if rev
       return reverse!(A, dims = 3), withZ ? Z[:,:,mod.(p:-1:1,p).+1] : nothing, ev, schurindex, α, γ
    else

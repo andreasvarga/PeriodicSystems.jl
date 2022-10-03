@@ -1,6 +1,10 @@
 # Release Notes
 
 
+## Version 0.5 
+
+This minor version concludes the development of periodic Riccati equation solvers, by implementing functions for the solution of periodic difference Riccati equations. Also several bug fixes have been performed.
+
 ## Version 0.4.2
 
 This patch version implements functions for the solution of periodic differential Riccati equations. A new wrapper has been implemented for the SLICOT routine `MB03KD` to reorder the eigenvalues of a formal matrix product. This patch version also implements a collection of functions to compute real periodic Schur decompositions based on wrappers of SLICOT routines.   

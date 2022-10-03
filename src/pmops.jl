@@ -13,6 +13,9 @@ end
 function LinearAlgebra.adjoint(A::PeriodicArray)
     return PeriodicArray(permutedims(A.M,(2,1,3)), A.period; nperiod = A.nperiod)
 end
+function Base.reverse(A::PeriodicArray)
+    return PeriodicArray(reverse(A.M,dims=3), A.period; nperiod = A.nperiod)
+end
 function LinearAlgebra.norm(A::PeriodicArray, p::Real = 2)
     return norm([norm(A.M[:,:,i],p) for i in 1:A.dperiod],p)
 end
@@ -104,6 +107,9 @@ function LinearAlgebra.transpose(A::PeriodicMatrix)
 end
 function LinearAlgebra.adjoint(A::PeriodicMatrix)
     return PeriodicMatrix(copy.(transpose.(A.M)), A.period; nperiod = A.nperiod)
+end
+function Base.reverse(A::PeriodicMatrix)
+    return PeriodicMatrix(reverse(A.M), A.period; nperiod = A.nperiod)
 end
 function LinearAlgebra.norm(A::PeriodicMatrix, p::Real = 2)
     return norm(norm.(A.M, p) ,p)

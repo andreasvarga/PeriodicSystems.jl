@@ -70,8 +70,8 @@ The targeted functionality of this package is described in [1] and will cover bo
 * **[`prcric`](@ref)** Solution of control-related reverse-time periodic Riccati differential equation. 
 * **[`pfcric`](@ref)**  Solution of filtering-related forward-time periodic Riccati differential equation.
 * **[`pgcric`](@ref)** Computation of periodic generators for periodic Riccati differential equations.
-
-
+* **[`prdric`](@ref)** Solution of control-related reverse-time periodic Riccati difference equation. 
+* **[`pfdric`](@ref)** Solution of filtering-related forward-time periodic Riccati difference equation. 
 
 
 **Simplification of periodic system models**

@@ -156,7 +156,9 @@ q = [2 0 0 0; 0 1 0 0; 0 0 0 0;0 0 0 0]; r = [1.e-11;;];
 
 ev = psceig(HarmonicArray(a,2pi))
 PM = HarmonicArray
+PM = PeriodicFunctionMatrix
 for PM in (PeriodicFunctionMatrix, HarmonicArray)
+    println("PM = $PM")
     psysc = ps(a,convert(PM,PeriodicFunctionMatrix(b,period)),c,d);
 
     @time X, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 200, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true); 

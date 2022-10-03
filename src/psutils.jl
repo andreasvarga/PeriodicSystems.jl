@@ -472,38 +472,6 @@ function sorteigvals!(ev)
    ev[:] = [ev[imag.(ev) .== 0]; sort([tc; conj.(tc)],by = real)]
    return ev
 end
-# similarity transformation checks
-function check_psim(Ain::AbstractArray{T,3}, Q::AbstractArray{T,3}, Aout::AbstractArray{T,3}; rev::Bool = true, atol = 1.e-7) where T
-   SSQ = 0.
-   K = size(Ain,3)
-   for i in 1:K
-      # rev = true:  Q(i+1)' * Ain(i) * Q(i) = Aout(i),          
-      # rev = false: Q(i)' * Ain(i) * Q(i+1) = Aout(i),
-      Zta = rev ? view(Ain,:,:,i) * view(Q,:,:,i) - view(Q,:,:,mod(i,K)+1) * view(Aout,:,:,i) :
-                  view(Ain,:,:,i) * view(Q,:,:,mod(i,K)+1) - view(Q,:,:,i) * view(Aout,:,:,i) 
-      SSQ = hypot(SSQ, norm(Zta))
-   end
-   return SSQ < atol
-end
-function check_psim(Ain::Vector{Matrix{T}}, Q::Vector{Matrix{T1}}, Aout::Vector{Matrix{T1}}; rev::Bool = true, atol = 1.e-7) where {T,T1}
-   SSQ = 0.
-   K = length(Ain)
-   for i in 1:K
-      # rev = true:  Q(i+1)' * Ain(i) * Q(i) = Aout(i),          
-      # rev = false: Q(i)' * Ain(i) * Q(i+1) = Aout(i),
-      Zta = rev ? Ain[i] * Q[i] - Q[mod(i,K)+1] * Aout[i] :
-                  Ain[i] * Q[mod(i,K)+1] - Q[i] * Aout[i] 
-      SSQ = hypot(SSQ, norm(Zta))
-   end
-   return SSQ < atol
-   # one line computation
-   # return rev ? norm(norm.(Ain.*Q.-mshift(Q).*Aout)) < atol : norm(norm.(Ain.*mshift(Q).-Q.*Aout)) < atol
-end
-function mshift(X::Vector{<:Matrix}, k::Int = 1) 
-   # Form a k-shifted array of matrices.
-   K = length(X)
-   return X[mod.(k:k+K-1,K).+1]
-end
 
 
 # conversions
