@@ -320,7 +320,6 @@ function pgcric(A::PM1, R::PM3, Q::PM4, K::Int = 1; adj = false, rtol::Real = si
       end
       # this code is based on SLICOT tools
       S, Z, ev, sind, = PeriodicSystems.pschur(hpd)
-      @show ev
       select = adj ? abs.(ev) .< 1 : abs.(ev) .> 1
       psordschur!(S, Z, select; schurindex = sind)
       EVALS =  adj ? ev[select] : ev[.!select]
@@ -338,9 +337,7 @@ function pgcric(A::PM1, R::PM3, Q::PM4, K::Int = 1; adj = false, rtol::Real = si
          @inbounds hpd[i]  = tvcric(A, R, Q, i*Ts, (i-1)*Ts; adj, solver, reltol, abstol, dt) 
       end
       PSF = PeriodicSchurDecompositions.pschur(hpd,:L)
-      @show PSF.values
       select = adj ? abs.(PSF.values) .< 1 : abs.(PSF.values) .> 1
-      # @show PSF.values
       ordschur!(PSF, select)
       EVALS = adj ? PSF.values[i1] : PSF.values[i2]
       X = similar(Vector{Matrix{T}},K)
