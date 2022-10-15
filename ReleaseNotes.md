@@ -1,6 +1,10 @@
 # Release Notes
 
 
+## Version 0.5.1
+
+This patch version implements functions for the evaluation of H2-norm of continuous-time and discrete-time periodic systems. Several enhancements of Lyapunov differential equation solvers have been also performed.  
+
 ## Version 0.5 
 
 This minor version concludes the development of periodic Riccati equation solvers, by implementing functions for the solution of periodic difference Riccati equations. Also several bug fixes have been performed.

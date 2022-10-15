@@ -19,6 +19,9 @@ end
 function LinearAlgebra.norm(A::PeriodicArray, p::Real = 2)
     return norm([norm(A.M[:,:,i],p) for i in 1:A.dperiod],p)
 end
+function LinearAlgebra.tr(A::PeriodicArray)
+    return [tr(A.M[:,:,i]) for i in 1:A.dperiod]
+end
 function +(A::PeriodicArray, B::PeriodicArray)
     A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
     period = promote_period(A, B)
@@ -114,6 +117,9 @@ end
 function LinearAlgebra.norm(A::PeriodicMatrix, p::Real = 2)
     return norm(norm.(A.M, p) ,p)
 end
+function LinearAlgebra.tr(A::PeriodicMatrix)
+    return tr.(A.M)
+end
 function +(A::PeriodicMatrix, B::PeriodicMatrix)
     A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
     period = promote_period(A, B)
@@ -191,6 +197,9 @@ function derivative(A::PeriodicFunctionMatrix{:c,T};  h = A.period*sqrt(eps(T)),
 end
 function LinearAlgebra.inv(A::PeriodicFunctionMatrix{:c,T})  where {T}
     return PeriodicFunctionMatrix{:c,T}(t -> inv(A.f(t)), A.period, A.dims, A.nperiod, A._isconstant)
+end
+function LinearAlgebra.tr(A::PeriodicFunctionMatrix{:c,T})  where {T}
+    return PeriodicFunctionMatrix{:c,T}(t -> [tr(A.f(t))], A.period, (1,1), A.nperiod, A._isconstant)
 end
 function LinearAlgebra.transpose(A::PeriodicFunctionMatrix{:c,T})  where {T}
     return PeriodicFunctionMatrix{:c,T}(t -> transpose(A.f(t)), A.period, (A.dims[2],A.dims[1]), A.nperiod, A._isconstant)
@@ -282,6 +291,7 @@ end
 function Symbolics.simplify(A::PeriodicSymbolicMatrix)
     return PeriodicSymbolicMatrix{:c,Num}(Symbolics.simplify.(A.F), A.period; nperiod = A.nperiod)
 end
+LinearAlgebra.tr(A::PeriodicSymbolicMatrix) = PeriodicSymbolicMatrix([tr(A.F)], A.period; nperiod = A.nperiod)
 
 function norm(A::PeriodicSymbolicMatrix, p::Real = 2; K = 128) 
     @variables t   
@@ -371,6 +381,15 @@ function LinearAlgebra.inv(A::HarmonicArray)
     # convert(HarmonicArray,PeriodicTimeSeriesMatrix(inv.(tvmeval(Ah,collect(ts))),2*pi))
     #convert(HarmonicArray,inv(convert(PeriodicFunctionMatrix,A)))
 end
+function tr(A::HarmonicArray{:c,T}) where {T}
+    l = size(A.values,3)
+    Ahr = zeros(Complex{T}, 1, 1, l)
+    for i = 1:l
+        #Ahr[:,:,i] .= complex(tr(real(A.values[:,:,i])),tr(imag(A.values[:,:,i]))) 
+        Ahr[1,1,i] = tr(A.values[:,:,i]) 
+    end
+    return HarmonicArray{:c,T}(Ahr, A.period, nperiod = A.nperiod)
+end
 function LinearAlgebra.transpose(A::HarmonicArray{:c,T}) where {T}  
     m, n, l = size(A.values)
     Ahr = similar(Array{Complex{T},3},n,m,l)
@@ -433,8 +452,14 @@ end
 (-)(J::UniformScaling{<:Real}, A::HarmonicArray) = +(-A,J)
 
 *(A::HarmonicArray, B::HarmonicArray) = convert(HarmonicArray,convert(PeriodicFunctionMatrix,A) * convert(PeriodicFunctionMatrix,B))
+# TODO: perform * explicitly
 *(A::HarmonicArray, C::AbstractMatrix) = *(A, HarmonicArray(C, A.period))
 *(A::AbstractMatrix, C::HarmonicArray) = *(HarmonicArray(A, C.period), C)
+# function *(A::AbstractMatrix{T}, C::HarmonicArray) where {T <: Real}
+#     m, n, k = size(C.values)
+#     ma = size(A,1)
+#     return HarmonicArray( reshape(A*reshape(C.values,m,n*k),ma,n,k), C.period; nperiod = C.nperiod)
+# end
 *(A::HarmonicArray, C::Real) = HarmonicArray(C*A.values, A.period; nperiod = A.nperiod)
 *(C::Real, A::HarmonicArray) = HarmonicArray(C*A.values, A.period; nperiod = A.nperiod)
 /(A::HarmonicArray, C::Real) = *(A, 1/C)
@@ -474,6 +499,20 @@ derivative(A::FourierFunctionMatrix{:c,T}) where {T} = FourierFunctionMatrix{:c,
 LinearAlgebra.inv(A::FourierFunctionMatrix) = FourierFunctionMatrix(inv(A.M), A.period; nperiod = A.nperiod)
 LinearAlgebra.transpose(A::FourierFunctionMatrix{:c,T}) where {T}  = FourierFunctionMatrix{:c,T}(transpose(A.M), A.period, A.nperiod)
 LinearAlgebra.adjoint(A::FourierFunctionMatrix) = transpose(A)
+function LinearAlgebra.tr(V::Fun)
+    n, m = size(space(V))
+    if n ≠ m
+        throw(DimensionMismatch("space $(space(V)) is not square"))
+    end
+    a = Array(V)
+    temp = a[1,1]
+    for i = 2:n
+        temp += a[i,i]
+    end
+    return temp
+end
+LinearAlgebra.tr(A::FourierFunctionMatrix) = FourierFunctionMatrix(tr(A.M), A.period; nperiod = A.nperiod)
+
 function norm(A::FourierFunctionMatrix, p::Real = 2; K = 128) 
     nrm = 0. 
     Δ = A.period/K
@@ -549,6 +588,8 @@ LinearAlgebra.inv(A::PeriodicTimeSeriesMatrix) = PeriodicTimeSeriesMatrix(inv.(A
 LinearAlgebra.transpose(A::PeriodicTimeSeriesMatrix{:c,T}) where {T} = 
     PeriodicTimeSeriesMatrix{:c,T}([copy(transpose(A.values[i])) for i in 1:length(A)], A.period, A.nperiod)
 LinearAlgebra.adjoint(A::PeriodicTimeSeriesMatrix) = transpose(A)
+LinearAlgebra.tr(A::PeriodicTimeSeriesMatrix) = PeriodicTimeSeriesMatrix(tr.(A.values), A.period; nperiod = A.nperiod)
+
 function norm(A::PeriodicTimeSeriesMatrix, p::Real = 2) 
     nrm = 0. 
     for i = 1:length(A)       

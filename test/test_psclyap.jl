@@ -24,10 +24,10 @@ Xs = PeriodicSymbolicMatrix(X1, 2*pi)
 Cds = PeriodicSymbolicMatrix(-(A1'*X1+X1*A1+Xdots),2*pi)
 Cs = PeriodicSymbolicMatrix(Xdots - A1*X1-X1*A1', 2*pi)
 
-@time Ys = pclyap(As,Cs; K = 100, reltol = 1.e-10);
+@time Ys = pclyap(As,Cs; K = 100, reltol = 1.e-10, abstol = 1.e-10);
 @test Xs ≈ Ys && norm(As*Ys+Ys*As'+Cs - derivative(Ys)) < 1.e-6
 
-@time Ys = pclyap(As,Cds; adj = true, K = 100, reltol = 1.e-10);
+@time Ys = pclyap(As,Cds; adj = true, K = 100, reltol = 1.e-10, abstol = 1.e-10);
 @test Xs ≈ Ys && norm(As'*Ys+Ys*As+Cds + derivative(Ys)) < 1.e-6
 
 @time Ys = pfclyap(As,Cs; K = 100, reltol = 1.e-10);
@@ -35,7 +35,6 @@ Cs = PeriodicSymbolicMatrix(Xdots - A1*X1-X1*A1', 2*pi)
 
 @time Ys = prclyap(As,Cds; K = 100, reltol = 1.e-10);
 @test Xs ≈ Ys && norm(As'*Ys+Ys*As+Cds + derivative(Ys)) < 1.e-6
-
 
 # generate periodic function matrices
 A(t) = [0  1; -10*cos(t)-1 -24-19*sin(t)]
@@ -62,10 +61,33 @@ Xt = PeriodicFunctionMatrix(X,2*pi)
 @time Y = prclyap(At, Cdt, K = 500, reltol = 1.e-10)
 @test Xt ≈ Yt && norm(At'*Yt+Yt*At+Cdt+derivative(Yt)) < 1.e-7
 
+K = 500
+W0 = pgclyap(At, Ct, K; adj = false, solver = "", reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001);
+Ts = 2pi/K
+success = true
+for i = 1:K
+    Y  = PeriodicSystems.tvclyap(At, Ct, i*Ts, (i-1)*Ts, W0.values[mod(i+K-1,K)+1]; solver = "", adj = false, reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001) 
+    iw = i+1; iw > K && (iw = 1)
+    success = success && norm(Y-W0.values[iw]) < 1.e-7
+end
+@test success
+
+K = 500
+W0 = pgclyap(At,  Cdt, K; adj = true, solver = "", reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001);
+Ts = 2pi/K
+success = true
+for i = K:-1:1
+    iw = i+1; iw > K && (iw = 1)
+    Y  = PeriodicSystems.tvclyap(At, Cdt, (i-1)*Ts, i*Ts, W0.values[iw]; solver = "", adj = true, reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001) 
+    success = success && norm(Y-W0.values[i]) < 1.e-7
+end
+@test success
+
+
+
 solver = "non-stiff"
-#for solver in ("non-stiff", "stiff", "symplectic", "noidea")
-for solver in ("non-stiff", "stiff", "noidea")
-        println("solver = $solver")
+for solver in ("non-stiff", "stiff", "symplectic", "noidea")
+    println("solver = $solver")
     @time Yt = pclyap(At, Ct; solver, K = 500, reltol = 1.e-10, abstol = 1.e-10);
     @test Xt ≈ Yt
     #@test maximum(norm.(Yt.f.(tt).-Xt.f.(tt))) < 1.e-6
@@ -218,29 +240,39 @@ tt = Vector((1:500)*2*pi/500)
 @test maximum(norm.(Y.f.(tt).-Xt.f.(tt))) < 1.e-7
 
 
-# Pitelkau's example - singular Lyapunov equations
-# ω = 0.00103448
-# period = 2*pi/ω
-# a = [  0            0     5.318064566757217e-02                         0
-#        0            0                         0      5.318064566757217e-02
-#        -1.352134256362805e-03   0             0    -7.099273035392090e-02
-#        0    -7.557182037479544e-04     3.781555288420663e-02             0
-# ];
-# b = t->[0; 0; 0.1389735*10^-6*sin(ω*t); -0.3701336*10^-7*cos(ω*t)];
-# c = [1 0 0 0;0 1 0 0];
-# d = zeros(2,1);
-# psysc = ps(a,PeriodicFunctionMatrix(b,period),c,d);
+# Perturbed Pitelkau's example - singular Lyapunov equations
+ω = 0.00103448
+period = 2*pi/ω
+β = 0.01; 
+a = [  0            0     5.318064566757217e-02                         0
+       0            0                         0      5.318064566757217e-02
+       -1.352134256362805e-03   0             0    -7.099273035392090e-02
+       0    -7.557182037479544e-04     3.781555288420663e-02             0
+];
+b = t->[0; 0; 0.1389735*10^-6*sin(ω*t); -0.3701336*10^-7*cos(ω*t)];
+c = [1 0 0 0;0 1 0 0];
+d = zeros(2,1);
+psysc = ps(a-β*I,PeriodicFunctionMatrix(b,period),c,d);
 
-# @time Qc = prclyap(psysc.A,psysc.B*transpose(psysc.B),K = 120, reltol = 1.e-10);
-# @time Rc = pfclyap(psysc.A,transpose(psysc.C)*psysc.C, K = 120, reltol = 1.e-10);
-# @test norm(Qc) > 1.e3 && norm(Rc) > 1.e3
+# observability Gramian
+@time Qc = prclyap(psysc.A,transpose(psysc.C)*psysc.C,K = 120, reltol = 1.e-10);
+# controlability Gramian
+@time Rc = pfclyap(psysc.A,psysc.B*transpose(psysc.B), K = 120, reltol = 1.e-10);
+@test norm(psysc.A'*Qc+Qc*psysc.A+psysc.C'*psysc.C + derivative(Qc)) < 1.e-7 &&
+      norm(psysc.A*Rc+Rc*psysc.A'+psysc.B*psysc.B' - derivative(Rc)) < 1.e-7 
 
-# K = 120;
-# @time psys = psc2d(psysc,period/K,reltol = 1.e-10);
+# singular case
+psysc = ps(a,PeriodicFunctionMatrix(b,period),c,d);
+@time Qc = prclyap(psysc.A,transpose(psysc.C)*psysc.C,K = 120, reltol = 1.e-10);
+@time Rc = pfclyap(psysc.A,psysc.B*transpose(psysc.B), K = 120, reltol = 1.e-10);
+@test norm(Qc) > 1.e3 && norm(Rc) > 1.e2
 
-# @time Qd = prlyap(psys.A,psys.B*transpose(psys.B));
-# @time Rd = prlyap(transpose(psys.A),transpose(psys.C)*psys.C);
-# @test norm(Qd) > 1.e3 && norm(Rd) > 1.e3
+K = 120;
+@time psys = psc2d(psysc,period/K,reltol = 1.e-10);
+
+@time Qd = prlyap(psys.A,transpose(psys.C)*psys.C);
+@time Rd = pflyap(psys.A, psys.B*transpose(psys.B));
+@test norm(Qd) > 1.e3 && norm(Rd) > 1.e3
 
 end # psclyap
 

@@ -9,15 +9,6 @@ using ApproxFun
 
 println("Test_analysis")
 
-# # selected sequence to illustrate failure of BlockMatrices.jl v0.16.16
-# using LinearAlgebra
-# using ApproxFun
-# Af = Fun(t -> [0 1; -10*cos(t) -24-10*sin(t)],Fourier(0..2π));
-# D = Derivative(domain(Af));
-# ND = [D 0I; 0I D];
-# Aop = Af - ND;
-# NA = 322
-# RW = Aop[1:NA,1:NA]
 
 @testset "test_analysis" begin
 
@@ -356,6 +347,253 @@ K = 120;
 
 zd = pszero(psys,atol=1.e-7)
 @test all(isinf.(zd))
+
+
+# discrete-time H2 norm
+
+# PeriodicArray
+n = 5; nu = 2; ny = 3; pa = 3; pb = 6; pc = 2; pd = 1;   
+Ad = 0.1*PeriodicArray(rand(Float64,n,n,pa),pa);
+Bd = PeriodicArray(rand(Float64,n,nu,pb),pb);
+Cd = PeriodicArray(rand(Float64,ny,n,pc),pc);
+Dd = PeriodicArray(rand(Float64,ny,nu,pd),pd);
+psys = ps(Ad,Bd,Cd,Dd)
+
+@time n1 = psh2norm(psys)
+@time n2 = psh2norm(psys, fast = true)
+@time n1a = psh2norm(psys, adj = true) 
+@time n2a = psh2norm(psys, adj = true, fast = true)
+@test n1 ≈ n2 ≈ n1a ≈ n2a
+
+psys1 = convert(PeriodicStateSpace{PeriodicMatrix},psys);
+@time n1 = psh2norm(psys1)
+@time n2 = psh2norm(psys1,fast = true)
+@time n1a = psh2norm(psys1, adj = true) 
+@time n2a = psh2norm(psys1, adj = true, fast = true)
+@test n1 ≈ n2 ≈ n1a ≈ n2a
+
+
+
+# Example Bitanti & Colaneri
+A1 = [0 1; -0.1 0]; B1 = [0;1;;];
+C1 = [-0.25 -0.1 ]; C2 = [-1.2 0.3 ];
+D1 = [0;;]
+Ad = PeriodicArray(reshape(A1,2,2,1),1)
+Bd = PeriodicArray(reshape(B1,2,1,1),1)
+Cd = PeriodicArray(reshape([C1 C2],1,2,2),2)
+Dd = PeriodicArray(reshape(D1,1,1,1),1)
+psys = ps(Ad,Bd,Cd,Dd)
+
+@time n1 = psh2norm(psys)
+@time n2 = psh2norm(psys,fast = true)
+@time n1a = psh2norm(psys, adj = true)
+@time n2a = psh2norm(psys, adj = true, fast = true)
+@test n1 ≈ n2 ≈ n1a ≈ n2a
+
+psys1 = convert(PeriodicStateSpace{PeriodicMatrix},psys);
+@time n1 = psh2norm(psys1)
+@time n2 = psh2norm(psys1,fast = true)
+@time n1a = psh2norm(psys1, adj = true) 
+@time n2a = psh2norm(psys1, adj = true, fast = true)
+@test n1 ≈ n2 ≈ n1a ≈ n2a
+
+
+
+# PeriodicMatrix
+p = 5; na = [10, 8, 6, 4, 2]; ma = circshift(na,-1); nu = 2; ny = 3; 
+period = 10;
+Ad = 0.001*PeriodicMatrix([rand(ma[i],na[i]) for i in 1:p],period);
+Bd = PeriodicMatrix([rand(ma[i],nu) for i in 1:p],period);
+Cd = PeriodicMatrix([rand(ny,na[i]) for i in 1:p],period);
+Dd = PeriodicMatrix(rand(ny,nu),period; nperiod = rationalize(Ad.period/Ad.Ts).num);
+psys = ps(Ad,Bd,Cd,Dd)
+
+@time n1 = psh2norm(psys)
+@time n2 = psh2norm(psys,fast = true)
+@time n1a = psh2norm(psys, adj = true)
+@time n2a = psh2norm(psys, adj = true, fast = true)
+@test n1 ≈ n2 ≈ n1a ≈ n2a
+
+# continuous-time H2 norm
+A = [-1 -0.5; -3 -5]; B = [3;1;;]; C = [1. 2.]; D = [0.;;];
+sys = dss(A,B,C,D)
+nh2 = gh2norm(sys)
+
+psysc = ps(sys,2*pi)
+
+nh2pc = psh2norm(psysc)
+@test nh2 ≈ nh2pc
+
+period = π; ω = 2. ;
+
+P1 = PeriodicFunctionMatrix(t->[cos(ω*t) sin(ω*t); -sin(ω*t) cos(ω*t)],period); 
+PM = PeriodicFunctionMatrix
+for PM in (PeriodicFunctionMatrix, HarmonicArray, FourierFunctionMatrix, PeriodicSymbolicMatrix, PeriodicTimeSeriesMatrix)
+#for PM in (HarmonicArray, )
+        println("type = $PM")
+    K = PM == PeriodicTimeSeriesMatrix ? 128 : 200
+
+    P = convert(PM,P1);
+
+    Ap = derivative(P)*inv(P)+P*A*inv(P);
+    Bp = P*B
+    Cp = C*inv(P); Dp = D; 
+    psys = ps(Ap,Bp,Cp,Dp);
+    solver = "non-stiff"
+    for solver in ("non-stiff", "stiff", "symplectic", "noidea")
+        println("solver = $solver")
+        @time nh2p = psh2norm(psys,K; solver, reltol=1.e-10, abstol = 1.e-10)
+        @time nh2pq = psh2norm(psys,K; solver, reltol=1.e-10, abstol = 1.e-10, quad = true)
+        @time nh2pa = psh2norm(psys,K; adj = true, solver, reltol=1.e-10, abstol = 1.e-10)
+        @time nh2paq = psh2norm(psys,K; adj = true, solver, reltol=1.e-10, abstol = 1.e-10, quad = true)
+        @time nt1=sqrt.(tr(pmaverage(psys.C*pfclyap(psys.A, psys.B*psys.B'; K,solver,reltol=1.e-10,abstol=1.e-10)*psys.C')))[1]
+        @time nt1a=sqrt.(pmaverage(tr(psys.C*pfclyap(psys.A, psys.B*psys.B'; K,solver,reltol=1.e-10,abstol=1.e-10)*psys.C')))[1]
+        @time nt2=sqrt.(tr(pmaverage(psys.B'*prclyap(psys.A, psys.C'*psys.C; K,solver,reltol=1.e-10,abstol=1.e-10)*psys.B)))[1]
+        @time nt2a=sqrt.(pmaverage(tr(psys.B'*prclyap(psys.A, psys.C'*psys.C; K,solver,reltol=1.e-10,abstol=1.e-10)*psys.B)))[1]
+        @test nh2pc ≈ nh2p ≈ nh2pa ≈ nh2pq ≈ nh2paq     
+        @test abs(nh2pc - nt1) < 1.e-5 &&  abs(nh2pc - nt1a) < 1.e-5 &&  abs(nh2pc - nt2) < 1.e-5 &&  abs(nh2pc - nt2a) < 1.e-5 
+    end
+end
+
+
+# modified Zhou-Hagiwara Automatica 2002 
+β = 0.5
+a1 = PeriodicFunctionMatrix(t -> [-1-sin(2*t)^2 2-0.5*sin(4*t); -2-0.5*sin(4*t) -1-cos(2*t)^2],pi);
+γ = t -> mod(t,float(pi)) < pi/2 ? sin(2*t) : 0 
+b = t -> [0; 1-2*β*γ(t)]
+b1 = PeriodicFunctionMatrix(b, pi); 
+b1t = PeriodicFunctionMatrix(t -> [0 1-2*β*γ(t)], pi);
+c = [1 1]; d = [0];
+psys = ps(PeriodicFunctionMatrix,a1,b1,b1',d);
+
+@time n1 = psh2norm(psys,1; reltol=1.e-10, abstol = 1.e-10);
+@time n100 = psh2norm(psys,100, reltol=1.e-10, abstol = 1.e-10);
+@time n100q = psh2norm(psys,300, reltol=1.e-10, abstol = 1.e-10, quad=true);
+@time n200 = psh2norm(psys,100, reltol=1.e-9, abstol = 1.e-9);
+@test n1 ≈ n100 ≈ n200  && abs(n1-n100q) < 0.001  
+
+@time n1a = psh2norm(psys,1; adj = true, reltol=1.e-10, abstol = 1.e-10);
+@time n100a = psh2norm(psys,100; adj = true, reltol=1.e-10, abstol = 1.e-10);
+@time n200a = psh2norm(psys,200; adj = true, reltol=1.e-14, abstol = 1.e-14);
+@time n100aq = psh2norm(psys,300, adj = true, reltol=1.e-10, abstol = 1.e-10, quad=true);
+@test n100a ≈ n200a && n1a ≈ n100a && n1a ≈ n1 && abs(n1-n100aq) < 0.001
+
+
+# compare with Zhou-Hagiwara Automatica 2002 and Peng-Wu IJC 2011 
+psys = ps(PeriodicFunctionMatrix,a1,b1,c,d);
+for β in 0.1 .* (0:5)
+    psys = ps(PeriodicFunctionMatrix,a1,PeriodicFunctionMatrix(t -> [0; 1-2*β*γ(t)], pi),c,d);
+    @time n100 = psh2norm(psys,100, reltol=1.e-10, abstol = 1.e-10);
+    @time nt100=sqrt.(tr(pmaverage(psys.C*pfclyap(psys.A, psys.B*psys.B';K = 100,reltol=1.e-10,abstol=1.e-10)*psys.C')))[1]
+    @test nt100 ≈ n100
+    println("β = $β norm = $n100")
+end
+
+nt = psh2norm(psys,200, adj = true, reltol=1.e-10, abstol = 1.e-10) 
+solver = "non-stiff"
+for solver in ("non-stiff", "stiff", "symplectic", "noidea")
+    println("solver = $solver")
+    @time n1 = psh2norm(psys,100; solver, adj = false, reltol=1.e-10, abstol = 1.e-10)
+    @time n2 = psh2norm(psys,100; solver, adj = true, reltol=1.e-10, abstol = 1.e-10)
+    @test n1 ≈ nt ≈ n2
+end
+
+
+# Peng-Wu IJC 2011 
+a = 1; b = 0.2; 
+ω = [1, 2, 3, 4, 5]; ϵ = [0.001, 0.001, 0.01, 0.1]
+i = 1; j = 1;
+period = 2*pi/ω[j]
+a1 = PeriodicFunctionMatrix(t -> [0 1; -1-2*ϵ[i]*cos(ω[j]*t) -2*b],period); 
+b1 = [0;1;;]; c = [1 0]; d = [0];
+psys = ps(PeriodicFunctionMatrix,a1,b1,c,d);
+@time n1 = psh2norm(psys,1; reltol=1.e-10, abstol = 1.e-10);
+@time n100 = psh2norm(psys,100);
+@time n200 = psh2norm(psys,200);
+@test n100 ≈ n200 && n1 ≈ n100
+
+# compare with Peng-Wu IJC 2011 
+nrm = zeros(4,5);
+for i = 1:4
+    for j = 1:5
+       period = 2*pi/ω[j]
+       psys = ps(PeriodicFunctionMatrix,PeriodicFunctionMatrix(t -> [0 1; -1-2*ϵ[i]*cos(ω[j]*t) -2*b], period), b1, c,d);
+       @time nrm[i,j] = psh2norm(psys,100; adj = true);
+       #println("ϵ[$i] = $(ϵ[i]) ω[$j] = $(ω[j]) norm = $(nrm[i,j])")
+    end
+end
+@show nrm   
+
+
+# Pitelkau's example - infinite norm
+ω = 0.00103448
+period = 2*pi/ω
+β = 0.0; 
+a = [  0            0     5.318064566757217e-02                         0
+       0            0                         0      5.318064566757217e-02
+       -1.352134256362805e-03   0             0    -7.099273035392090e-02
+       0    -7.557182037479544e-04     3.781555288420663e-02             0
+];
+b = t->[0; 0; 0.1389735*10^-6*sin(ω*t); -0.3701336*10^-7*cos(ω*t)];
+c = [1 0 0 0;0 1 0 0];
+d = zeros(2,1);
+psys = ps(a-β*I,PeriodicFunctionMatrix(b,period),c,d);
+
+@time n1 = psh2norm(psys,1; reltol=1.e-10, abstol = 1.e-10); 
+@time n2 = psh2norm(psys,1; adj = true, reltol=1.e-10, abstol = 1.e-10); 
+
+@test n1 == Inf == n2
+
+β = 0.01
+psys = ps(a-β*I,PeriodicFunctionMatrix(b,period),c,d);
+
+@time n1 = psh2norm(psys,100; reltol=1.e-10, abstol = 1.e-10); 
+@time n2 = psh2norm(psys,100; adj = true, reltol=1.e-10, abstol = 1.e-10); 
+@test abs(n1 - n2) < 1.e-10
+
+@time n1 = psh2norm(psys,100; reltol=1.e-10, abstol = 1.e-10, quad = true); 
+@time n2 = psh2norm(psys,100; adj = true, reltol=1.e-10, abstol = 1.e-10, quad = true); 
+@test abs(n1 - n2) < 1.e-10
+
+β = 0.01
+psys = ps(a-β*I,copy(c'),PeriodicFunctionMatrix(b,period)',copy(d'));
+@time n1 = psh2norm(psys,100; reltol=1.e-10, abstol = 1.e-10); 
+@time n2 = psh2norm(psys,100; adj = true, reltol=1.e-10, abstol = 1.e-10); 
+@test abs(n1 - n2) < 1.e-10
+
+
+# # test example for symplectic solver failure
+# using IRKGaussLegendre
+# function muladdcsymt!(y::AbstractVector, x::AbstractVector, A::AbstractMatrix, C::AbstractMatrix)
+#     n = size(A, 1)
+#     X = reshape(x,n,n)
+#     # A*X + X*A' + C
+#     y[:] .= (A*X+X*A'+C)[:]
+#     return nothing
+# end
+# A = t -> [-1-sin(2*t)^2 2-0.5*sin(4*t); -2-0.5*sin(4*t) -1-cos(2*t)^2]
+# γ = t -> mod(t,float(pi)) < pi/2 ? sin(2*t) : 0 
+# B = t -> [0; 1-2*0.5*γ(t)]
+# K = 100
+# Ts = pi/K
+# dt = Ts/100
+# ftclyap!(du,u,p,t) = muladdcsymt!(du, u, A(t), B(t)*B(t)')
+# i1 = 1; i2 = K  # for all cases
+# #i1 = 2; i2 = 2 # an error case on my machine
+# for i = i1:i2
+#     u0 = zeros(2*2) 
+#     tspan = ((i-1)*Ts,i*Ts)
+#     prob = ODEProblem(ftclyap!, u0, tspan)
+#     #sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = true, reltol=1.e-10, abstol=1.e-10, save_everystep = false) # occasionally fails
+#     sol = solve(prob, IRKGaussLegendre.IRKGL16(); dt, adaptive = true, reltol=1.e-10, abstol=1.e-30, save_everystep = false) # this works
+#     # @show sol.retcode
+#     if sol.retcode == :Failure
+#        @show i
+#        sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = false, reltol=1.e-10, abstol=1.e-10, save_everystep = false, dt)
+#     end
+#     #@show sol[end] # solution must be symmetric
+# end
+
 
 end # test
 

@@ -25,7 +25,7 @@ equation using the periodic Schur method of [2].
 The resulting periodic time-series matrix is finally converted to the appropriate periodic representation.
 
 The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, together with
-the required relative accuracy `reltol` (default: `reltol = 1.e-3`) and 
+the required relative accuracy `reltol` (default: `reltol = 1.e-4`) and 
 absolute accuracy `abstol` (default: `abstol = 1.e-7`) (see [`tvstm`](@ref)). 
 For large values of `K`, parallel computation of the matrices of the discrete-time problem can be alternatively performed 
 by starting Julia with several execution threads. 
@@ -41,32 +41,32 @@ _References_
     Int. J. Control, vol, 67, pp, 69-87, 1997.
     
 """
-function pclyap(A::PeriodicFunctionMatrix, C::PeriodicFunctionMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-3, abstol = 1.e-7)
+function pclyap(A::PeriodicFunctionMatrix, C::PeriodicFunctionMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7)
    convert(PeriodicFunctionMatrix,convert(HarmonicArray, pgclyap(A, C, K;  adj, solver, reltol, abstol)))
 end
 pclyap(A::PeriodicFunctionMatrix, C::AbstractMatrix; kwargs...) = pclyap(A, PeriodicFunctionMatrix(C, A.period; nperiod = A.nperiod); kwargs...)
-function pclyap(A::PeriodicSymbolicMatrix, C::PeriodicSymbolicMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-3, abstol = 1.e-7)
+function pclyap(A::PeriodicSymbolicMatrix, C::PeriodicSymbolicMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7)
    convert(PeriodicSymbolicMatrix, pgclyap(convert(PeriodicFunctionMatrix,A), convert(PeriodicFunctionMatrix,C), K;  adj, solver, reltol, abstol))
 end
-function pclyap(A::HarmonicArray, C::HarmonicArray; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-3, abstol = 1.e-7)
+function pclyap(A::HarmonicArray, C::HarmonicArray; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7)
    convert(HarmonicArray, pgclyap(A,  C, K;  adj, solver, reltol, abstol))
 end
-function pclyap(A::FourierFunctionMatrix, C::FourierFunctionMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-3, abstol = 1.e-7)
+function pclyap(A::FourierFunctionMatrix, C::FourierFunctionMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7)
    convert(FourierFunctionMatrix, pgclyap(A,  C, K;  adj, solver, reltol, abstol))
 end
-function pclyap(A::PeriodicTimeSeriesMatrix, C::PeriodicTimeSeriesMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-3, abstol = 1.e-7)
+function pclyap(A::PeriodicTimeSeriesMatrix, C::PeriodicTimeSeriesMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7)
    pgclyap(convert(HarmonicArray,A), convert(HarmonicArray,C), K;  adj, solver, reltol, abstol)
 end
 
 for PM in (:PeriodicFunctionMatrix, :PeriodicSymbolicMatrix, :HarmonicArray, :FourierFunctionMatrix, :PeriodicTimeSeriesMatrix)
    @eval begin
-      function prclyap(A::$PM, C::$PM; K::Int = 10, solver = "non-stiff", reltol = 1.e-3, abstol = 1.e-7) 
+      function prclyap(A::$PM, C::$PM; K::Int = 10, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7) 
          pclyap(A, C; K, adj = true, solver, reltol, abstol)
       end
       function prclyap(A::$PM, C::AbstractMatrix; kwargs...)
                prclyap(A, $PM(C, A.period; nperiod = A.nperiod); kwargs...)
       end
-      function pfclyap(A::$PM, C::$PM; K::Int = 10, solver = "non-stiff", reltol = 1.e-3, abstol = 1.e-7) 
+      function pfclyap(A::$PM, C::$PM; K::Int = 10, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7) 
          pclyap(A, C; K, adj = false, solver, reltol, abstol)
       end
       function pfclyap(A::$PM, C::AbstractMatrix; kwargs...)
@@ -89,7 +89,7 @@ is adjusted accordingly.
 
 This function is merely an interface to [`pclyap`](@ref)) (see this function for the description of keyword parameters). 
 """
-pfclyap(A::PeriodicFunctionMatrix, C::PeriodicFunctionMatrix; K::Int = 10, solver = "non-stiff", reltol = 1.e-3, abstol = 1.e-7)
+pfclyap(A::PeriodicFunctionMatrix, C::PeriodicFunctionMatrix; K::Int = 10, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7)
 """
     prclyap(A, C; K = 10, solver, reltol, abstol) -> X
 
@@ -105,10 +105,10 @@ is adjusted accordingly.
 
 This function is merely an interface to [`pclyap`](@ref)) (see this function for the description of keyword parameters). 
 """
-prclyap(A::PeriodicFunctionMatrix, C::PeriodicFunctionMatrix; K::Int = 10, solver = "non-stiff", reltol = 1.e-3, abstol = 1.e-7)
+prclyap(A::PeriodicFunctionMatrix, C::PeriodicFunctionMatrix; K::Int = 10, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7)
 
 """
-    pgclyap(A, C[, K = 1]; adj = false, solver, reltol, abstol) -> X
+    pgclyap(A, C[, K = 1]; adj = false, solver, reltol, abstol, dt) -> X
 
 Compute periodic generators for the periodic Lyapunov differential equation
 
@@ -132,9 +132,10 @@ The multiple-shooting method of [1] is employed, first, to convert the continuou
 the generator solution in `K` time grid points and then to compute the solution by solving an appropriate discrete-time periodic Lyapunov 
 equation using the periodic Schur method of [2]. 
 
-The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, together with
-the required relative accuracy `reltol` (default: `reltol = 1.e-3`) and 
-absolute accuracy `abstol` (default: `abstol = 1.e-7`) (see [`tvstm`](@ref)). 
+The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
+together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt' (default: `dt = 0`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+
 For large values of `K`, parallel computation of the matrices of the discrete-time problem can be alternatively performed 
 by starting Julia with several execution threads. 
 The number of execution threads is controlled either by using the `-t/--threads` command line argument 
@@ -149,7 +150,7 @@ _References_
     Int. J. Control, vol, 67, pp, 69-87, 1997.
     
 """
-function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", reltol = 1e-3, abstol = 1e-7) where
+function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", reltol = 1e-4, abstol = 1e-7, dt = 0) where
       {PM1 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}, PM2 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}} 
    period = promote_period(A, C)
    na = Int(round(period/A.period))
@@ -157,12 +158,13 @@ function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", 
    nperiod = gcd(na*A.nperiod, nc*C.nperiod)
    n = size(A,1)
    Ts = period/K/nperiod
+   solver == "symplectic" && dt == 0 && (dt = K >= 100 ? Ts : Ts*K/100/nperiod)
    
    if isconstant(A) && isconstant(C)
       X = adj ? lyapc(tpmeval(A,0)', tpmeval(C,0)) :  lyapc(tpmeval(A,0), tpmeval(C,0))
    else
       T = promote_type(eltype(A),eltype(C),Float64)
-      Ka = isconstant(A) ? 1 : Int(round(A.period/A.nperiod/Ts))
+      Ka = isconstant(A) ? 1 : max(1,Int(round(A.period/A.nperiod/Ts)))
       Ad = Array{T,3}(undef, n, n, Ka) 
       Cd = Array{T,3}(undef, n, n, K) 
       Threads.@threads for i = 1:Ka
@@ -170,18 +172,20 @@ function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", 
       end
       if adj
          Threads.@threads for i = K:-1:1
-            @inbounds Cd[:,:,i]  = tvclyap(A, C, (i-1)*Ts, i*Ts; adj, solver, reltol, abstol) 
+            @inbounds Cd[:,:,i]  = tvclyap(A, C, (i-1)*Ts, i*Ts; adj, solver, reltol, abstol, dt) 
          end
+         X = pslyapd(Ad, Cd; adj)
       else
-         Threads.@threads for i = 1:K
-            @inbounds Cd[:,:,i]  = tvclyap(A, C, i*Ts, (i-1)*Ts; adj, solver, reltol, abstol) 
+         #Threads.@threads for i = 1:K
+         for i = 1:K
+               @inbounds Cd[:,:,i]  = tvclyap(A, C, i*Ts, (i-1)*Ts; adj, solver, reltol, abstol, dt) 
          end
+         X = pslyapd(Ad, Cd; adj)
       end
-      X = pslyapd(Ad, Cd; adj)
    end
    return PeriodicTimeSeriesMatrix([X[:,:,i] for i in 1:size(X,3)], period; nperiod)
 end
-function tvclyap(A::PM1, C::PM2, tf, t0; adj = false, solver = "", reltol = 1e-3, abstol = 1e-7) where
+function tvclyap(A::PM1, C::PM2, tf, t0, W0::Union{AbstractMatrix,Missing} = missing; adj = false, solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) where
    {PM1 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}, PM2 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}} 
    """
       tvclyap(A, C, tf, to; adj, solver, reltol, abstol) -> W::Matrix
@@ -193,18 +197,19 @@ function tvclyap(A::PM1, C::PM2, tf, t0; adj = false, solver = "", reltol = 1e-3
    or 
             .
             W(t) = -A(t)'*W(t)-W(t)*A(t)-Q(t), W(t0) = 0, tf < t0, if adj = true. 
-   The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, together with
-   the required relative accuracy `reltol` (default: `reltol = 1.e-3`) and 
-   absolute accuracy `abstol` (default: `abstol = 1.e-7`) (see [`tvstm`](@ref)). 
+
+   The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
+   together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
+   absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt' (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
    """
    n = size(A,1)
    n == size(A,2) || error("the periodic matrix A must be square")
    (n,n) == size(C) || error("the periodic matrix C must have same dimensions as A")
    T = promote_type(typeof(t0), typeof(tf))
    # using OrdinaryDiffEq
-   u0 = zeros(T,div(n*(n+1),2))
+   ismissing(W0) ? u0 = zeros(T,div(n*(n+1),2)) : u0 = MatrixEquations.triu2vec(W0)
    tspan = (T(t0),T(tf))
-   fclyap!(du,u,p,t) = adj ? muladdcsym!(du, -tpmeval(A,t)', u, -tpmeval(C,t)) : muladdcsym!(du, tpmeval(A,t), u, tpmeval(C,t))
+   fclyap!(du,u,p,t) = adj ? muladdcsym!(du, u, -1, tpmeval(A,t)', tpmeval(C,t)) : muladdcsym!(du, u, 1, tpmeval(A,t), tpmeval(C,t))
    prob = ODEProblem(fclyap!, u0, tspan)
    if solver == "stiff" 
       if reltol > 1.e-4  
@@ -224,8 +229,16 @@ function tvclyap(A::PM1, C::PM2, tf, t0; adj = false, solver = "", reltol = 1e-3
       end
    elseif solver == "symplectic" 
       # high accuracy symplectic
-      sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = true, reltol, abstol, save_everystep = false)
-   else 
+      if dt == 0 
+         sol = solve(prob, IRKGaussLegendre.IRKGL16(maxtrials=4); adaptive = true, reltol, abstol, save_everystep = false)
+         #@show sol.retcode
+         if sol.retcode == :Failure
+            sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = false, reltol, abstol, save_everystep = false, dt = abs(tf-t0)/100)
+         end
+      else
+           sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = false, reltol, abstol, save_everystep = false, dt)
+      end
+ else 
       if reltol > 1.e-4  
          # low accuracy automatic selection
          sol = solve(prob, AutoTsit5(Rosenbrock23()) ; reltol, abstol, save_everystep = false)
@@ -234,9 +247,9 @@ function tvclyap(A::PM1, C::PM2, tf, t0; adj = false, solver = "", reltol = 1e-3
          sol = solve(prob, AutoVern9(Rodas5(),nonstifftol = 11/10); reltol, abstol, save_everystep = false)
       end
    end
-   return MatrixEquations.vec2triu(sol(tf), her=true)     
+   return MatrixEquations.vec2triu(sol[end], her=true)     
 end
-function muladdcsym!(y::AbstractVector, A::AbstractMatrix, x::AbstractVector, C::AbstractMatrix)
+function muladdcsym!(y::AbstractVector, x::AbstractVector, isig, A::AbstractMatrix, C::AbstractMatrix)
    # A*X + X*A' + C
    n = size(A, 1)
    T1 = promote_type(eltype(A), eltype(x))
@@ -248,9 +261,9 @@ function muladdcsym!(y::AbstractVector, A::AbstractMatrix, x::AbstractVector, C:
          for i = 1:j
             temp = C[i,j]
             for l = 1:n
-               temp += A[i,l] * X[l,j] + X[i,l] * conj(A[j,l])
+               temp += A[i,l] * X[l,j] + X[i,l] * A[j,l]
             end
-            y[k] = temp
+            y[k] = isig*temp
             k += 1
          end
       end

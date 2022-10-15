@@ -1033,21 +1033,17 @@ function psreduc_reg(A::AbstractVector{Matrix{T}}) where T
      
    K = length(A) 
    n = size.(A,2) 
-   n == size.(A,1)[mod.(2:K+1,K).+1] || 
-      error("the number of column of A[i] must be equal to the number of rows of A[i+1]")
-
-   if K == 1
-      return A[1], Matrix{T}(I, n[1], n[1])
-   else
-      si = A[1];  ti = -I
-      for i = 1:K-1
-          F = qr([ ti; A[i+1] ])  
-          mi1 = n[mod(i+1,K)+1]
-          si = F.Q'*[si; zeros(T,mi1,n[1])]; si = si[n[i+1]+1:end,:] 
-          ti = F.Q'*[ zeros(T,n[i+1],mi1); -I]; ti = ti[n[i+1]+1:end,:] 
-      end
-      return si, -ti
+   n == size.(A,1)[mod.(-1:K-2,K).+1] || 
+      error("the number of columns of A[i] must be equal to the number of rows of A[i-1]")
+   k = mod(1,K)+1
+   si = A[1];  ti = Matrix{T}(I, n[k], n[k])
+   for i = 2:K
+       F = qr([ -ti; A[i] ])  
+       mi1 = n[mod(i,K)+1]
+       si = (F.Q'*[si; zeros(T,mi1,n[1])])[n[i]+1:end,:] 
+       ti = (F.Q'*[ zeros(T,n[i],mi1); I])[n[i]+1:end,:] 
    end
+   return si, ti
 end
 
 # time response evaluations
@@ -1236,7 +1232,7 @@ function pmaverage(A::PM) where {PM <: Union{PeriodicFunctionMatrix,PeriodicSymb
    return real(convert(HarmonicArray,A).values[:,:,1])
 end
 pmaverage(A::HarmonicArray) = real(A.values[:,:,1])
-pmaverage(A::FourierFunctionMatrix) = getindex.(coefficients.(Matrix(A.M)),1)
+pmaverage(A::FourierFunctionMatrix) = typeof(size(A)) == Tuple{} ? coefficients(A.M)[1] : getindex.(coefficients.(Matrix(A.M)),1)
 
 function getpm(A::PeriodicMatrix, k, dperiod::Union{Int,Missing} = missing)
    i = ismissing(dperiod) ? mod(k-1,A.dperiod)+1 : mod(k-1,dperiod)+1

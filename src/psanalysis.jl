@@ -276,3 +276,285 @@ function isstable(psys::PeriodicStateSpace{<: AbstractPeriodicArray{:d,T}}; smar
     ev = pseig(psys.A; fast)
     return all(abs.(ev) .< smarg-abs(offset))
 end
+"""
+    psh2norm(psys; adj = false, smarg = 1, fast = false, offset = sqrt(ϵ)) -> nrm
+
+Compute the H2-norm of a discrete-time periodic system `psys = (A(t),B(t),C(t),D(t))`.  
+For the computation of the norm, the formulas given in [1] are employed. 
+For `adj = false` the norm is computed as
+ 
+     nrm = sqrt(sum(tr(C(t)*P(t)*C(t)'+D(t)*D(t)'))),
+
+where `P(t)` is the controllability Gramian satisfying the periodic Lyapunov equation
+
+     P(t+1) = A(t)P(t)A(t)' + B(t)B(t)',
+
+while for `adj = true` the norm is computed as
+ 
+    nrm = sqrt(sum(tr(B(t)'*Q(t)*B(t)+D(t)'*D(t)))),
+
+where `Q(t)` is the observability Gramian satisfying the periodic Lyapunov equation
+
+    Q(t) = A(t)'Q(t+1)A(t) + C(t)'C(t) .
+
+The norm is set to infinity for an unstable system.
+    
+To assess the stability, the absolute values of the characteristic multipliers of `A(t)` 
+must be less than `smarg-β`, where `smarg` is the discrete-time stability margin (default: `smarg = 1`)  and 
+`β` is an offset specified via the keyword parameter `offset = β` to be used to numerically assess the stability
+of eigenvalues. The default value used for `β` is `sqrt(ϵ)`, where `ϵ` is the working machine precision. 
+
+If `fast = false` (default) then the norm is evaluated using an approach based on the periodic Schur decomposition of `A(t)`, 
+while if `fast = true` the norm of the lifted standard system is evaluated.  
+This later option may occasionally lead to inaccurate results for large number of matrices. 
+
+_References_
+
+[1] S. Bittanti and P. Colaneri. Periodic Systems : Filtering and Control.
+    Springer-Verlag London, 2009. 
+"""
+function psh2norm(psys::PeriodicStateSpace{<: AbstractPeriodicArray{:d,T}}; adj::Bool = false, smarg::Real = 1, fast::Bool = false, 
+                  offset::Real = sqrt(eps(float(real(T))))) where {T}
+    !isstable(psys; smarg, offset, fast ) && (return Inf)  # unstable system
+    if fast
+       return gh2norm(ps2ls(psys, ss = true))
+    else
+       if adj 
+          P = pdlyap(psys.A, psys.C'*psys.C,adj=true)
+          return sqrt(sum(tr(psys.B'*pmshift(P,1)*psys.B+psys.D'*psys.D)))
+       else
+          P = pdlyap(psys.A, psys.B*psys.B',adj=false)
+          return sqrt(sum(tr(psys.C*P*psys.C'+psys.D*psys.D')))
+       end
+    end
+end
+"""
+    psh2norm(psys, K; adj = false, smarg = 1, fast = false, offset = sqrt(ϵ), solver = "", reltol = 1.e-4, abstol = 1.e-7, quad = false) -> nrm
+
+Compute the H2-norm of a continuous-time periodic system `psys = (A(t),B(t),C(t),D(t))`.  
+For the computation of the norm, the formulas given in [1] are employed, 
+in conjunction with the multiple-shooting approach of [2] using `K` discretization points.  
+For a periodic system of period  `T`, for `adj = false` the norm is computed as
+ 
+     nrm = sqrt(Integral(tr(C(t)*P(t)*C(t)')))dt/T),
+
+where `P(t)` is the controllability Gramian satisfying the periodic differential Lyapunov equation
+
+     .
+     P(t) = A(t)P(t)A(t)' + B(t)B(t)',
+
+while for `adj = true` the norm is computed as
+ 
+    nrm = sqrt(Integral(tr(B(t)'*Q(t)*B(t)))dt/T),
+
+where Q(t) is the observability Gramian satisfying the periodic differential Lyapunov equation
+
+     .
+    -Q(t) = A(t)'Q(t)A(t) + C(t)'C(t) .
+
+If `quad = true`, a simple quadrature formula based on the sum of time values is employed (see [2]).
+This option ensures a faster evaluation, but is potentially less accurate then the exact evaluation
+employed if `quad = false` (default). 
+
+The norm is set to infinity for an unstable system or for a non-zero `D(t)`.
+    
+To assess the stability, the absolute values of the characteristic multipliers of `A(t)` 
+must be less than `smarg-β`, where `smarg` is the discrete-time stability margin (default: `smarg = 1`)  and 
+`β` is an offset specified via the keyword parameter `offset = β` to be used to numerically assess the stability
+of eigenvalues. The default value used for `β` is `sqrt(ϵ)`, where `ϵ` is the working machine precision. 
+If `fast = false` (default) then the stability is checked using an approach based on the periodic Schur decomposition of `A(t)`, 
+while if `fast = true` the stability is checked using a lifting-based approach.  
+
+The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
+together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) and 
+stepsize `dt' (default: `dt = 0`). The value stepsize is relevant only if `solver = "symplectic", in which case
+an adaptive stepsize strategy is used if `dt = 0` and a fixed stepsize is used if `dt > 0`. (see also [`tvstm`](@ref)). 
+
+
+_References_
+
+[1] P. Colaneri. Continuous-time periodic systems in H2 and H∞: Part I: Theoretical Aspects.
+    Kybernetika, 36:211-242, 2000. 
+
+[2] A. Varga, On solving periodic differential matrix equations with applications to periodic system norms computation.
+    Proc. CDC/ECC, Seville, p.6545-6550, 2005.  
+"""
+function psh2norm(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix, HarmonicArray, FourierFunctionMatrix}}, K::Int = 1; adj::Bool = false, smarg::Real = 1, fast::Bool = false, 
+                  offset::Real = sqrt(eps()), solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0, quad = false) 
+    norm(psys.D) == 0 || (return Inf)            
+    !isstable(psys, K; smarg, offset, fast, solver, reltol, abstol) && (return Inf)  # unstable system
+    P = adj ? pgclyap(psys.A, psys.C'*psys.C, K; adj, solver, reltol, abstol) : pgclyap(psys.A, psys.B*psys.B', K; adj, solver, reltol, abstol)
+    Ts = psys.period/K/P.nperiod
+    pp = length(P)
+    if quad 
+       # use simple quadrature formula 
+       nrm = 0
+       if adj
+          for i = K:-1:1
+              ip =  mod.(i-1,pp).+1
+              Bt = tpmeval(psys.B,(i-1)*Ts)
+              nrm += tr(Bt'*P.values[ip]*Bt)
+          end
+       else
+          for i = 1:K
+              ip =  mod.(i-1,pp).+1
+              Ct = tpmeval(psys.C,(i-1)*Ts)
+              temp = tr(Ct*P.values[ip]*Ct')
+              # (i == 1 || i == K) && (temp = temp/2) # for some reason the trapezoidal method is less accurate 
+              nrm += temp
+          end
+        end
+       return sqrt(nrm*Ts*P.nperiod/psys.period)
+    end
+    μ = Vector{eltype(psys)}(undef,K)
+    solver == "symplectic" && dt == 0 && (dt = K >= 100 ? Ts : Ts*K/100)
+    if adj
+       #Threads.@threads for i = K:-1:1
+        for i = K:-1:1
+            ip =  mod.(i-1,pp).+1
+            iw = ip < pp ? ip+1 : 1 
+            @inbounds μ[i] = tvh2norm(psys.A, psys.B, psys.C, P.values[iw], (i-1)*Ts, i*Ts; adj, solver, reltol, abstol, dt)
+        end
+    else
+       #Threads.@threads for i = K:-1:1
+       for i = 1:K
+           ip =  mod.(i-1,pp).+1
+           @inbounds μ[i]  = tvh2norm(psys.A, psys.B, psys.C, P.values[ip], i*Ts, (i-1)*Ts; adj, solver, reltol, abstol, dt) 
+       end
+    end
+    #@show μ
+    return sqrt(sum(μ)*P.nperiod/psys.period)
+end
+function psh2norm(psys::PeriodicStateSpace{<:PeriodicSymbolicMatrix}, K::Int = 1; adj::Bool = false, smarg::Real = 1, fast::Bool = false, 
+                  offset::Real = sqrt(eps()), solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0, quad = false) 
+    psh2norm(convert(PeriodicStateSpace{PeriodicFunctionMatrix},psys), K; adj, smarg, fast, offset, solver, reltol, abstol, dt, quad) 
+end
+function psh2norm(psys::PeriodicStateSpace{<:PeriodicTimeSeriesMatrix}, K::Int = 1; adj::Bool = false, smarg::Real = 1, fast::Bool = false, 
+                  offset::Real = sqrt(eps()), solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0, quad = false) 
+    psh2norm(convert(PeriodicStateSpace{HarmonicArray},psys), K; adj, smarg, fast, offset, solver, reltol, abstol, dt, quad) 
+end
+
+function tvh2norm(A::PM1, B::PM2, C::PM3, P::AbstractMatrix, tf, t0; adj = false, solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) where
+    {PM1 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}, 
+     PM2 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}, 
+     PM3 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}} 
+    """
+       tvh2norm(A, B, C, P, tf, to; adj, solver, reltol, abstol, dt) ->  μ 
+ 
+    Cmputes the H2-norm of the system (A(t),B(t),C(t),0) by integrating tf > t0 and adj = false
+    jointly the differential matrix Lyapunov equation
+
+            . 
+            W(t) = A(t)*W(t)+W(t)*A'(t)+B(t)B(t)', W(t0) = P
+
+    and
+
+            .
+            h(t) = trace(C(t)*W(t)*C'(t)),   h(t0) = 0;
+                     
+ 
+    or for tf < t0 and adj = true
+
+            .
+            W(t) = -A(t)'*W(t)-W(t)*A(t)-C(t)'C(t), W(t0) = P
+
+    and
+
+            .
+            h(t) = -trace(B(t)'*W(t)*B(t)),   h(t0) = 0.
+
+
+    The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
+    together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
+    absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt' (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+    """
+    n = size(A,1)
+    n == size(A,2) || error("the periodic matrix A must be square")
+    n == size(C,2) || error("the periodic matrix C must have same number of columns as A")
+    T = promote_type(typeof(t0), typeof(tf))
+    # using OrdinaryDiffEq
+    u0 = [MatrixEquations.triu2vec(P);zero(T)]
+    tspan = (T(t0),T(tf))
+    fclyap1!(du,u,p,t) = adj ? muladdcsym1!(du, u, -1, tpmeval(A,t)', tpmeval(C,t)', tpmeval(B,t)') : 
+                               muladdcsym1!(du, u, 1, tpmeval(A,t), tpmeval(B,t), tpmeval(C,t)) 
+    prob = ODEProblem(fclyap1!, u0, tspan)
+    if solver == "stiff" 
+       if reltol > 1.e-4  
+          # standard stiff
+          sol = solve(prob, Rodas4(); reltol, abstol, save_everystep = false)
+       else
+          # high accuracy stiff
+          sol = solve(prob, KenCarp58(); reltol, abstol, save_everystep = false)
+       end
+    elseif solver == "non-stiff" 
+       if reltol > 1.e-4  
+          # standard non-stiff
+          sol = solve(prob, Tsit5(); reltol, abstol, save_everystep = false)
+       else
+          # high accuracy non-stiff
+          sol = solve(prob, Vern9(); reltol, abstol, save_everystep = false)
+       end
+    elseif solver == "symplectic" 
+       # high accuracy symplectic
+       if dt == 0 
+          sol = solve(prob, IRKGaussLegendre.IRKGL16(maxtrials=4); adaptive = true, reltol, abstol, save_everystep = false)
+          #@show sol.retcode
+          if sol.retcode == :Failure
+             sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = false, reltol, abstol, save_everystep = false, dt = abs(tf-t0)/100)
+          end
+       else
+            sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = false, reltol, abstol, save_everystep = false, dt)
+       end
+    else 
+       if reltol > 1.e-4  
+          # low accuracy automatic selection
+          sol = solve(prob, AutoTsit5(Rosenbrock23()) ; reltol, abstol, save_everystep = false)
+       else
+          # high accuracy automatic selection
+          sol = solve(prob, AutoVern9(Rodas5(),nonstifftol = 11/10); reltol, abstol, save_everystep = false)
+       end
+    end
+    return sol(tf)[end] 
+ end
+ function muladdcsym1!(y::AbstractVector, x::AbstractVector, isig, A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix)
+    # isig*(A*X + X*A' + B*B')
+    # isig*tr(C*X*C')
+    n, m = size(B)
+    T1 = promote_type(eltype(A), eltype(x))
+    # TO DO: eliminate building of X by using directly x
+    X = MatrixEquations.vec2triu(convert(AbstractVector{T1}, view(x,1:length(x)-1)), her=true)
+    @inbounds begin
+       k = 1
+       for j = 1:n
+          for i = 1:j
+             temp = zero(T1)
+             #temp = B[i,j]
+             for l = 1:m
+                 temp += B[i,l] * B[j,l]
+             end
+             for l = 1:n
+                temp += A[i,l] * X[l,j] + X[i,l] * A[j,l]
+             end
+             y[k] = isig*temp
+             k += 1
+          end
+       end
+    end
+   #  @inbounds begin
+   #      k = 1
+   #      for j = 1:n
+   #         for i = 1:j
+   #            temp = 0
+   #            for l = 1:n
+   #               temp += X[l,i] * C[l,j]
+   #            end
+   #            y[k] = temp
+   #            k += 1
+   #         end
+   #      end
+   #   end
+     y[k] = isig*tr(C*X*C') 
+     return y
+ end
+ 

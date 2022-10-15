@@ -431,9 +431,16 @@ function tvcric(A::PM1, R::PM3, Q::PM4, tf, t0; adj = false, solver = "symplecti
        sol = solve(prob,MagnusGL6(), dt = dt, save_everystep = false)
     elseif solver == "symplectic" 
        # high accuracy symplectic
-       adaptive = iszero(dt) ? true : false
-       sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive, dt, reltol, abstol, save_everystep = false)
-    else 
+       if dt == 0 
+         sol = solve(prob, IRKGaussLegendre.IRKGL16(maxtrials=4); adaptive = true, reltol, abstol, save_everystep = false)
+         #@show sol.retcode
+         if sol.retcode == :Failure
+            sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = false, reltol, abstol, save_everystep = false, dt = abs(tf-t0)/100)
+         end
+       else
+           sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = false, reltol, abstol, save_everystep = false, dt)
+       end
+   else 
        if reltol > 1.e-4  
           # low accuracy automatic selection
           sol = solve(prob, AutoTsit5(Rosenbrock23()) ; reltol, abstol, save_everystep = false)

@@ -37,13 +37,13 @@ function ps2ls(psys::PeriodicStateSpace{<:AbstractPeriodicArray{:d,T}}, kstart::
     patype = length(nx) == 1 
     Ts = psys.A.Ts
     K = pa*na  # number of blocks
-    N = patype ? nx*pa*na : sum(nx)*na  # dimension of lifted state vector 
+    N = patype ? nx[1]*pa*na : sum(nx)*na  # dimension of lifted state vector 
     M = K*m
     P = K*p
     B = zeros(T, N, M) 
     # n = patype ? ndx[1] : ndx[mod(kstart+pb-2,pb)+1]
     # copyto!(view(B,1:n,M-m+1:M),getpm(psys.B,kstart+pb-1,pb))
-    n = patype ? ndx[1] : ndx[mod(kstart-2,pb)+1]
+    n = patype ? ndx[1] : ndx[mod(kstart-2,pa)+1]
     copyto!(view(B,1:n,M-m+1:M),getpm(psys.B,kstart-1,pb))
     i1 = n+1
     j1 = 1
@@ -52,7 +52,7 @@ function ps2ls(psys::PeriodicStateSpace{<:AbstractPeriodicArray{:d,T}}, kstart::
         k = kstart
         i == nb && (pbc = pb-1)
         for j = 1:pbc
-            jj = patype ? 1 : mod(k-1,pb)+1
+            jj = patype ? 1 : mod(k-1,pa)+1
             i2 = i1+ndx[jj]-1 
             j2 = j1+m-1
             copyto!(view(B,i1:i2,j1:j2),getpm(psys.B,k,pb))
@@ -67,7 +67,7 @@ function ps2ls(psys::PeriodicStateSpace{<:AbstractPeriodicArray{:d,T}}, kstart::
     for i = 1:nc
         k = kstart
         for j = 1:pc
-            jj = patype ? 1 : mod(k-1,pc)+1
+            jj = patype ? 1 : mod(k-1,pa)+1
             i2 = i1+p-1
             j2 = j1+nx[jj]-1
             copyto!(view(C,i1:i2,j1:j2),getpm(psys.C,k,pc)) 
@@ -314,7 +314,7 @@ _References_
 [1] N. M. Wereley. Analysis and control of linear periodically time varying systems. 
     Ph.D. thesis, Department of Aeronautics and Astronautics, MIT, 1990.
 
-[2] S. Bittanti and P. Colaneri. Periodic Systems : Filtering and Fontrol.
+[2] S. Bittanti and P. Colaneri. Periodic Systems : Filtering and Control.
     Springer-Verlag London, 2009. 
 """
 function ps2fls(psysc::PeriodicStateSpace{PM}, N::Int; P::Int= 1) where {T,PM <: AbstractPeriodicArray{:c,T}}
