@@ -1,9 +1,13 @@
 # Release Notes
 
 
+## Version 0.5.2
+
+This patch version implements functions for the evaluation of the Hankel-norm of continuous-time and discrete-time periodic systems.   
+
 ## Version 0.5.1
 
-This patch version implements functions for the evaluation of H2-norm of continuous-time and discrete-time periodic systems. Several enhancements of Lyapunov differential equation solvers have been also performed.  
+This patch version implements functions for the evaluation of the H2-norm of continuous-time and discrete-time periodic systems. Several enhancements of Lyapunov differential equation solvers have been also performed.  
 
 ## Version 0.5 
 

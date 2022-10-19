@@ -428,9 +428,10 @@ period = π; ω = 2. ;
 
 P1 = PeriodicFunctionMatrix(t->[cos(ω*t) sin(ω*t); -sin(ω*t) cos(ω*t)],period); 
 PM = PeriodicFunctionMatrix
+PM = PeriodicTimeSeriesMatrix
 for PM in (PeriodicFunctionMatrix, HarmonicArray, FourierFunctionMatrix, PeriodicSymbolicMatrix, PeriodicTimeSeriesMatrix)
 #for PM in (HarmonicArray, )
-        println("type = $PM")
+    println("type = $PM")
     K = PM == PeriodicTimeSeriesMatrix ? 128 : 200
 
     P = convert(PM,P1);
@@ -594,6 +595,143 @@ psys = ps(a-β*I,copy(c'),PeriodicFunctionMatrix(b,period)',copy(d'));
 #     #@show sol[end] # solution must be symmetric
 # end
 
+# discrete-time Hankel norm
+
+A = [.1 0.5; .3 -.5]; B = [3;1;;]; C = [1. 2.]; D = [0.;;];
+sys = dss(A,B,C,D, Ts = pi/10)
+nh2, hs = ghanorm(sys)
+
+psys = ps(sys,pi/10)
+
+@time hanorm1 = pshanorm(psys)
+@time hanorm1f = pshanorm(psys, lifting = true)
+
+@test nh2 ≈ hanorm1 ≈ hanorm1f
+
+n = 2; m = 1; 
+Ad = PeriodicArray(reshape([A A],n,n,2),2);
+Bd = PeriodicArray(reshape([B B],n,m,2),2);
+Cd = PeriodicArray(reshape([C C],m,n,2),2);
+Dd = PeriodicArray(reshape([D D],m,m,2),2);
+psys = ps(Ad,Bd,Cd,Dd);
+@time hanorm2 = pshanorm(psys)
+@time hanorm2f = pshanorm(psys,lifting=true)
+@test nh2 ≈ hanorm2 ≈ hanorm2f 
+
+# PeriodicArray
+n = 5; nu = 2; ny = 3; pa = 3; pb = 6; pc = 2; pd = 1;   
+Ad = 0.1*PeriodicArray(rand(Float64,n,n,pa),pa);
+Bd = PeriodicArray(rand(Float64,n,nu,pb),pb);
+Cd = PeriodicArray(rand(Float64,ny,n,pc),pc);
+Dd = PeriodicArray(rand(Float64,ny,nu,pd),pd);
+psys = ps(Ad,Bd,Cd,Dd);
+
+@time hanorm2 = pshanorm(psys)
+@time hanorm2f = pshanorm(psys,lifting=true)
+@test hanorm2 ≈ hanorm2f 
+
+psys1 = convert(PeriodicStateSpace{PeriodicMatrix},psys);
+@time hanorm21 = pshanorm(psys1)
+@time hanorm21f = pshanorm(psys1,lifting=true)
+@test hanorm21 ≈ hanorm21f ≈ hanorm2
+
+p = 5; na = [10, 8, 6, 4, 2]; ma = circshift(na,-1); nu = 2; ny = 3; 
+period = 10;
+Ad = 0.001*PeriodicMatrix([rand(ma[i],na[i]) for i in 1:p],period);
+Bd = PeriodicMatrix([rand(ma[i],nu) for i in 1:p],period);
+Cd = PeriodicMatrix([rand(ny,na[i]) for i in 1:p],period);
+Dd = PeriodicMatrix(rand(ny,nu),period; nperiod = rationalize(Ad.period/Ad.Ts).num);
+psys = ps(Ad,Bd,Cd,Dd)
+
+@time hanorm2 = pshanorm(psys)
+@time hanorm2f = pshanorm(psys,lifting=true)
+@test hanorm2 ≈ hanorm2f 
+
+# continuous-time system Hankel-norm
+A = [-1 -0.5; -3 -5]; B = [3;1;;]; C = [1. 2.]; D = [0.;;];
+sys = dss(A,B,C,D)
+nha, = ghanorm(sys)
+
+psysc = ps(sys,2*pi)
+
+# K = 100
+# Q = pgclyap(psys.A, psys.C'*psys.C, K; adj = true, solver = "non-stiff", reltol = 1.e-10, abstol = 1.e-10) 
+# P = pgclyap(psys.A, psys.B*psys.B', K; adj = false, solver = "non-stiff", reltol = 1.e-10, abstol = 1.e-10)
+
+nhapc = pshanorm(psysc)
+@test nha ≈ nhapc
+
+period = π; ω = 2. ;
+
+P1 = PeriodicFunctionMatrix(t->[cos(ω*t) sin(ω*t); -sin(ω*t) cos(ω*t)],period); 
+PM = PeriodicFunctionMatrix
+for PM in (PeriodicFunctionMatrix, HarmonicArray, FourierFunctionMatrix, PeriodicSymbolicMatrix, PeriodicTimeSeriesMatrix)
+#for PM in (FourierFunctionMatrix, )
+    println("type = $PM")
+    K = PM == PeriodicTimeSeriesMatrix ? 128 : 200
+
+    P = convert(PM,P1);
+
+    Ap = derivative(P)*inv(P)+P*A*inv(P);
+    Bp = P*B
+    Cp = C*inv(P); Dp = D; 
+    psys = ps(Ap,Bp,Cp,Dp);
+    solver = "non-stiff"
+    for solver in ("non-stiff", "stiff", "symplectic", "noidea")
+        println("solver = $solver")
+        @time nhap = pshanorm(psys,K; solver, reltol=1.e-10, abstol = 1.e-10)
+        @test nhapc ≈ nhap     
+    end
+end
+
+# Zhou-Hagiwara Automatica 2002 
+β = 0.5
+a1 = PeriodicFunctionMatrix(t -> [-1-sin(2*t)^2 2-0.5*sin(4*t); -2-0.5*sin(4*t) -1-cos(2*t)^2],pi);
+γ = t -> mod(t,float(pi)) < pi/2 ? sin(2*t) : 0 
+b = t -> [0; 1-2*β*γ(t)]
+b1 = PeriodicFunctionMatrix(b, pi); 
+b1t = PeriodicFunctionMatrix(t -> [0 1-2*β*γ(t)], pi);
+c = [1 1]; d = [0];
+psys = ps(PeriodicFunctionMatrix,a1,b1,c,d);
+
+@time n1 = pshanorm(psys,1; reltol=1.e-10, abstol = 1.e-10);
+@time n100 = pshanorm(psys,100, reltol=1.e-10, abstol = 1.e-10);
+@time n200 = pshanorm(psys,200, reltol=1.e-10, abstol = 1.e-10);
+@time n1000 = pshanorm(psys,1000, reltol=1.e-10, abstol = 1.e-10);
+@time n10000 = pshanorm(psys,10000, reltol=1.e-10, abstol = 1.e-10);
+@test n1 < n100 && (n100 < n200 || n100 ≈ n200) && (n200 < n1000 || n200 ≈ n1000) && (n1000 < n10000 || n1000 ≈ n10000) 
+
+
+# Peng-Wu IJC 2011 
+a = 1; b = 0.2; 
+ω = [1, 2, 3, 4, 5]; ϵ = [0.001, 0.001, 0.01, 0.1]
+i = 1; j = 1;
+period = 2*pi/ω[j]
+a1 = PeriodicFunctionMatrix(t -> [0 1; -1-2*ϵ[i]*cos(ω[j]*t) -2*b],period); 
+b1 = [0;1;;]; c = [1 0]; d = [0];
+psys = ps(PeriodicFunctionMatrix,a1,b1,c,d);
+@time n1 = pshanorm(psys,1; reltol=1.e-10, abstol = 1.e-10);
+@time n100 = pshanorm(psys,100; reltol=1.e-10, abstol = 1.e-10);
+@time n200 = pshanorm(psys,200; reltol=1.e-10, abstol = 1.e-10);
+@test n1 < n100 < n200
+
+# Pitelkau's example - infinite norm
+ω = 0.00103448
+period = 2*pi/ω
+β = 0.01 
+a = [  0            0     5.318064566757217e-02                         0
+       0            0                         0      5.318064566757217e-02
+       -1.352134256362805e-03   0             0    -7.099273035392090e-02
+       0    -7.557182037479544e-04     3.781555288420663e-02             0
+];
+b = t->[0; 0; 0.1389735*10^-6*sin(ω*t); -0.3701336*10^-7*cos(ω*t)];
+c = [1 0 0 0;0 1 0 0];
+d = zeros(2,1);
+psys = ps(a-β*I,PeriodicFunctionMatrix(b,period),c,d);
+
+@time n1 = pshanorm(psys,1; reltol=1.e-10, abstol = 1.e-10); 
+@time n100 = pshanorm(psys,100; reltol=1.e-10, abstol = 1.e-10); 
+@test n1 < n100 
 
 end # test
 

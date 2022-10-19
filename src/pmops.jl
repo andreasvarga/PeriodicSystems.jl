@@ -588,7 +588,9 @@ LinearAlgebra.inv(A::PeriodicTimeSeriesMatrix) = PeriodicTimeSeriesMatrix(inv.(A
 LinearAlgebra.transpose(A::PeriodicTimeSeriesMatrix{:c,T}) where {T} = 
     PeriodicTimeSeriesMatrix{:c,T}([copy(transpose(A.values[i])) for i in 1:length(A)], A.period, A.nperiod)
 LinearAlgebra.adjoint(A::PeriodicTimeSeriesMatrix) = transpose(A)
-LinearAlgebra.tr(A::PeriodicTimeSeriesMatrix) = PeriodicTimeSeriesMatrix(tr.(A.values), A.period; nperiod = A.nperiod)
+#LinearAlgebra.tr(A::PeriodicTimeSeriesMatrix) = PeriodicTimeSeriesMatrix(tr.(A.values), A.period; nperiod = A.nperiod)
+LinearAlgebra.tr(A::PeriodicTimeSeriesMatrix) = PeriodicTimeSeriesMatrix([[tr(A.values[i])] for i in 1:length(A)], A.period; nperiod = A.nperiod)
+LinearAlgebra.eigvals(A::PeriodicTimeSeriesMatrix) = [eigvals(A.values[i]) for i in 1:length(A)]
 
 function norm(A::PeriodicTimeSeriesMatrix, p::Real = 2) 
     nrm = 0. 

@@ -283,7 +283,7 @@ Compute the H2-norm of a discrete-time periodic system `psys = (A(t),B(t),C(t),D
 For the computation of the norm, the formulas given in [1] are employed. 
 For `adj = false` the norm is computed as
  
-     nrm = sqrt(sum(tr(C(t)*P(t)*C(t)'+D(t)*D(t)'))),
+     nrm = sqrt(sum(tr(C(t)P(t)C(t)'+D(t)*D(t)'))),
 
 where `P(t)` is the controllability Gramian satisfying the periodic Lyapunov equation
 
@@ -291,7 +291,7 @@ where `P(t)` is the controllability Gramian satisfying the periodic Lyapunov equ
 
 while for `adj = true` the norm is computed as
  
-    nrm = sqrt(sum(tr(B(t)'*Q(t)*B(t)+D(t)'*D(t)))),
+    nrm = sqrt(sum(tr(B(t)'Q(t+1)B(t)+D(t)'*D(t)))),
 
 where `Q(t)` is the observability Gramian satisfying the periodic Lyapunov equation
 
@@ -320,8 +320,8 @@ function psh2norm(psys::PeriodicStateSpace{<: AbstractPeriodicArray{:d,T}}; adj:
        return gh2norm(ps2ls(psys, ss = true))
     else
        if adj 
-          P = pdlyap(psys.A, psys.C'*psys.C,adj=true)
-          return sqrt(sum(tr(psys.B'*pmshift(P,1)*psys.B+psys.D'*psys.D)))
+          Q = pdlyap(psys.A, psys.C'*psys.C,adj=true)
+          return sqrt(sum(tr(psys.B'*pmshift(Q,1)*psys.B+psys.D'*psys.D)))
        else
           P = pdlyap(psys.A, psys.B*psys.B',adj=false)
           return sqrt(sum(tr(psys.C*P*psys.C'+psys.D*psys.D')))
@@ -336,7 +336,7 @@ For the computation of the norm, the formulas given in [1] are employed,
 in conjunction with the multiple-shooting approach of [2] using `K` discretization points.  
 For a periodic system of period  `T`, for `adj = false` the norm is computed as
  
-     nrm = sqrt(Integral(tr(C(t)*P(t)*C(t)')))dt/T),
+     nrm = sqrt(Integral(tr(C(t)P(t)C(t)')))dt/T),
 
 where `P(t)` is the controllability Gramian satisfying the periodic differential Lyapunov equation
 
@@ -345,7 +345,7 @@ where `P(t)` is the controllability Gramian satisfying the periodic differential
 
 while for `adj = true` the norm is computed as
  
-    nrm = sqrt(Integral(tr(B(t)'*Q(t)*B(t)))dt/T),
+    nrm = sqrt(Integral(tr(B(t)'Q(t)B(t)))dt/T),
 
 where Q(t) is the observability Gramian satisfying the periodic differential Lyapunov equation
 
@@ -451,7 +451,7 @@ function tvh2norm(A::PM1, B::PM2, C::PM3, P::AbstractMatrix, tf, t0; adj = false
     and
 
             .
-            h(t) = trace(C(t)*W(t)*C'(t)),   h(t0) = 0;
+            h(t) = trace(C(t)W(t)C'(t)),   h(t0) = 0;
                      
  
     or for tf < t0 and adj = true
@@ -462,7 +462,7 @@ function tvh2norm(A::PM1, B::PM2, C::PM3, P::AbstractMatrix, tf, t0; adj = false
     and
 
             .
-            h(t) = -trace(B(t)'*W(t)*B(t)),   h(t0) = 0.
+            h(t) = -trace(B(t)'W(t)B(t)),   h(t0) = 0.
 
 
     The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
@@ -516,8 +516,8 @@ function tvh2norm(A::PM1, B::PM2, C::PM3, P::AbstractMatrix, tf, t0; adj = false
        end
     end
     return sol(tf)[end] 
- end
- function muladdcsym1!(y::AbstractVector, x::AbstractVector, isig, A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix)
+end
+function muladdcsym1!(y::AbstractVector, x::AbstractVector, isig, A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix)
     # isig*(A*X + X*A' + B*B')
     # isig*tr(C*X*C')
     n, m = size(B)
@@ -554,7 +554,110 @@ function tvh2norm(A::PM1, B::PM2, C::PM3, P::AbstractMatrix, tf, t0; adj = false
    #         end
    #      end
    #   end
-     y[k] = isig*tr(C*X*C') 
-     return y
- end
+   y[k] = isig*tr(C*X*C') 
+   return y
+end
+"""
+    pshanorm(psys; smarg = 1, lifting = false, offset = sqrt(ϵ)) -> nrm
+
+Compute the Hankel-norm of a stable discrete-time periodic system `psys = (A(t),B(t),C(t),D(t))`.  
+For the computation of the norm, the formulas given in [1] are employed. 
+The Hankel norm is computed as
+ 
+     nrm = maximum(sqrt(Λ(P(t)Q(t))),
+
+where `P(t)` is the controllability Gramian satisfying the periodic Lyapunov equation
+
+     P(t+1) = A(t)P(t)A(t)' + B(t)B(t)',
+
+and `Q(t)` is the observability Gramian satisfying the periodic Lyapunov equation
+
+    Q(t) = A(t)'Q(t+1)A(t) + C(t)'C(t) .
+   
+To assess the stability, the absolute values of the characteristic multipliers of `A(t)` 
+must be less than `smarg-β`, where `smarg` is the discrete-time stability margin (default: `smarg = 1`)  and 
+`β` is an offset specified via the keyword parameter `offset = β` to be used to numerically assess the stability
+of eigenvalues. The default value used for `β` is `sqrt(ϵ)`, where `ϵ` is the working machine precision. 
+
+If `lifting = false` (default), then the norm is evaluated using an approach based on the periodic Schur decomposition of `A(t)`, 
+while if `lifting = true` the norm of the lifted cyclic system is evaluated.  
+This later option may lead to excessive computational times for large matrices or large periods. 
+
+_References_
+
+[1] S. Bittanti and P. Colaneri. Periodic Systems : Filtering and Control.
+    Springer-Verlag London, 2009. 
+"""
+function pshanorm(psys::PeriodicStateSpace{<: AbstractPeriodicArray{:d,T}}; smarg::Real = 1, lifting::Bool = false, 
+                offset::Real = sqrt(eps(float(real(T))))) where {T}
+  !isstable(psys; smarg, offset, fast = lifting ) && error("The system must be stable")  # unstable system
+  if lifting
+     return ghanorm(ps2ls(psys, cyclic = true))[1]
+  else
+     Q = pdlyap(psys.A, psys.C'*psys.C,adj=true)
+     P = pdlyap(psys.A, psys.B*psys.B',adj=false)
+     Y = P*Q
+     l = length(Y)
+     if typeof(psys.A) <: PeriodicArray
+        return maximum(sqrt.([maximum(abs.(eigvals(Y.M[:,:,i]))) for i in 1:l]))
+     else
+        return maximum(sqrt.([maximum(abs.(eigvals(Y.M[i]))) for i in 1:l]))
+     end
+  end
+end
+"""
+    pshanorm(psys, K; smarg = 1, offset = sqrt(ϵ), solver = "", reltol = 1.e-4, abstol = 1.e-7) -> nrm
+
+Compute the Hankel-norm of a stable continuous-time periodic system `psys = (A(t),B(t),C(t),D(t))`.  
+For the computation of the norm, the approach suggested in [1] is employed, 
+in conjunction with the multiple-shooting approach using `K` discretization points.  
+For a periodic system of period  `T`, the Hankel-norm is defined as
+ 
+     nrm = sqrt(max(Λ(P(t)Q(t)))), for t ∈ [0,T]
+
+where `P(t)` is the controllability Gramian satisfying the periodic differential Lyapunov equation
+
+     .
+     P(t) = A(t)P(t)A(t)' + B(t)B(t)',
+
+and `Q(t)` is the observability Gramian satisfying the periodic differential Lyapunov equation
+
+     .
+    -Q(t) = A(t)'Q(t)A(t) + C(t)'C(t) .
+
+The norm is evaluated for `K` time values in the interval `[0,T]` and 
+the precision is (theoretically) better for larger values of `K`.
+   
+To assess the stability, the absolute values of the characteristic multipliers of `A(t)` 
+must be less than `smarg-β`, where `smarg` is the discrete-time stability margin (default: `smarg = 1`)  and 
+`β` is an offset specified via the keyword parameter `offset = β` to be used to numerically assess the stability
+of eigenvalues. The default value used for `β` is `sqrt(ϵ)`, where `ϵ` is the working machine precision. 
+
+The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
+together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) and 
+stepsize `dt' (default: `dt = 0`). The value stepsize is relevant only if `solver = "symplectic", in which case
+an adaptive stepsize strategy is used if `dt = 0` and a fixed stepsize is used if `dt > 0`. (see also [`tvstm`](@ref)). 
+
+
+_References_
+
+[1] A. Varga, On solving periodic differential matrix equations with applications to periodic system norms computation.
+    Proc. CDC/ECC, Seville, p.6545-6550, 2005.  
+"""
+function pshanorm(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix, HarmonicArray, FourierFunctionMatrix}}, K::Int = 1; smarg::Real = 1, 
+                  offset::Real = sqrt(eps()), solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) 
+    !isstable(psys, K; smarg, offset, solver, reltol, abstol) && error("The system must be stable")  # unstable system
+    Q = pgclyap(psys.A, psys.C'*psys.C, K; adj = true, solver, reltol, abstol) 
+    P = pgclyap(psys.A, psys.B*psys.B', K; adj = false, solver, reltol, abstol)
+    return sqrt(maximum(norm.(eigvals(P*Q),Inf)))
+end
+function pshanorm(psys::PeriodicStateSpace{<:PeriodicSymbolicMatrix}, K::Int = 1; smarg::Real = 1, 
+                  offset::Real = sqrt(eps()), solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) 
+    pshanorm(convert(PeriodicStateSpace{PeriodicFunctionMatrix},psys), K; smarg, offset, solver, reltol, abstol, dt) 
+end
+function pshanorm(psys::PeriodicStateSpace{<:PeriodicTimeSeriesMatrix}, K::Int = 1; smarg::Real = 1, 
+                  offset::Real = sqrt(eps()), solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) 
+    pshanorm(convert(PeriodicStateSpace{HarmonicArray},psys), K; smarg, offset, solver, reltol, abstol, dt) 
+end
  
