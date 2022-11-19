@@ -454,12 +454,12 @@ end
 *(A::HarmonicArray, B::HarmonicArray) = convert(HarmonicArray,convert(PeriodicFunctionMatrix,A) * convert(PeriodicFunctionMatrix,B))
 # TODO: perform * explicitly
 *(A::HarmonicArray, C::AbstractMatrix) = *(A, HarmonicArray(C, A.period))
-*(A::AbstractMatrix, C::HarmonicArray) = *(HarmonicArray(A, C.period), C)
-# function *(A::AbstractMatrix{T}, C::HarmonicArray) where {T <: Real}
-#     m, n, k = size(C.values)
-#     ma = size(A,1)
-#     return HarmonicArray( reshape(A*reshape(C.values,m,n*k),ma,n,k), C.period; nperiod = C.nperiod)
-# end
+#*(A::AbstractMatrix, C::HarmonicArray) = *(HarmonicArray(A, C.period), C)
+function *(A::AbstractMatrix, C::HarmonicArray) 
+    m, n, k = size(C.values)
+    ma = size(A,1)
+    return HarmonicArray(reshape(A*reshape(C.values,m,n*k),ma,n,k), C.period; nperiod = C.nperiod)
+end
 *(A::HarmonicArray, C::Real) = HarmonicArray(C*A.values, A.period; nperiod = A.nperiod)
 *(C::Real, A::HarmonicArray) = HarmonicArray(C*A.values, A.period; nperiod = A.nperiod)
 /(A::HarmonicArray, C::Real) = *(A, 1/C)

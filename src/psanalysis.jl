@@ -625,8 +625,8 @@ and `Q(t)` is the observability Gramian satisfying the periodic differential Lya
      .
     -Q(t) = A(t)'Q(t)A(t) + C(t)'C(t) .
 
-The norm is evaluated for `K` time values in the interval `[0,T]` and 
-the precision is (theoretically) better for larger values of `K`.
+The norm is evaluated from the `K` time values of `P(t)` and `Q(t)` in the interval `[0,T]` and 
+the precision is (usually) better for larger values of `K`.
    
 To assess the stability, the absolute values of the characteristic multipliers of `A(t)` 
 must be less than `smarg-β`, where `smarg` is the discrete-time stability margin (default: `smarg = 1`)  and 

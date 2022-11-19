@@ -105,10 +105,7 @@ for PM in (PeriodicFunctionMatrix, HarmonicArray, PeriodicSymbolicMatrix, Fourie
     solver = "stiff"
     for solver in ("non-stiff", "stiff", "symplectic", "linear", "noidea")
         println("solver = $solver")
-        # @time X1, EVALS1, F1 = prcric(Ap1, Cp', Rp1, Qp1; K = N, solver, reltol = 1.e-10, abstol = 1.e-10, fast = true) 
-        # @test norm(Ap*X1+X1*Ap'+Qp-X1*Gp*X1 -derivative(X1)) < 1.e-7
         @time X, EVALS, F = pfcric(Ap, Cp, Rp, Qp; K = N, solver, reltol = 1.e-10, abstol = 1.e-10, fast = true) 
-        #@test norm(Ap*X2+X2*Ap'+Qp-X2*Gp*X2 -derivative(X2)) < 1.e-6
         Errx = norm(X-Xp)/norm(Xp); Errf = norm(F-Fp)/norm(Fp)
         println("Errx = $Errx Errf = $Errf")
         @test Errx < 1.e-7 && Errf < 1.e-6 && norm(sort(real(EVALS)) - sort(EVALSref)) < 1.e-2
@@ -167,11 +164,11 @@ for PM in (PeriodicFunctionMatrix, HarmonicArray)
     @test norm(psysc.A'*X+X*psysc.A+q-X*psysc.B*inv(r)*psysc.B'*X +derivative(X))/norm(X) < 1.e-7 
 
     # this test covers the experimental code provided in PeriodicSchurDecompositions package and occasionally fails
-    # @time X, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 100, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = false ); 
-    # clev = psceig(psysc.A-psysc.B*F,500)
-    # println("EVALS = $EVALS, clev = $clev")
-    # @test norm(sort(real(clev)) - sort(real(EVALS))) < 1.e-7 && norm(sort(imag(clev)) - sort(imag(EVALS))) < 1.e-7 
-    # @test norm(psysc.A'*X+X*psysc.A+q-X*psysc.B*inv(r)*psysc.B'*X +derivative(X))/norm(X) < 1.e-7 
+    @time X, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 100, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = false ); 
+    clev = psceig(psysc.A-psysc.B*F,500)
+    println("EVALS = $EVALS, clev = $clev")
+    @test norm(sort(real(clev)) - sort(real(EVALS))) < 1.e-7 && norm(sort(imag(clev)) - sort(imag(EVALS))) < 1.e-7 
+    @test norm(psysc.A'*X+X*psysc.A+q-X*psysc.B*inv(r)*psysc.B'*X +derivative(X))/norm(X) < 1.e-7 
 
 
     @time X, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 100, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = true); 
@@ -179,7 +176,7 @@ for PM in (PeriodicFunctionMatrix, HarmonicArray)
     @test norm(sort(real(clev)) - sort(real(EVALS))) < 1.e-1 && norm(sort(imag(clev)) - sort(imag(EVALS))) < 1.e-1 
     @test norm(psysc.A'*X+X*psysc.A+q-X*psysc.B*inv(r)*psysc.B'*X +derivative(X))/norm(X) < 1.e-7 
 end 
-end
+end  # test
 
 end # module
 
