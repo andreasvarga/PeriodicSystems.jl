@@ -48,7 +48,7 @@ export mb03vd!, mb03vy!, mb03bd!, mb03wd!, mb03kd!
 export ps
 export psaverage, psc2d, psmrc2d, psteval
 export ps2fls, hr2bt, hr2btupd, phasemat, ps2frls, DiagDerOp, ps2ls
-export pspole, pszero, isstable, psh2norm, pshanorm#, pstimeresp
+export pspole, pszero, isstable, psh2norm, pshanorm, pstimeresp
 export pdlyap, prlyap, pflyap, pslyapd, pdlyaps!, pdlyaps1!, pdlyaps2!, pdlyaps3!, dpsylv2, dpsylv2!, pslyapdkr, dpsylv2krsol!, kronset!
 export pmshift
 export pclyap, pfclyap, prclyap, pgclyap
@@ -69,7 +69,7 @@ include("ps.jl")
 include("conversions.jl")
 include("pslifting.jl")
 include("psanalysis.jl")
-#include("pstimeresp.jl")
+include("pstimeresp.jl")
 include("pslyap.jl")
 include("psclyap.jl")
 include("pscric.jl")

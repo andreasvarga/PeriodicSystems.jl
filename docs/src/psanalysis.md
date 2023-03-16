@@ -5,6 +5,8 @@
 * **[`isstable`](@ref)**  Assessment of stability of a periodic system.
 * **[`pshanorm`](@ref)**  Evaluation of the Hankel-norm of a periodic system.
 * **[`psh2norm`](@ref)**  Evaluation of the H2-norm of a periodic system.
+* **[`pstimeresp`](@ref)**  Time response of a periodic system.
+
 
 ```@docs
 pspole
@@ -12,4 +14,5 @@ pszero
 isstable
 pshanorm
 psh2norm
+pstimeresp
 ```

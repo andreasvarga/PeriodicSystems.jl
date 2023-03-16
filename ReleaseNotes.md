@@ -1,6 +1,10 @@
 # Release Notes
 
 
+## Version 0.5.3
+
+This patch version implements functions for the evaluation of time responses of continuous-time and discrete-time periodic systems.   
+
 ## Version 0.5.2
 
 This patch version implements functions for the evaluation of the Hankel-norm of continuous-time and discrete-time periodic systems.   

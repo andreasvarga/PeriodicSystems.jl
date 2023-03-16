@@ -83,7 +83,7 @@ for a sampling time `Ts`, the corresponding discretized
 periodic system `psys = (Ad,Bd,Cd,Dd)` using a zero-order hold based discretization method. 
 
 The discretization is performed by determining the monodromy matrix as a product of 
-`K = T/Ts` state transition matrices of the extended state-space matrix [A(t) B(t); 0 0] 
+`K = T/Ts` state transition matrices of the extended state-space matrix `[A(t) B(t); 0 0]` 
 by integrating numerically the corresponding homogeneous linear ODE.  
 The ODE solver to be employed can be 
 specified using the keyword argument `solver`, together with

@@ -536,7 +536,7 @@ Base.convert(::Type{PeriodicMatrix}, A::PeriodicArray{:d,T}) where T =
 #        PeriodicArray{:d,T}(t,A.period)
 #     end
 # end
-Base.convert(::Type{PeriodicArray}, A::PeriodicMatrix) where T = pm2pa(A)
+Base.convert(::Type{PeriodicArray}, A::PeriodicMatrix) = pm2pa(A)
 
 
 # conversions to continuous-time PeriodicFunctionMatrix
@@ -556,7 +556,7 @@ function Base.convert(::Type{PeriodicFunctionMatrix{:c,T}}, A::PeriodicSymbolicM
    f = eval(build_function(A.F, t, expression=Val{false})[1])
    PeriodicFunctionMatrix{:c,T}(x -> f(T(x)), A.period, size(A), A.nperiod, isconstant(A))
 end
-function Base.convert(::Type{PeriodicFunctionMatrix}, A::PeriodicSymbolicMatrix) where T
+function Base.convert(::Type{PeriodicFunctionMatrix}, A::PeriodicSymbolicMatrix) 
    @variables t
    f = eval(build_function(A.F, t, expression=Val{false})[1])
    PeriodicFunctionMatrix{:c,Float64}(x -> f(x), A.period, size(A), A.nperiod, isconstant(A))
@@ -569,12 +569,11 @@ end
 
 # PeriodicFunctionMatrix(ahr::HarmonicArray, period::Real = ahr.period; exact = true)  = 
 #           PeriodicFunctionMatrix(t::Real -> hreval(ahr,t;exact)[1], period) 
-Base.convert(::Type{PeriodicFunctionMatrix}, ahr::HarmonicArray)  where T = 
+Base.convert(::Type{PeriodicFunctionMatrix}, ahr::HarmonicArray)  = 
          PeriodicFunctionMatrix{:c,real(eltype(ahr.values))}(t::Real -> hreval(ahr,t), ahr.period, size(ahr), ahr.nperiod, isconstant(ahr))
 Base.convert(::Type{PeriodicFunctionMatrix{:c,T}}, ahr::HarmonicArray)  where T = 
          PeriodicFunctionMatrix{:c,T}(t::Real -> hreval(ahr,T(t)), ahr.period, size(ahr), ahr.nperiod, isconstant(ahr))
-Base.convert(::Type{PeriodicFunctionMatrix}, At::PeriodicTimeSeriesMatrix)  where T = 
-    ts2pfm(At; method = "cubic")
+Base.convert(::Type{PeriodicFunctionMatrix}, At::PeriodicTimeSeriesMatrix) = ts2pfm(At; method = "cubic")
 # function PeriodicFunctionMatrix(A::PeriodicTimeSeriesMatrix; method = "linear")
 #    N = length(A.values)
 #    N == 0 && error("empty time array")
@@ -612,7 +611,7 @@ function Base.convert(::Type{FourierFunctionMatrix}, A::PeriodicTimeSeriesMatrix
 end
 
 # conversions to continuous-time PeriodicSymbolicMatrix
-function Base.convert(::Type{PeriodicSymbolicMatrix}, A::PeriodicFunctionMatrix) where T
+function Base.convert(::Type{PeriodicSymbolicMatrix}, A::PeriodicFunctionMatrix) 
    @variables t
    PeriodicSymbolicMatrix(Num.(A.f(t)), A.period; nperiod = A.nperiod)
 end
@@ -620,7 +619,7 @@ function Base.convert(::Type{PeriodicSymbolicMatrix{:c,T}}, A::PeriodicFunctionM
    @variables t
    PeriodicSymbolicMatrix(Num.(A.f(t)), A.period; nperiod = A.nperiod)
 end
-Base.convert(::Type{PeriodicSymbolicMatrix}, ahr::HarmonicArray)  where T = 
+Base.convert(::Type{PeriodicSymbolicMatrix}, ahr::HarmonicArray) = 
    PeriodicSymbolicMatrix(hr2psm(ahr), ahr.period; nperiod = ahr.nperiod)
 Base.convert(::Type{PeriodicSymbolicMatrix}, A::PeriodicTimeSeriesMatrix) = 
    PeriodicSymbolicMatrix(hr2psm(convert(HarmonicArray,A)), A.period; nperiod = A.nperiod)
