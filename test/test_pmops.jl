@@ -6,7 +6,6 @@ using Symbolics
 using Test
 using LinearAlgebra
 using ApproxFun
-using Symbolics
 
 println("Test_pmops")
 
@@ -52,6 +51,7 @@ D = rand(2,2)
 @test PeriodicFunctionMatrix(D,2*pi) == PeriodicFunctionMatrix(D,4*pi) && 
       PeriodicFunctionMatrix(D,2*pi) ≈ PeriodicFunctionMatrix(D,4*pi)
 
+@test tpmeval(At,1)[1:2,1:1] == tpmeval(At[1:2,1],1) && lastindex(At,1) == 2 && lastindex(At,2) == 2
 
 # HarmonicArray
 Ah = convert(HarmonicArray,PeriodicFunctionMatrix(A,2*pi));
@@ -84,6 +84,9 @@ Xderh = convert(HarmonicArray,PeriodicFunctionMatrix(Xder,16*pi));
 @test Ah'*Xh+Xh*Ah+Cdh ≈ -derivative(Xh) 
 @test norm(Ah*Xh+Xh*Ah'+Ch-derivative(Xh),Inf) < 1.e-7 && norm(derivative(Xh)- Xderh) < 1.e-7
 @test norm(Ah'*Xh+Xh*Ah+Cdh+derivative(Xh),1) < 1.e-7
+
+@test tpmeval(Ah,1)[1:2,1:1] == tpmeval(Ah[1:2,1],1) && lastindex(Ah,1) == 2 && lastindex(Ah,2) == 2
+
 
 # PeriodicSymbolicMatrix
 @variables t
@@ -122,6 +125,9 @@ Xders = PeriodicSymbolicMatrix(X1der,16*pi,nperiod = 8)
 @test inv(As)*As ≈ I ≈ As*inv(As) 
 @test inv(As)*As == I == As*inv(As) 
 
+@test iszero(As[1:2,1:1].F - As.F[1:2,1:1]) && lastindex(As,1) == 2 && lastindex(As,2) == 2
+
+
 
 # FourierFunctionMatrix
 Af = convert(FourierFunctionMatrix,PeriodicFunctionMatrix(A,2*pi));
@@ -153,6 +159,9 @@ Xderf = convert(FourierFunctionMatrix,PeriodicFunctionMatrix(Xder,16*pi,nperiod=
 @test norm(Af*Xf+Xf*Af'+Cf-derivative(Xf),Inf) < 1.e-7 && norm(derivative(Xf)- Xderf) < 1.e-7
 @test norm(Af'*Xf+Xf*Af+Cdf+derivative(Xf),1) < 1.e-7
 
+@test tpmeval(Af,1)[1:2,1:1] == tpmeval(Af[1:2,1],1) && lastindex(Af,1) == 2 && lastindex(Af,2) == 2
+
+
 # PeriodicTimeSeriesMatrix
 Ats = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(A,2*pi));
 Cts = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(C,2*pi));
@@ -181,6 +190,9 @@ Xderts = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(Xder,16*pi,nper
 @test Ats'*Xts+Xts*Ats+Cdts ≈ -derivative(Xts) 
 @test norm(Ats*Xts+Xts*Ats'+Cts-derivative(Xts),Inf) < 1.e-7 && norm(derivative(Xts)- Xderts) < 1.e-7
 @test norm(Ats'*Xts+Xts*Ats+Cdts+derivative(Xts),1) < 1.e-7
+
+@test Ats[1:2,1:1].values == [Ats.values[i][1:2,1:1] for i in 1:length(Ats)] && lastindex(Ats,1) == 2 && lastindex(Ats,2) == 2
+
 
 
 # PeriodicArray
@@ -219,6 +231,9 @@ Xf1 = pflyap(Ad1, Qdf1);
 Xr1 = prlyap(Ad1, Qdr1);
 @test Ad'*pmshift(Xr1)*Ad + Qdr ≈ Xr1 && Xd ≈ Xr1
 
+@test Ad[1:2,1:1].M == Ad.M[1:2,1:1,:]  && lastindex(Ad,1) == n && lastindex(Ad,2) == n
+
+
 # PeriodicMatrix
 n = 5; pa = 3; px = 6;   
 Ad = 0.5*PeriodicMatrix([rand(Float64,n,n) for i in 1:pa],pa);
@@ -255,6 +270,9 @@ Xf1 = pflyap(Ad1, Qdf1);
 Xr1 = prlyap(Ad1, Qdr1);
 @test Ad'*pmshift(Xr1)*Ad + Qdr ≈ Xr1 && Xd ≈ Xr1
 
+@test Ad[1:2,1:1].M == [Ad.M[i][1:2,1:1] for i in 1:length(Ad)] && lastindex(Ad,1) == n && lastindex(Ad,2) == n
+
+
 # time-varying dimensions
 na = [5, 3, 3, 4, 1]; ma = [3, 3, 4, 1, 5]; pa = 5; px = 5;   
 #na = 5*na; ma = 5*ma;
@@ -288,6 +306,7 @@ Xf1 = pflyap(Ad1, Qdf1);
 Xr1 = prlyap(Ad1, Qdr1);
 @test Ad'*pmshift(Xr1)*Ad + Qdr ≈ Xr1 && Xd ≈ Xr1
 
+@test Ad[1:1,1:1].M == [Ad.M[i][1:1,1:1] for i in 1:length(Ad)] && lastindex(Ad,1) == 1 && lastindex(Ad,2) == 1
 
 end # pmops
 

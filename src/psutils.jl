@@ -1232,8 +1232,9 @@ function pmaverage(A::PM) where {PM <: Union{PeriodicFunctionMatrix,PeriodicSymb
    return real(convert(HarmonicArray,A).values[:,:,1])
 end
 pmaverage(A::HarmonicArray) = real(A.values[:,:,1])
-pmaverage(A::FourierFunctionMatrix) = typeof(size(A)) == Tuple{} ? coefficients(A.M)[1] : getindex.(coefficients.(Matrix(A.M)),1)
-
+function pmaverage(A::FourierFunctionMatrix)
+    typeof(size(A)) == Tuple{} ? coefficients(A.M)[1] : getindex.(coefficients.(Matrix(A.M)),1)
+end
 function getpm(A::PeriodicMatrix, k, dperiod::Union{Int,Missing} = missing)
    i = ismissing(dperiod) ? mod(k-1,A.dperiod)+1 : mod(k-1,dperiod)+1
    return A.M[i]

@@ -277,13 +277,16 @@ function Base.getproperty(sys::PeriodicStateSpace, d::Symbol)
         return size(getfield(sys, :C), 1)
     elseif d === :nu
         return size(getfield(sys, :B), 2)
+    elseif d === :Ts
+        return iscontinuous(sys) ? 0. : sys.A.Ts
     else
         getfield(sys, d)
     end
 end
 Base.propertynames(sys::PeriodicStateSpace) =
     (:nx, :ny, :nu, fieldnames(typeof(sys))...)
-
+iscontinuous(sys::PeriodicStateSpace) = iscontinuous(sys.A)
+isdiscrete(sys::PeriodicStateSpace) = !iscontinuous(sys.A)
 
 # display sys
 Base.print(io::IO, sys::PeriodicStateSpace) = show(io, sys)

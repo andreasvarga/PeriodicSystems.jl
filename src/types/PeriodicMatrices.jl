@@ -90,6 +90,17 @@ Base.size(A::PeriodicMatrix) = (size.(A.M,1),size.(A.M,2))
 Base.size(A::PeriodicMatrix, d::Integer) = size.(A.M,d)
 Base.length(A::PeriodicMatrix) = A.dperiod
 Base.eltype(A::PeriodicMatrix{:d,T}) where T = T
+
+function Base.getindex(A::PM, inds...) where PM <: PeriodicMatrix
+   size(inds, 1) != 2 &&
+       error("Must specify 2 indices to index a periodic matrix")
+   rows, cols = index2range(inds...) 
+   PeriodicMatrix{:d,eltype(A)}([A.M[i][rows,cols] for i in 1:length(A)], A.period; nperiod = A.nperiod)
+end
+function Base.lastindex(A::PM, dim::Int) where PM <: PeriodicMatrix
+   return length(A) > 0 ? minimum(lastindex.(A.M,dim)) : 0
+end
+
 """
     PeriodicArray(M, T; nperiod = k) -> A::PeriodicArray
 
@@ -150,6 +161,17 @@ Base.size(A::PeriodicArray) = (size(A.M,1),size(A.M,2))
 Base.size(A::PeriodicArray, d::Integer) = size(A.M,d)
 Base.length(A::PeriodicArray) = A.dperiod
 Base.eltype(A::PeriodicArray{:d,T}) where T = T
+
+function Base.getindex(A::PM, inds...) where PM <: PeriodicArray
+   size(inds, 1) != 2 &&
+       error("Must specify 2 indices to index a periodic matrix")
+   rows, cols = index2range(inds...) 
+   PeriodicArray{:d,eltype(A)}(A.M[rows,cols,:], A.period; nperiod = A.nperiod)
+end
+function Base.lastindex(A::PM, dim::Int) where PM <: PeriodicArray
+   return lastindex(A.M,dim) 
+end
+
 iscontinuous(A::AbstractPeriodicArray) = typeof(A).parameters[1] == :c 
 #iscontinuous(A) = typeof(A).parameters[1] == :c 
 iscontinuous(A::Type) = A.parameters[1] == :c 
@@ -230,6 +252,20 @@ isperiodic(A::PeriodicFunctionMatrix) = isconstant(A) ? true : isperiodic(A.f,A.
 Base.size(A::PeriodicFunctionMatrix) = A.dims
 Base.size(A::PeriodicFunctionMatrix, d::Integer) = d <= 2 ? size(A)[d] : 1
 Base.eltype(A::PeriodicFunctionMatrix{:c,T}) where T = T
+function Base.getindex(A::PM, inds...) where PM <: PeriodicFunctionMatrix
+   size(inds, 1) != 2 &&
+       error("Must specify 2 indices to index a periodic matrix")
+   rows, cols = index2range(inds...) 
+   PeriodicFunctionMatrix{:c,eltype(A)}(t->A.f(t)[rows,cols], A.period; isconst = A._isconstant, nperiod = A.nperiod)
+end
+function Base.lastindex(A::PM, dim::Int) where PM <: PeriodicFunctionMatrix
+   lastindex(A.f(0),dim)
+end
+
+index2range(ind1, ind2) = (index2range(ind1), index2range(ind2))
+index2range(ind::T) where {T<:Number} = ind:ind
+index2range(ind::T) where {T<:AbstractArray} = ind
+index2range(ind::Colon) = ind
 
 """
     PeriodicSymbolicMatrix(F, T; nperiod = k) -> A::PeriodicSymbolicMatrix
@@ -296,6 +332,17 @@ Base.size(A::PeriodicSymbolicMatrix) = size(A.F)
 Base.size(A::AbstractPeriodicArray, d::Integer) = d <= 2 ? size(A)[d] : 1
 Base.eltype(A::PeriodicSymbolicMatrix{:c,T}) where T = T
 
+function Base.getindex(A::PM, inds...) where PM <: PeriodicSymbolicMatrix
+   size(inds, 1) != 2 &&
+       error("Must specify 2 indices to index a periodic matrix")
+   rows, cols = index2range(inds...) 
+   PeriodicSymbolicMatrix{:c,eltype(A)}(A.F[rows,cols], A.period; nperiod = A.nperiod)
+end
+function Base.lastindex(A::PM, dim::Int) where PM <: PeriodicSymbolicMatrix
+   lastindex(A.F,dim)
+end
+
+
 struct FourierFunctionMatrix{Domain,T} <: AbstractPeriodicArray{Domain,T} 
    M::Fun
    period::Float64
@@ -360,6 +407,17 @@ end
 isperiodic(A::FourierFunctionMatrix) = true
 Base.size(A::FourierFunctionMatrix) = size(A.M)
 Base.eltype(A::FourierFunctionMatrix{:c,T}) where T = T
+
+function Base.getindex(A::PM, inds...) where PM <: FourierFunctionMatrix
+   size(inds, 1) != 2 &&
+       error("Must specify 2 indices to index a periodic matrix")
+   rows, cols = index2range(inds...) 
+   FourierFunctionMatrix{:c,eltype(A)}(A.M[rows,cols], A.period, A.nperiod)
+end
+function Base.lastindex(A::PM, dim::Int) where PM <: FourierFunctionMatrix
+   size(A.M,dim)
+end
+
 
 struct HarmonicArray{Domain,T} <: AbstractPeriodicArray{Domain,T} 
    values::Array{Complex{T},3}
@@ -455,6 +513,17 @@ isperiodic(A::HarmonicArray) = true
 Base.size(A::HarmonicArray) = (size(A.values,1),size(A.values,2))
 Base.eltype(A::HarmonicArray{:c,T}) where T = T
 
+function Base.getindex(A::PM, inds...) where PM <: HarmonicArray
+   size(inds, 1) != 2 &&
+       error("Must specify 2 indices to index a periodic matrix")
+   rows, cols = index2range(inds...) 
+   HarmonicArray{:c,eltype(A)}(A.values[rows,cols,:], A.period; nperiod = A.nperiod)
+end
+function Base.lastindex(A::PM, dim::Int) where PM <: HarmonicArray
+   lastindex(A.values,dim)
+end
+
+
 """
     PeriodicTimeSeriesMatrix(At, T; nperiod = k) -> A::PeriodicTimeSeriesMatrix
 
@@ -515,6 +584,17 @@ isperiodic(At::PeriodicTimeSeriesMatrix) = true
 Base.length(At::PeriodicTimeSeriesMatrix) = length(At.values) 
 Base.size(At::PeriodicTimeSeriesMatrix) = length(At) > 0 ? size(At.values[1]) : (0,0)
 Base.eltype(At::PeriodicTimeSeriesMatrix{:c,T}) where T = T
+
+function Base.getindex(A::PM, inds...) where PM <: PeriodicTimeSeriesMatrix
+   size(inds, 1) != 2 &&
+       error("Must specify 2 indices to index a periodic matrix")
+   rows, cols = index2range(inds...) 
+   PeriodicTimeSeriesMatrix{:c,eltype(A)}([A.values[i][rows,cols] for i in 1:length(A)], A.period; nperiod = A.nperiod)
+end
+function Base.lastindex(A::PM, dim::Int) where PM <: PeriodicTimeSeriesMatrix
+   return length(A) > 0 ? lastindex(A.values[1],dim) : 0
+end
+
 
 # conversions to discrete-time PeriodicMatrix
 Base.convert(::Type{PeriodicMatrix}, A::PeriodicArray{:d,T}) where T = 

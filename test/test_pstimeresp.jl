@@ -15,23 +15,48 @@ println("Test_pstimeresp")
 
 
 # step response standard system
-a = [-4 -2;1 0]; b = [2 1;0 1]; c = [0.5 1]; d = [0 1]; x0 = [1,2]; u0 = [1, 1]; Ts = 1;
+a = [0 1; -2 -4]; b = [2 1;0 1]; c = [0.5 1]; d = [0 1]; x0 = [1,2]; u0 = [1, 1]; Ts = 1; timesteps = 20
 
 sysc = dss(a,b,c,d);
 @time sysd, xd0, = c2d(sysc, Ts; x0, u0); 
-@time y, tout, x = timeresp(sysd, ones(11,2), Int[], xd0; state_history = true);
+u = ones(timesteps+1,2);
+@time y, tout, x = timeresp(sysd, u, Int[], xd0; state_history = true);
 
-@time y1, tout1, x1 = timeresp(sysc, ones(11,2), tout, x0; state_history = true, interpolation = "zoh")
+@time y1, tout1, x1 = timeresp(sysc, u, tout, x0; state_history = true, interpolation = "zoh")
 @test norm(y-y1,Inf) < 1.e-7 && norm(x-x1,Inf) < 1.e-7
 
+@time ys, touts, xs = stepresp(sysd, tout[end]; x0, timesteps, state_history = true);
+
+@time ys1, touts1, xs1 = stepresp(sysc, tout[end]; x0, timesteps, state_history = true)
+@test norm(ys-ys1,Inf) < 1.e-7 && norm(xs-xs1,Inf) < 1.e-7
 
 psysc = ps(dss(a,b,c,d),10);
 @time psysd = psc2d(psysc, Ts); 
-@time yp, toutp, xp = pstimeresp(psysd, ones(11,2), Int[], x0; state_history = true);
+@time yp, toutp, xp = pstimeresp(psysd, u, Int[], x0; state_history = true);
 @test norm(yp-y1,Inf) < 1.e-7 && norm(xp-x1,Inf) < 1.e-7
 
-@time yp1, toutp1, xp1 = pstimeresp(psysc, ones(11,2), toutp, x0; state_history = true);
+@time yp1, toutp1, xp1 = pstimeresp(psysc, u, toutp, x0; state_history = true);
 @test norm(yp-yp1,Inf) < 1.e-7 && norm(xp-xp1,Inf) < 1.e-7
+
+@time yps, toutps, xps = psstepresp(psysd, toutp[end]; x0, timesteps, state_history = true)
+
+@time yps1, toutps1, xps1 = psstepresp(psysc, toutp[end]; x0, timesteps, state_history = true)
+@test norm(yps-yps1,Inf) < 1.e-7 && norm(xps-xps1,Inf) < 1.e-7
+
+@time yps, toutps, xps = psstepresp(psysc,15; x0, timesteps = 150, state_history = true); 
+@time yps1, toutps1, xps1 = psstepresp(psysc,10; x0, timesteps = 100,state_history = true); 
+@test norm(yps1[:,:,:]-yps[1:101,:,:],Inf) < 1.e-7 && norm(xps1[:,:,:]-xps[1:101,:,:],Inf) < 1.e-7
+
+
+@time yps, toutps, xps = psstepresp(psysc,15; x0, timesteps = 100, state_history = true); 
+
+PM = PeriodicTimeSeriesMatrix
+for PM in (HarmonicArray, FourierFunctionMatrix, PeriodicSymbolicMatrix, PeriodicTimeSeriesMatrix)
+   psysc1 = convert(PeriodicStateSpace{PM},psysc);
+   @time yps1, toutps1, xps1 = psstepresp(psysc1,15; x0, timesteps = 100, state_history = true); 
+   @test norm(yps1[:,:,:]-yps,Inf) < 1.e-7 && norm(xps1[:,:,:]-xps,Inf) < 1.e-7
+end
+
 
 # response of standard system to stairs input
 u = rand(11,2);
@@ -62,10 +87,16 @@ psysd = ps(Ad,Bd,Cd,Dd);
 u = rand(11,nu); x0 = rand(n); 
 @time yp, toutp, xp = pstimeresp(psysd, u, Int[], x0; state_history = true);
 
+@time yps, toutps, xps = psstepresp(psysd, toutp[end]; x0, timesteps, state_history = true)
+
 # periodic matrix
 psysd1 = convert(PeriodicStateSpace{PeriodicMatrix},psysd);
 @time yp1, toutp1, xp1 = pstimeresp(psysd1, u, toutp, x0; state_history = true);
 @test norm(yp-yp1,Inf) < 1.e-7 && norm(xp-xp1,Inf) < 1.e-7
+
+@time yps1, toutps1, xps1 = psstepresp(psysd1, toutp[end]; x0, timesteps, state_history = true)
+@test norm(yps-yps1,Inf) < 1.e-7 && norm(xps-xps1,Inf) < 1.e-7
+
 
 # periodic matrix time-varying dimensions
 p = 5; na = [10, 8, 6, 4, 2]; ma = circshift(na,-1); nu = 2; ny = 3; 
@@ -78,10 +109,14 @@ psysd = ps(Ad,Bd,Cd,Dd);
 
 u = rand(11,nu); x0 = rand(na[1]); 
 @time yp, toutp, xp = pstimeresp(psysd, u, Int[], x0; state_history = true);
+@time yps, toutps, xps = psstepresp(psysd, toutp[end]; x0, timesteps, state_history = true)
 
 psysd1 = convert(PeriodicStateSpace{PeriodicArray},psysd);
 @time yp1, toutp1, xp1 = pstimeresp(psysd1, u, toutp, x0; state_history = true);
 @test norm(yp-yp1,Inf) < 1.e-7 && norm(xp-xp1,Inf) < 1.e-7
+
+@time yps1, toutps1, xps1 = psstepresp(psysd1, toutp[end]; x0, timesteps, state_history = true)
+@test norm(yps-yps1,Inf) < 1.e-7 && norm(xps-xps1,Inf) < 1.e-7
 
 # Pitelkau's example 
 ω = 0.00103448
@@ -106,6 +141,10 @@ x0 = zeros(4); u = 1.e5*randn(101,1);
 
 u = 1.e5*ones(101,1);
 @time yp1, toutp1, xp1 = pstimeresp(psysc, u, toutp, x0; state_history = true, reltol = 1.e-8, abstol = 1.e-8);
+
+ustep = 1.e5*ones(1);
+@time yps1, toutps1, xps1 = psstepresp(psysc, toutp[end]; ustep, state_history = true, reltol = 1.e-8, abstol = 1.e-8);
+@test norm(yp1-yps1,Inf) < 1.e-5 && norm(xp1-xps1,Inf) < 1.e-5
 
 solver = "non-stiff"
 for solver in ("non-stiff", "stiff", "symplectic", "noidea")

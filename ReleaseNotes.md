@@ -3,7 +3,7 @@
 
 ## Version 0.5.3
 
-This patch version implements functions for the evaluation of time responses of continuous-time and discrete-time periodic systems.   
+This patch version implements functions for the evaluation of time responses of continuous-time and discrete-time periodic systems and implementing Base.getindex for periodic matrices.   
 
 ## Version 0.5.2
 
