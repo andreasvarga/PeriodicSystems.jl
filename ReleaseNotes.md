@@ -3,9 +3,9 @@
 
 ## Version 0.5.3
 
-This patch version implements functions for the evaluation of time responses of continuous-time and discrete-time periodic systems and implementing Base.getindex for periodic matrices.   
+This patch version implements functions for the evaluation of time responses of continuous-time and discrete-time periodic systems and implementing `Base.getindex` for periodic matrices and systems.   
 
-## Version 0.5.2
+## Version 0.5.2 (not registered)
 
 This patch version implements functions for the evaluation of the Hankel-norm of continuous-time and discrete-time periodic systems.   
 

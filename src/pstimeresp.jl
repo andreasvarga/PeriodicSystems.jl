@@ -50,8 +50,8 @@ function pstimeresp(psys::PeriodicStateSpace{PM}, u::AbstractVecOrMat{<:Number},
    m == m1 || error("u must have as many columns as system inputs")
    n == length(x0) || error("x0 must have the same length as the system state vector")
 
-   disc = Domain == :d
-   Ts = disc ? psys.A.Ts : 0
+   disc = isdiscrete(psys)
+   Ts = psys.Ts
    ns = length(t)
    ns > 0 && ns != N && error("u must have the same number of rows as the number of values in t")
    if ns > 1
@@ -62,7 +62,7 @@ function pstimeresp(psys::PeriodicStateSpace{PM}, u::AbstractVecOrMat{<:Number},
       tout = t
    else
       if disc
-         Δ = abs(psys.A.Ts)           
+         Δ = abs(Ts)           
          tout = Vector{real(T1)}(0:Δ:(N-1)*Δ) 
       else
          error("Time values must be given in the continuous-time case")

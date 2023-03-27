@@ -288,6 +288,17 @@ Base.propertynames(sys::PeriodicStateSpace) =
 iscontinuous(sys::PeriodicStateSpace) = iscontinuous(sys.A)
 isdiscrete(sys::PeriodicStateSpace) = !iscontinuous(sys.A)
 
+function Base.getindex(sys::PSS, inds...) where PSS <: PeriodicStateSpace
+   size(inds, 1) != 2 &&
+       error("Must specify 2 indices to index descriptor state-space models")
+   rows, cols = index2range(inds...) 
+   return PeriodicStateSpace(sys.A, sys.B[:, cols], sys.C[rows, :], sys.D[rows, cols])
+end
+function Base.lastindex(sys::PSS, dim::Int) where PSS <: PeriodicStateSpace
+   lastindex(sys.D,dim)
+end
+
+
 # display sys
 Base.print(io::IO, sys::PeriodicStateSpace) = show(io, sys)
 Base.show(io::IO, sys::PeriodicStateSpace{PM}) where 
