@@ -24,10 +24,10 @@ The resulting symmetric periodic solution `X` and periodic state feedback gain `
 set to the least common commensurate period of `A`, `B`, `R` and `Q` and the number of subperiods
 is adjusted accordingly. 
 
-If `fast = true` (default), the fast structure exploiting pencil reduction based method of [1] is used
+If `fast = true`, the fast structure exploiting pencil reduction based method of [1] is used
 to determine a periodic generator in `X(1)`, which allows to generate iteratively the solution 
 over the whole period.  
-If `fast = false`, the periodic Schur decomposition based approach of [1] is employed, applied to a 
+If `fast = false` (default), the periodic Schur decomposition based approach of [1] is employed, applied to a 
 symplectic pair of periodic matrices. If `nodeflate = false` (default), the underlying periodic pencil 
 is preprocessed to eliminate (deflate) the infinite characteristic multipliers originating 
 from the problem structure. If `nodeflate = true`, no preliminary deflation is performed.
@@ -46,7 +46,7 @@ _References_
     Numerical Linear Algebra with Applications, 15:809-835, 2008.
     
 """
-function prdric(A::PA1, B::PA2, R::PA3, Q::PA4, S::Union{PA5,Missing} = missing; itmax::Int = 0, nodeflate::Bool = false, PSD_SLICOT::Bool = true, fast = true, rtol::Real = size(A,1)*eps()) where 
+function prdric(A::PA1, B::PA2, R::PA3, Q::PA4, S::Union{PA5,Missing} = missing; itmax::Int = 0, nodeflate::Bool = false, PSD_SLICOT::Bool = true, fast = false, rtol::Real = size(A,1)*eps()) where 
     {PA1 <: PeriodicArray, PA2 <: PeriodicArray, PA3 <: PeriodicArray, PA4 <: PeriodicArray, PA5 <: PeriodicArray}
    n = size(A,1)
    n == size(A,2) || error("the periodic matrix A must be square")
@@ -254,11 +254,11 @@ The resulting `n(i)×n(i)` symmetric periodic solution `X(i)` and `m×n(i)` peri
 set to the least common commensurate period of `A`, `B`, `R` and `Q` and the number of subperiods
 is adjusted accordingly. 
 
-If `fast = true` (default), the fast structure exploiting pencil reduction based method of [1] is used
+If `fast = true`, the fast structure exploiting pencil reduction based method of [1] is used
 to determine a periodic generator in `X(j)`, which allows to generate iteratively the solution 
 over the whole period. The value of `j` corresponds to the least dimension `nc` of `n(i)` 
 (which is also the number of core characteristic multipliers). 
-If `fast = false`, the periodic Schur decomposition based approach of [1] is employed, applied to a 
+If `fast = false` (default), the periodic Schur decomposition based approach of [1] is employed, applied to a 
 symplectic pair of periodic matrices. If `nodeflate = false` (default), the underlying periodic pencil 
 is preprocessed to eliminate (deflate) the infinite characteristic multipliers originating 
 from the problem structure. If `nodeflate = true`, no preliminary deflation is performed.
@@ -275,7 +275,7 @@ _References_
 [1] A. Varga. On solving periodic Riccati equations.  
     Numerical Linear Algebra with Applications, 15:809-835, 2008.   
 """
-function prdric(A::PM1, B::PM2, R::PM3, Q::PM4, S::Union{PM5,Missing} = missing; itmax::Int = 0, nodeflate::Bool = false, PSD_SLICOT::Bool = true, fast = true, rtol::Real = size(A.M[1],1)*eps()) where 
+function prdric(A::PM1, B::PM2, R::PM3, Q::PM4, S::Union{PM5,Missing} = missing; itmax::Int = 0, nodeflate::Bool = false, PSD_SLICOT::Bool = true, fast = false, rtol::Real = size(A.M[1],1)*eps()) where 
   {PM1 <: PeriodicMatrix, PM2 <: PeriodicMatrix, PM3 <: PeriodicMatrix, PM4 <: PeriodicMatrix, PM5 <: PeriodicMatrix}
   ma, na = size(A) 
   mb, nb = size(B) 
@@ -390,7 +390,7 @@ function prdric(A::PM1, B::PM2, R::PM3, Q::PM4, S::Union{PM5,Missing} = missing;
      return PeriodicMatrix(X,period), EVALS, PeriodicMatrix(F,period)
   else
     At = zeros(n,n,pa); [copyto!(view(At,1:ma[i],1:na[i],i),A.M[i]) for i in 1:pa]
-    Bt = zeros(n,m,pb); [copyto!(view(Bt,1:ma[i],1:m,i),B.M[i]) for i in 1:pb]
+    Bt = zeros(n,m,pb); [copyto!(view(Bt,1:mb[i],1:m,i),B.M[i]) for i in 1:pb]
     Rt = zeros(m,m,pr); [copyto!(view(Rt,1:m,1:m,i),R.M[i]) for i in 1:pr]
     Qt = zeros(n,n,pa); [copyto!(view(Qt,1:na[i],1:na[i],i),Q.M[i]) for i in 1:pq]
     St = zeros(n,m,pa); ismissing(S) || [copyto!(view(St,1:na[i],1:m,i),S.M[i]) for i in 1:ps]
@@ -399,7 +399,7 @@ function prdric(A::PM1, B::PM2, R::PM3, Q::PM4, S::Union{PM5,Missing} = missing;
                            PeriodicArray(Rt,R.period;nperiod = R.nperiod),PeriodicArray(Qt,Q.period;nperiod = Q.nperiod),
                            ismissing(S) ? missing : PeriodicArray(St,S.period;nperiod = S.nperiod); itmax, nodeflate, PSD_SLICOT, fast, rtol)
 
-    return PeriodicMatrix([Xt.M[1:na[i],1:na[i],i] for i in 1:p],period), EVALS, PeriodicMatrix([Ft.M[1:m,1:na[i],i] for i in 1:p],period)
+    return PeriodicMatrix([Xt.M[1:na[mod(i-1,pa)+1],1:na[mod(i-1,pa)+1],i] for i in 1:p],period), EVALS, PeriodicMatrix([Ft.M[1:m,1:na[mod(i-1,pa)+1],i] for i in 1:p],period)
   end
   
 end

@@ -1,6 +1,22 @@
 # Release Notes
 
 
+## Version 0.6 (WIP)
+
+This minor version includes several extensions and new functions. Also several bug fixes have been performed.
+
+The following extensions have been implemented:
+- new periodic matrix types to support both continuous-time and discrete-time switching periodic matrices 
+- new operations on periodic matrices, such as horizontal and vertical concatenations of periodic matrices
+
+The following new functions have been implemented:
+- solution of periodic Lyapunov equations with nonnegative solutions for their square-root factors
+- memoryless output feedback connection of periodic systems  
+- output feedback stabilization of constant systems using periodic switching and periodic harmonic gains 
+- output feedback stabilization of periodic systems using periodic harmonic gains 
+- state feedack based stabilization via linear-quadratic optimization
+
+
 ## Version 0.5.2
 
 This patch version implements functions for the evaluation of time responses of continuous-time and discrete-time periodic systems and implementing `Base.getindex` for periodic matrices and systems.   

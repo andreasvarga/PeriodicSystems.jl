@@ -17,6 +17,9 @@ Depending on the underlying periodic matrix type `PM`, the optional argument `K`
 pspole(psys::PeriodicStateSpace{<: PeriodicArray}, N::Int = 1; kwargs...) = psceig(psys.A, N; kwargs...)
 pspole(psys::PeriodicStateSpace{<: PeriodicMatrix}, N::Int = 1; kwargs...) = psceig(psys.A, N; kwargs...)
 pspole(psys::PeriodicStateSpace{<: PeriodicFunctionMatrix}, N::Int = 10; kwargs...) = psceig(psys.A, N; kwargs...)
+pspole(psys::PeriodicStateSpace{<: PeriodicTimeSeriesMatrix}, N::Int = 10; method = "cubic", kwargs...) = psceig(psys.A, N; method, kwargs...)
+pspole(psys::PeriodicStateSpace{<: PeriodicSwitchingMatrix}) = psceig(psys.A)
+pspole(psys::PeriodicStateSpace{<: SwitchingPeriodicMatrix}) = psceig(convert(PeriodicMatrix,psys.A))
 pspole(psys::PeriodicStateSpace{<: HarmonicArray}, N::Int = 10; kwargs...) = psceighr(psys.A, N; kwargs...)
 pspole(psys::PeriodicStateSpace{<: FourierFunctionMatrix}, N::Int = 10; kwargs...)  = psceigfr(psys.A, N; kwargs...)
 """

@@ -55,6 +55,8 @@ The targeted functionality of this package is described in [1] and will cover bo
 * **[`isstable`](@ref)**  Assessment of stability of a periodic system.
 * **[`pshanorm`](@ref)**  Evaluation of the Hankel-norm of a periodic system.
 * **[`psh2norm`](@ref)**  Evaluation of the H2-norm of a periodic system.
+* **[`pstimeresp`](@ref)**  Time response of a periodic system.
+* **[`psstepresp`](@ref)**  Step response of a periodic system.
 
 **Solving periodic Lyapunov equations**
 
@@ -63,8 +65,11 @@ The targeted functionality of this package is described in [1] and will cover bo
 * **[`pfclyap`](@ref)**  Solution of forward-time periodic Lyapunov differential equations.
 * **[`pgclyap`](@ref)** Computation of periodic generators for periodic Lyapunov differential equations.
 * **[`pdlyap`](@ref)** Solution of periodic discrete-time Lyapunov equations. 
-* **[`prlyap`](@ref)** Solution of reverse-time periodic discrete-time Lyapunov equations. 
-* **[`pflyap`](@ref)**  Solution of forward-time periodic discrete-time Lyapunov equations.
+* **[`prdlyap`](@ref)** Solution of reverse-time periodic discrete-time Lyapunov equations. 
+* **[`pfdlyap`](@ref)**  Solution of forward-time periodic discrete-time Lyapunov equations.
+* **[`pdplyap`](@ref)** Solution of positve periodic discrete-time Lyapunov equations. 
+* **[`prdplyap`](@ref)** Solution of positve reverse-time periodic discrete-time Lyapunov equations. 
+* **[`pfdplyap`](@ref)**  Solution of positve forward-time periodic discrete-time Lyapunov equations.
 
 **Solving periodic Riccati equations**
 

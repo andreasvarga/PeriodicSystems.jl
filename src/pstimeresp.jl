@@ -16,8 +16,8 @@ the vector `tout` contains the corresponding values of the time samples.
 The `i`-th row of `y` contains the output values at time `tout[i]`.  
 If the keyword parameter value `state_history = true` is used, then the matrix `x` contains 
 the resulting time history of the state vector and its `i`-th row `x[i,:]` contains 
-the state values at time `tout[i]`. The column dimension of the matrix `x` is `n`, the dimension of the
-the state vector. 
+the state values at time `tout[i]`. 
+The column dimension of the matrix `x` is `n`, the dimension of the state vector. 
 For a discrete-time periodic system with time-varying state dimensions, `n` is the maximum value of the 
 dimensions of the state vector over one period. The components of `x[i,:]` have trailing zero values if the 
 corresponding state vector dimension is less than `n`.  
@@ -87,7 +87,7 @@ function pstimeresp(psys::PeriodicStateSpace{PM}, u::AbstractVecOrMat{<:Number},
              state_history && (x[i,:] = xt) 
              xt = psys.A.M[:,:,ia]*xt + psys.B.M[:,:,ib]*ut
          end
-      else
+      elseif PM <: PeriodicMatrix
          nmax = maximum(psys.nx)
          state_history ?  x = zeros(T1, N, nmax) : x = nothing 
          for i = 1:N 
@@ -99,6 +99,14 @@ function pstimeresp(psys::PeriodicStateSpace{PM}, u::AbstractVecOrMat{<:Number},
              y[i,:] = psys.C.M[ic]*xt + psys.D.M[id]*ut
              state_history && (copyto!(view(x,i,1:length(xt)), xt)) 
              xt = psys.A.M[ia]*xt + psys.B.M[ib]*ut
+         end
+      else
+         state_history ?  x = zeros(T1, N, nmax) : x = nothing 
+         for i = 1:N 
+             ut = u[i,:]
+             y[i,:] = kpmeval(psys.C,i)*xt + kpmeval(psys.D,i)*ut
+             state_history && (copyto!(view(x,i,1:length(xt)), xt)) 
+             xt = kpmeval(psys.A,i)*xt + kpmeval(psys.B,i)*ut
          end
       end
       return y, tout, x
@@ -380,7 +388,7 @@ function pstimeresp(psys::PeriodicStateSpace{PM}, u::Function, t::AbstractVector
    return y, tout, x
 end
 function tvtimeresp(A::PM, B::PM, tf, t0, u, x0::AbstractVector; solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) where
-   {PM <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}} 
+   {PM <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicSwitchingMatrix,PeriodicTimeSeriesMatrix}} 
    """
       tvtimeresp(A, B, tf, t0, u, x0; solver, reltol, abstol) -> x::Vector
 

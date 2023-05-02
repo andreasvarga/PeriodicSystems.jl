@@ -170,6 +170,25 @@ function PeriodicStateSpace(A::PTSM1, B::PTSM2, C::PTSM3, D::PTSM4) where {PTSM1
                                             (period == D.period && T == eltype(D)) ? D : PeriodicTimeSeriesMatrix{:c,T}(D,period), 
                                             Float64(period))
 end
+function PeriodicStateSpace(A::PTSM1, B::PTSM2, C::PTSM3, D::PTSM4) where {PTSM1 <: PeriodicSwitchingMatrix, PTSM2 <: PeriodicSwitchingMatrix, PTSM3 <: PeriodicSwitchingMatrix, PTSM4 <: PeriodicSwitchingMatrix}
+   period = ps_validation(A, B, C, D)
+   T = promote_type(eltype(A),eltype(B),eltype(C),eltype(D))
+   PeriodicStateSpace{PeriodicSwitchingMatrix{:c,T}}((period == A.period && T == eltype(A)) ? A : PeriodicSwitchingMatrix{:c,T}(A,period), 
+                                           (period == B.period && T == eltype(B)) ? B : PeriodicSwitchingMatrix{:c,T}(B,period), 
+                                           (period == C.period && T == eltype(C)) ? C : PeriodicSwitchingMatrix{:c,T}(C,period), 
+                                           (period == D.period && T == eltype(D)) ? D : PeriodicSwitchingMatrix{:c,T}(D,period), 
+                                           Float64(period))
+end
+function PeriodicStateSpace(A::PTSM1, B::PTSM2, C::PTSM3, D::PTSM4) where {PTSM1 <: SwitchingPeriodicMatrix, PTSM2 <: SwitchingPeriodicMatrix, PTSM3 <: SwitchingPeriodicMatrix, PTSM4 <: SwitchingPeriodicMatrix}
+   period = ps_validation(A, B, C, D)
+   T = promote_type(eltype(A),eltype(B),eltype(C),eltype(D))
+   PeriodicStateSpace{SwitchingPeriodicMatrix{:d,T}}((period == A.period && T == eltype(A)) ? A : SwitchingPeriodicMatrix{:d,T}(A,period), 
+                                           (period == B.period && T == eltype(B)) ? B : SwitchingPeriodicMatrix{:d,T}(B,period), 
+                                           (period == C.period && T == eltype(C)) ? C : SwitchingPeriodicMatrix{:d,T}(C,period), 
+                                           (period == D.period && T == eltype(D)) ? D : SwitchingPeriodicMatrix{:d,T}(D,period), 
+                                           Float64(period))
+end
+
 
 function ps_validation(A::PM1, B::PM2, C::PM3, D::PM4) where {T1, T2, T3, T4, PM1 <: AbstractPeriodicArray{:c,T1}, PM2 <: AbstractPeriodicArray{:c,T2}, PM3 <: AbstractPeriodicArray{:c,T3}, PM4 <: AbstractPeriodicArray{:c,T4}}
     nx = size(A,1)
@@ -253,15 +272,48 @@ function ps_validation(A::PA1, B::PA2, C::PA3, D::PA4) where {T1, T2, T3, T4, PA
  
     return period
 end
+function ps_validation(A::PM1, B::PM2, C::PM3, D::PM4) where {T1, T2, T3, T4, PM1 <: SwitchingPeriodicMatrix{:d,T1}, PM2 <: SwitchingPeriodicMatrix{:d,T2}, PM3 <: SwitchingPeriodicMatrix{:d,T3}, PM4 <: SwitchingPeriodicMatrix{:d,T4}}
+   period = promote_period(A, B, C, D)
+   max(length(A),length(B),length(C),length(D)) == 0 && (return period)
+
+   # Validate dimensions
+   ny = size(D,1)
+   nu = size(D,2)
+   any(ny .!= ny[1]) && error("all matrices D[i] must have the same row size")
+   any(nu .!= nu[1]) && error("all matrices D[i] must have the same column size")
+   
+   ndx, nx = size(A)
+   if all(ndx .== ndx[1]) && all(nx .== nx[1]) 
+      # constant dimensions of A, B, C, D
+      ndx[1] == nx[1] || error("A[i] must be square matrices")
+      any(size(B, 1) .!= ndx[1]) && error("all matrices A[i] and B[i] must have the same row size")
+      any(size(C, 2) .!= nx[1]) &&  error("all matrices A[i] and C[i] must have the same column size")
+      any(size(C, 1) .!= ny[1]) && error("all matrices C[i] and D[i] must have the same row size")
+      any(size(B, 2) .!= nu[1]) && error("all matrices B[i] and D[i] must have the same column size")
+   else     
+      N = A.dperiod
+      (N != B.dperiod || N != C.dperiod) && error("the number of component matrices of A, B and C must be the same ")
+      for i = 1:N
+          i == N && ndx[i] != nx[1] && error("the number of columns of A[i+1] must be equal to the number of rows of A[i]")
+          i != N && ndx[i] != nx[i+1] && error("the number of columns of A[i+1] must be equal to the number of rows of A[i]")
+      end
+      any(size(B, 1) .!= ndx) && error("all matrices A[i] and B[i] must have the same row size")
+      any(size(C, 2) .!= nx) &&  error("all matrices A[i] and C[i] must have the same column size")
+      any(size(C, 1) .!= ny[1]) && error("all matrices C[i] and D[i] must have the same row size")
+      any(size(B, 2) .!= nu[1]) && error("all matrices B[i] and D[i] must have the same column size")
+   end
+   return period
+end
+
 
 #  conversions
 function Base.convert(::Type{PeriodicStateSpace{PM}}, psys::PeriodicStateSpace) where {PM <: AbstractPeriodicArray}
-   convert(PM,psys.A)
-   convert(PM,psys.B)
-   convert(PM,psys.C)
-   convert(PM,psys.D)
    PeriodicStateSpace(convert(PM,psys.A), convert(PM,psys.B), convert(PM,psys.C), convert(PM,psys.D))
 end
+# function Base.convert(::Type{PeriodicStateSpace{PM}}, psys::PeriodicStateSpace{<:PeriodicTimeSeriesMatrix}) where {T,PM <: PeriodicSwitchingMatrix{:c,T}}
+#    PeriodicStateSpace(convert(PM,psys.A), convert(PM,psys.B), convert(PM,psys.C), convert(PM,psys.D))
+# end
+
 # properties
 Base.size(sys::PeriodicStateSpace) = maximum.(size(sys.D))
 function Base.size(sys::PeriodicStateSpace, d::Integer)
@@ -554,7 +606,11 @@ function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateS
        subperiod = period/nperiod
        Ts = subperiod/dperiod
        println(io, "\nState matrix A: subperiod: $subperiod    #subperiods: $nperiod ")
-       println(io, "time values: t[1:$dperiod] = [$(0*Ts)  $(Ts) ... $((dperiod-1)*Ts)]")
+       if dperiod == 1
+          println(io, "time values: t[1:$dperiod] = [$(0*Ts)]")
+       else
+          println(io, "time values: t[1:$dperiod] = [$(0*Ts)  $(Ts) ... $((dperiod-1)*Ts)]")
+       end
        for i in [1:min(4,dperiod); dperiod-2:dperiod]
           i <= 0 && break
           println("t[$i] = $((i-1)*Ts)")
@@ -566,7 +622,11 @@ function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateS
           subperiod = period/nperiod
           Ts = subperiod/dperiod
           println(io, "\n\nInput matrix B: subperiod: $subperiod    #subperiods: $nperiod ") 
-          println(io, "time values: t[1:$dperiod] = [$(0*Ts)  $(Ts) ... $((dperiod-1)*Ts)]")
+          if dperiod == 1
+             println(io, "time values: t[1:$dperiod] = [$(0*Ts)]")
+          else
+             println(io, "time values: t[1:$dperiod] = [$(0*Ts)  $(Ts) ... $((dperiod-1)*Ts)]")
+          end
           for i in [1:min(4,dperiod); dperiod-2:dperiod]
               i <= 0 && break
               println("t[$i] = $((i-1)*Ts)")
@@ -581,7 +641,11 @@ function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateS
           subperiod = period/nperiod
           Ts = subperiod/dperiod
           println(io, "\n\nOutput matrix C: subperiod: $subperiod    #subperiods: $nperiod ")
-          println(io, "time values: t[1:$dperiod] = [$(0*Ts)  $(Ts) ... $((dperiod-1)*Ts)]")
+          if dperiod == 1
+             println(io, "time values: t[1:$dperiod] = [$(0*Ts)]")
+          else
+             println(io, "time values: t[1:$dperiod] = [$(0*Ts)  $(Ts) ... $((dperiod-1)*Ts)]")
+          end
           for i in [1:min(4,dperiod); dperiod-2:dperiod]
               i <= 0 && break
               println("t[$i] = $((i-1)*Ts)")
@@ -596,7 +660,11 @@ function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateS
           subperiod = period/nperiod
           Ts = subperiod/dperiod
           println(io, "\n\nFeedthrough matrix D: subperiod: $subperiod    #subperiods: $nperiod ") 
-          println(io, "time values: t[1:$dperiod] = [$(0*Ts)  $(Ts) ... $((dperiod-1)*Ts)]")
+          if dperiod == 1
+             println(io, "time values: t[1:$dperiod] = [$(0*Ts)]")
+          else
+             println(io, "time values: t[1:$dperiod] = [$(0*Ts)  $(Ts) ... $((dperiod-1)*Ts)]")
+          end
           for i in [1:min(4,dperiod); dperiod-2:dperiod]
               i <= 0 && break
               println("t[$i] = $((i-1)*Ts)")

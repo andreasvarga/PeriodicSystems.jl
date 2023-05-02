@@ -40,22 +40,22 @@ _Reference:_
 pdlyap(A::PeriodicArray, C::PeriodicArray; adj::Bool = true) 
 for PM in (:PeriodicArray, :PeriodicMatrix)
    @eval begin
-      function prlyap(A::$PM, C::$PM) 
+      function prdlyap(A::$PM, C::$PM) 
          pdlyap(A, C; adj = true)
       end
-      function prlyap(A::$PM, C::AbstractMatrix)
+      function prdlyap(A::$PM, C::AbstractArray)
                pdlyap(A, $PM(C, A.Ts; nperiod = 1);  adj = true)
       end
-      function pflyap(A::$PM, C::$PM) 
+      function pfdlyap(A::$PM, C::$PM) 
          pdlyap(A, C; adj = false)
       end
-      function pflyap(A::$PM, C::AbstractMatrix)
-               pdlyap(A, $PM(C, A.Ts; nperiod = 1); adj = false)
+      function pfdlyap(A::$PM, C::AbstractArray) 
+         pdlyap(A, $PM(C, A.Ts; nperiod = 1); adj = false)
       end
    end
 end
 """
-    prlyap(A, C) -> X
+    prdlyap(A, C) -> X
 
 Solve the reverse-time periodic discrete-time Lyapunov equation
 
@@ -68,9 +68,9 @@ and additionally `C` must be symmetric. The resulting symmetric periodic solutio
 set to the least common commensurate period of `A` and `C` and the number of subperiods
 is adjusted accordingly.  
 """
-prlyap(A::PeriodicArray, C::PeriodicArray) 
+prdlyap(A::PeriodicArray, C::PeriodicArray) 
 """
-    pflyap(A, C) -> X
+    pfdlyap(A, C) -> X
 
 Solve the forward-time periodic discrete-time Lyapunov equation
 
@@ -83,7 +83,7 @@ and additionally `C` must be symmetric. The resulting symmetric periodic solutio
 set to the least common commensurate period of `A` and `C` and the number of subperiods
 is adjusted accordingly.  
 """
-pflyap(A::PeriodicArray, C::PeriodicArray) 
+pfdlyap(A::PeriodicArray, C::PeriodicArray) 
 
 """
     pslyapd(A, C; adj = true) -> X
@@ -2175,3 +2175,336 @@ end
          return any(!isfinite, B)
    end
 end
+for PM in (:PeriodicArray, :PeriodicMatrix)
+   @eval begin
+      function pdplyap(A::$PM, C::$PM; adj::Bool = true, rtol = eps(float(promote_type(eltype(A), eltype(C))))^0.75) 
+         A.Ts ≈ C.Ts || error("A and C must have the same sampling time")
+         period = promote_period(A, C)
+         na = rationalize(period/A.period).num
+         K = na*A.nperiod*A.dperiod
+         U = psplyapd(A.M, C.M; adj, rtol)
+         p = lcm(length(A),length(C))
+         return $PM(U, period; nperiod = div(K,p))
+      end
+   end
+end
+"""
+    pdplyap(A, C; adj = true) -> U
+
+Compute the upper triangular factor `U` of the solution `X = U'U` of the 
+periodic discrete-time Lyapunov matrix equation
+
+      A'σXA + C'C = X, if adj = true,
+
+or of the solution `X = UU'` of the periodic discrete-time Lyapunov matrix equation
+
+      AXA' + CC' =  σX, if adj = false, 
+
+where `σ` is the forward shift operator `σX(i) = X(i+1)`. 
+The periodic matrix `A` must be stable, i.e., have all characteristic multipliers 
+with moduli less than one. 
+
+The periodic matrices `A` and `C` must have the same type, the same dimensions and commensurate periods. 
+The resulting upper triangular periodic matrix `U` has the period 
+set to the least common commensurate period of `A` and `C` and the number of subperiods
+is adjusted accordingly. 
+
+The iterative method (Algorithm 5) of [1] and its dual version are employed.  
+
+_Reference:_
+
+[1] A. Varga. Periodic Lyapunov equations: some applications and new algorithms. 
+              Int. J. Control, vol, 67, pp, 69-87, 1997.
+"""
+pdplyap(A::PeriodicArray, C::PeriodicArray; adj::Bool = true) 
+
+"""
+     psplyapd(A, C; adj = true, rtol = ϵ^(3/4)) -> U
+
+Compute the upper triangular factor `U` of the solution `X = U'U` of the 
+periodic discrete-time Lyapunov matrix equation
+
+      A'σXA + C'C = X, if adj = true,
+
+or of the solution `X = UU'` of the periodic discrete-time Lyapunov matrix equation
+
+      AXA' + CC' =  σX, if adj = false, 
+
+where `σ` is the forward shift operator `σX(i) = X(i+1)`. 
+The periodic matrix `A` must be stable, i.e., have all characteristic multipliers 
+with moduli less than one. 
+
+
+The periodic matrices `A` and `C` are either stored as 3-dimensional arrays or as
+as vectors of matrices. 
+
+
+The iterative method (Algorithm 5) of [1] and its dual version are employed.  
+
+_Reference:_
+
+[1] A. Varga, "Periodic Lyapunov equations: some applications and new algorithms", 
+    Int. J. Control, vol. 67, pp. 69-87, 1997.
+"""
+function psplyapd(A::AbstractVector{Matrix{T1}}, C::AbstractVector{Matrix{T2}}; adj::Bool = true, rtol = eps(float(promote_type(T1, T2)))^0.75) where {T1, T2}
+   pa = length(A) 
+   pc = length(C)
+   ma, na = size.(A,1), size.(A,2) 
+   mc, nc = size.(C,1), size.(C,2) 
+   p = lcm(pa,pc)
+   all(ma .== view(na,mod.(1:pa,pa).+1)) || 
+        error("the number of columns of A[i+1] must be equal to the number of rows of A[i]")
+   if adj
+      all([nc[mod(i-1,pc)+1]  == na[mod(i-1,pa)+1] for i in 1:p]) ||
+           throw(DimensionMismatch("incompatible dimensions between A and C"))
+   else
+      all([mc[mod(i-1,pc)+1] == ma[mod(i-1,pa)+1] for i in 1:p]) ||
+           throw(DimensionMismatch("incompatible dimensions between A and C"))
+   end
+   rev(t) = reverse(reverse(t,dims=1),dims=2)
+
+   T = promote_type(T1, T2)
+   T <: BlasFloat  || (T = promote_type(Float64,T))
+ 
+   #ii = adj ? argmin(ma) : argmin(na)
+   ii = argmin(na)
+
+   #nmin = adj ? ma[ii] : na[ii] 
+   nmin = na[ii]
+   x = zeros(T,nmin,nmin)
+
+   if adj
+      U = Vector{Matrix}(undef,p)
+      #U[ii] = zeros(T,nmin,nmin)
+      # @show ii, ma, na
+      # compute an initializing periodic factor U[ii]
+      V = zeros(T,nmin,nmin)
+      Φ = Matrix{T}(I(nmin))
+      for i = ii:ii+p-1
+         ia = mod(i-1,pa)+1
+         ic = mod(i-1,pc)+1
+         V = qr([V; C[ic]*Φ]).R
+         Φ = A[ia]*Φ
+      end
+      U[ii] = plyapd(Φ', V')
+      for iter = 1:100
+          if iter > 1
+             y = U[ii]'*U[ii]
+             if norm(y-x,1) <= rtol*norm(y)
+                break
+             end
+             x = copy(y)
+          end  
+          for i = ii+p:-1:ii+1
+              j = mod(i-1,p)+1
+              jm1 = mod(i-2,p)+1
+              iam1 = mod(i-2,pa)+1
+              icm1 = mod(i-2,pc)+1
+              #@show j, jm1, iam1, icm1
+              U[jm1] = qr([U[j]*A[iam1]; C[icm1]]).R
+          end
+          #@show iter, norm(U[ii]'*U[ii]-x,1) 
+      end
+   else
+      #@show ii, ma, na
+      U = Vector{Matrix}(undef,p)
+      #U[ii] = zeros(T,nmin,nmin)
+      # compute an initializing periodic factor U[ii]
+      V = zeros(T,nmin,nmin)
+      Φ = Matrix{T}(I(nmin))
+      for i = ii+p-1:-1:ii
+         ia = mod(i-1,pa)+1
+         ic = mod(i-1,pc)+1
+         V = rev(qr(rev([V Φ*C[ic]]')).R')
+         Φ = Φ*A[ia]
+      end
+      U[ii] = plyapd(Φ, V)
+      for iter = 1:100
+          if iter > 1
+             y = U[ii]*U[ii]'
+             if norm(y-x,1) <= rtol*norm(y)
+                 break
+             end
+             x = copy(y)
+          end  
+          for i = ii+1:ii+p
+              j = mod(i-1,p)+1
+              jm1 = mod(i-2,p)+1
+              iam1 = mod(i-2,pa)+1
+              icm1 = mod(i-2,pc)+1
+              #@show j, jm1, iam1, icm1
+              U[j] = rev(qr(rev([A[iam1]*U[jm1] C[icm1]]')).R')
+          end
+          #@show iter, norm(U[ii]*U[ii]'-x,1) 
+     end
+   end
+
+   for i = 1:p
+       U[i] = makesp(U[i];adj)
+   end
+   return U
+end
+
+function makesp(r; adj = true)
+   # make upper trapezoidal matrix square and with positive diagonal elements
+   if adj
+      n, nc = size(r)
+      rp = [r; zeros(nc-n,nc)]
+      for i = 1:n
+          rp[i,i] < 0 && (rp[i,i:end] = -rp[i,i:end])
+      end
+   else
+      n, nc = size(r)
+      rp = [zeros(n,n-nc) r ]
+      for i = n-nc+1:n
+          rp[i,i] < 0 && (rp[1:i,i] = -rp[1:i,i])
+      end
+   end
+   return rp
+end
+function psplyapd(A::AbstractArray{T1,3}, C::AbstractArray{T2,3}; adj::Bool = true, rtol = eps(float(promote_type(T1, T2)))^0.75) where {T1, T2}
+   mc, nc, pc = size(C)
+   n = LinearAlgebra.checksquare(A[:,:,1]) 
+   pa = size(A,3)
+   p = lcm(pa,pc)
+   if adj
+      nc  == n || throw(DimensionMismatch("incompatible dimensions between A and C"))
+   else
+      mc == n ||  throw(DimensionMismatch("incompatible dimensions between A and C"))
+   end
+   rev(t) = reverse(reverse(t,dims=1),dims=2)
+
+   T = promote_type(T1, T2)
+   T <: BlasFloat  || (T = promote_type(Float64,T))
+ 
+   x = zeros(T,n,n)
+   U = Array{T,3}(undef,n,n,p)
+
+   if adj
+      #U[ii] = zeros(T,n,n)
+      # @show ii, ma, na
+      # compute an initializing periodic factor U[ii]
+      V = zeros(T,n,n)
+      Φ = Matrix{T}(I(n))
+      for i = 1:p
+          ia = mod(i-1,pa)+1
+          ic = mod(i-1,pc)+1
+          V = qr([V; C[:,:,ic]*Φ]).R
+          Φ = A[:,:,ia]*Φ
+      end
+      U[:,:,1] = plyapd(Φ', V')
+      for iter = 1:100
+          if iter > 1
+             y = U[:,:,1]'*U[:,:,1]
+             if norm(y-x,1) <= rtol*norm(y)
+                break
+             end
+             x = copy(y)
+          end  
+          for i = p+1:-1:2
+              j = mod(i-1,p)+1
+              jm1 = mod(i-2,p)+1
+              iam1 = mod(i-2,pa)+1
+              icm1 = mod(i-2,pc)+1
+              # @show j, jm1, iam1, icm1
+              U[:,:,jm1] = qr([U[:,:,j]*A[:,:,iam1]; C[:,:,icm1]]).R
+          end
+          #@show iter, norm(U[:,:,1]'*U[:,:,1]-x,1) 
+      end
+   else
+      #@show ii, ma, na
+      #U[ii] = zeros(T,n,n)
+      # compute an initializing periodic factor U[ii]
+      V = zeros(T,n,n)
+      Φ = Matrix{T}(I(n))
+      for i = p:-1:1
+         ia = mod(i-1,pa)+1
+         ic = mod(i-1,pc)+1
+         V = rev(qr(rev([V Φ*C[:,:,ic]]')).R')
+         Φ = Φ*A[:,:,ia]
+      end
+      U[:,:,1] = plyapd(Φ, V)
+      for iter = 1:100
+          if iter > 1
+             y = U[:,:,1]*U[:,:,1]'
+             if norm(y-x,1) <= rtol*norm(y)
+                 break
+             end
+             x = copy(y)
+          end  
+          for i = 2:p+1
+              j = mod(i-1,p)+1
+              jm1 = mod(i-2,p)+1
+              iam1 = mod(i-2,pa)+1
+              icm1 = mod(i-2,pc)+1
+              #@show j, jm1, iam1, icm1
+              U[:,:,j] = rev(qr(rev([A[:,:,iam1]*U[:,:,jm1] C[:,:,icm1]]')).R')
+          end
+          #@show iter, norm(U[:,:,1]*U[:,:,1]'-x,1) 
+     end
+   end
+
+   for i = 1:p
+       U[:,:,i] = makesp(U[:,:,i];adj)
+   end
+   return U
+end
+for PM in (:PeriodicArray, :PeriodicMatrix)
+   @eval begin
+      function prdplyap(A::$PM, C::$PM) 
+         pdplyap(A, C; adj = true)
+      end
+      function prdplyap(A::$PM, C::AbstractArray)
+         pdplyap(A, $PM(C, A.Ts; nperiod = 1);  adj = true)
+      end
+      function pfdplyap(A::$PM, C::$PM) 
+         pdplyap(A, C; adj = false)
+      end
+      function pfdplyap(A::$PM, C::AbstractArray)
+         pdplyap(A, $PM(C, A.Ts; nperiod = 1); adj = false)
+      end
+   end
+end
+"""
+    prdplyap(A, C) -> U
+
+Compute the upper triangular factor `U` of the solution `X = U'*U` of the 
+reverse time periodic discrete-time Lyapunov matrix equation
+
+    A'σXA + C'C = X
+
+where `σ` is the forward shift operator `σX(i) = X(i+1)`. 
+The periodic matrix `A` must be stable, i.e., have all characteristic multipliers 
+with moduli less than one. 
+
+The periodic matrices `A` and `C` must have the same type, the same dimensions and commensurate periods. 
+The resulting upper triangular periodic matrix `U` has the period 
+set to the least common commensurate period of `A` and `C` and the number of subperiods
+is adjusted accordingly.  
+
+Note: `X` is the _observability Gramian_ of the periodic pair `(A,C)`.              
+"""
+prdplyap(A::PeriodicArray, C::PeriodicArray) 
+"""
+    pfdplyap(A, B) -> U
+
+Compute the upper triangular factor `U` of the solution `X = U*U'` of the 
+forward-time periodic discrete-time Lyapunov equation
+
+    AXA' + BB' = σX
+
+where `σ` is the forward shift operator `σX(i) = X(i+1)`.  
+The periodic matrix `A` must be stable, i.e., have all characteristic multipliers 
+with moduli less than one. 
+               
+
+The periodic matrices `A` and `B` must have the same type, the same dimensions and commensurate periods. 
+The resulting upper triangular periodic matrix `U` has the period 
+set to the least common commensurate period of `A` and `B` and the number of subperiods
+is adjusted accordingly.  
+
+Note: `X` is the _reachability Gramian_ of the periodic pair `(A,B)`.              
+"""
+pfdplyap(A::PeriodicArray, B::PeriodicArray) 
+
+

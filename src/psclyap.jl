@@ -192,11 +192,11 @@ function tvclyap(A::PM1, C::PM2, tf, t0, W0::Union{AbstractMatrix,Missing} = mis
 
    Compute the solution at tf > t0 of the differential matrix Lyapunov equation 
             .
-            W(t) = A(t)*W(t)+W(t)*A'(t)+Q(t), W(t0) = 0, tf > t0, if adj = false
+            W(t) = A(t)*W(t)+W(t)*A'(t)+C(t), W(t0) = 0, tf > t0, if adj = false
 
    or 
             .
-            W(t) = -A(t)'*W(t)-W(t)*A(t)-Q(t), W(t0) = 0, tf < t0, if adj = true. 
+            W(t) = -A(t)'*W(t)-W(t)*A(t)-C(t), W(t0) = 0, tf < t0, if adj = true. 
 
    The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
    together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
@@ -270,3 +270,72 @@ function muladdcsym!(y::AbstractVector, x::AbstractVector, isig, A::AbstractMatr
    end
    return y
 end
+# function tvcplyap(A::PM1, C::PM2, tf, t0, U0::Union{AbstractMatrix,Missing} = missing; adj = false, solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) where
+#    {PM1 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}, PM2 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}} 
+#    """
+#       tvcplyap(A, C, tf, to; adj, solver, reltol, abstol) -> U::Matrix
+
+#    Compute the upper triangular factor U(t) of the solution W(t) = U(t)U(t)' at tf > t0 of the differential matrix Lyapunov equation 
+#             .
+#             W(t) = A(t)*W(t)+W(t)*A'(t)+C(t)*C(t)', W(t0) = 0, tf > t0, if adj = false
+
+#    or the upper triangular factor U(t) of the solution W(t) = U(t)'U(t) at tf < t0 of the differential matrix Lyapunov equation 
+#             .
+#             W(t) = -A(t)'*W(t)-W(t)*A(t)-C(t)'*C(t), W(t0) = 0, tf < t0, if adj = true,
+            
+#    where A(t) is a stable periodic matrix.           
+
+#    The implicit differential-algebraic solver IDA() from the Sundials package is employed to convert the continuous-time problem 
+#    into a discrete-time problem, for which the required relative accuracy can be specified via the keyword argument 
+#    `reltol` (default: `reltol = 1.e-8`) and the  
+#    absolute accuracy can be specified via the keyword argument `abstol` (default: `abstol = 1.e-8`). 
+#    """
+#    n = size(A,1)
+#    n == size(A,2) || error("the periodic matrix A must be square")
+#    (adj && n == size(C,2)) || error("the periodic matrix C must have same number of columns as A")
+#    (!adj && n == size(C,1)) || error("the periodic matrix C must have same number of rows as A")
+#    T = promote_type(typeof(t0), typeof(tf))
+#    # using IDAfrom Sundials
+#    N = div(n*(n+1),2)
+#    ismissing(U0) && (U0 = 10*eps(T)*I(n))
+#    tspan = (T(t0),T(tf))
+#    Q = adj ? C'*C : C*C'
+#    # ensure dU0'*U0+U0'*dU0 = p
+#    dU0 = 0.5*(U0'\p)
+#    dUl = tril(dU0/U0,-1)
+#    z = -dUl+dUl'
+#    dU0 = triu(dU0+z*U0)
+#    u0 = MatrixEquations.triu2vec(U0)
+#    du0 = MatrixEquations.triu2vec(dU0)
+#    differential_vars = trues(N)
+
+#    prob = DAEProblem(fcplyap, du0, u0, tspan, (A, C, adj); differential_vars)
+#    sol = solve(prob, IDA(); abstol, reltol)
+
+
+#    return MatrixEquations.vec2triu(sol[end], her=false)     
+# end
+# function fcplyap(out,du,u,p,t) 
+#    A, C, adj = p
+#    U = MatrixEquations.vec2triu(convert(AbstractVector{T1}, u), her=false)
+#    dU = MatrixEquations.vec2triu(convert(AbstractVector{T1}, du), her=false)
+#    dtU = adj ? dU'*U+U'*dU : dU*U'+ U*dU'
+#    At = adj ? tpmeval(A,t)' : tpmeval(A,t)
+#    Ct = tpmeval(C,t)
+#    isig = adj ? -1 : 1
+#    X = adj ? U'*U : U*U' 
+#    @inbounds begin
+#       k = 0
+#       for j = 1:n
+#          for i = 1:j
+#             k += 1
+#             temp = Ct[i,j] - dtU[i,j] 
+#             for l = 1:n
+#                temp += At[i,l] * X[l,j] + X[i,l] * At[j,l]
+#             end
+#             out[k] = isig*temp
+#          end
+#       end
+#    end
+# end
+   

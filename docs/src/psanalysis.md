@@ -6,6 +6,7 @@
 * **[`pshanorm`](@ref)**  Evaluation of the Hankel-norm of a periodic system.
 * **[`psh2norm`](@ref)**  Evaluation of the H2-norm of a periodic system.
 * **[`pstimeresp`](@ref)**  Time response of a periodic system.
+* **[`psstepresp`](@ref)**  Step response of a periodic system.
 
 
 ```@docs
@@ -15,4 +16,5 @@ isstable
 pshanorm
 psh2norm
 pstimeresp
+psstepresp
 ```

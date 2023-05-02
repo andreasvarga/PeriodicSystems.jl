@@ -498,7 +498,7 @@ rez = [ al[i1,i1,ip[i]]*X3[i1,i2,ipq[i]]*ar[i2,i2,ip[i]]'-X3[i1,i2,ipq1[i]]+q[i1
 end # dpsylv2
 
 
-@testset "prlyap && pflyap" begin
+@testset "prdlyap && pfdlyap" begin
 
 # constant dimensions
 na = [5, 5]; ma = [5,5]; pa = 2; pc = 2;   
@@ -514,11 +514,11 @@ na = [5, 3, 3, 4, 1]; ma = [3, 3, 4, 1, 5]; pa = 5; pc = 5;
 Ad = PeriodicMatrix([rand(Float64,ma[i],na[i]) for i in 1:pa],pa);  
 x = [rand(na[i],na[i]) for i in 1:pc]
 Qd = PeriodicMatrix([ x[i]+x[i]' for i in 1:pc],pc);
-X = prlyap(Ad, Qd);
+X = prdlyap(Ad, Qd);
 @test norm(Ad'*pmshift(X)*Ad-X+Qd) < 1.e-7 
 
 Ad1 = convert(PeriodicArray,Ad); Qd1 = convert(PeriodicArray,Qd);
-X1 = prlyap(Ad1, Qd1); 
+X1 = prdlyap(Ad1, Qd1); 
 @test norm(Ad1'*pmshift(X1)*Ad1-X1+Qd1) < 1.e-7 
 
 X2 = PeriodicMatrix(pslyapdkr(Ad.M, Qd.M; adj = true), lcm(pa,pc));
@@ -527,11 +527,11 @@ X2 = PeriodicMatrix(pslyapdkr(Ad.M, Qd.M; adj = true), lcm(pa,pc));
 x = [rand(ma[i],ma[i]) for i in 1:pc]
 Qd = PeriodicMatrix([ x[i]+x[i]' for i in 1:pc],pc);
 
-X = pflyap(Ad, Qd) 
+X = pfdlyap(Ad, Qd) 
 @test norm(Ad*X*Ad'- pmshift(X)+Qd) < 1.e-7 
 
 Ad1 = convert(PeriodicArray,Ad); Qd1 = convert(PeriodicArray,Qd);
-X1 = pflyap(Ad1, Qd1); 
+X1 = pfdlyap(Ad1, Qd1); 
 @test norm(Ad1*X1*Ad1'-pmshift(X1)+Qd1) < 1.e-7 
 
 X2 = PeriodicMatrix(pslyapdkr(Ad.M, Qd.M; adj = false), lcm(pa,pc));
@@ -551,7 +551,7 @@ X = pdlyap(Ad, Qd, adj = false);
 @test norm(Ad*X*Ad'-pmshift(X)+Qd) < 1.e-7 
 
 
-X = prlyap(Ad, Qd); 
+X = prdlyap(Ad, Qd); 
 @test norm(Ad'*pmshift(X)*Ad-X+Qd) < 1.e-7 
 
 p = lcm(pa,pc)
@@ -560,14 +560,14 @@ ipc = mod.(0:p-1,pc).+1; ipx1 = mod.(ipx,p).+1;
 rez = [ Ad.M[:,:,ia[i]]'*X.M[:,:,ipx1[i]]*Ad.M[:,:,ia[i]]-X.M[:,:,ipx[i]]+Qd.M[:,:,ipc[i]] for i in ipx]
 @test norm(rez) < 1.e-7 
 
-X1 = prlyap(convert(PeriodicMatrix,Ad), convert(PeriodicMatrix,Qd)); 
+X1 = prdlyap(convert(PeriodicMatrix,Ad), convert(PeriodicMatrix,Qd)); 
 X = convert(PeriodicArray,X1)
 @test norm(Ad'*pmshift(X)*Ad-X+Qd) < 1.e-7 
 
-X = pflyap(Ad, Qd) 
+X = pfdlyap(Ad, Qd) 
 @test norm(Ad*X*Ad'-pmshift(X)+Qd) < 1.e-7 
 
-X1 = pflyap(convert(PeriodicMatrix,Ad), convert(PeriodicMatrix,Qd)); 
+X1 = pfdlyap(convert(PeriodicMatrix,Ad), convert(PeriodicMatrix,Qd)); 
 X = convert(PeriodicArray,X1)
 @test norm(Ad*X*Ad'-pmshift(X)+Qd) < 1.e-7 
 
@@ -582,10 +582,10 @@ Ad = 0.5*PeriodicArray(rand(Float64,n,n,pa),pa);
 q = rand(n,n,pc); [q[:,:,i] = q[:,:,i]'+q[:,:,i] for i in 1:pc];
 Qd = PeriodicArray(q,pc);
 
-X = prlyap(Ad, Qd); 
+X = prdlyap(Ad, Qd); 
 @test norm(Ad'*pmshift(X)*Ad-X+Qd) < 1.e-7 
 
-X = pflyap(Ad, Qd) 
+X = pfdlyap(Ad, Qd) 
 @test norm(Ad*X*Ad'-pmshift(X)+Qd) < 1.e-7 
 
 #pseig(Ad)
@@ -594,10 +594,10 @@ n = 5; pa = 3; pc = 1;
 Ad = 0.5*PeriodicArray(rand(Float32,n,n,pa),pa);
 q = rand(n,n); q = q'+q;
 
-X = prlyap(Ad, q); 
+X = prdlyap(Ad, q); 
 @test norm(Ad'*pmshift(X)*Ad-X+q) < 1.e-7 
 
-X = pflyap(Ad, q) 
+X = pfdlyap(Ad, q) 
 @test norm(Ad*X*Ad'-pmshift(X)+q) < 1.e-7 
 
 
@@ -962,5 +962,117 @@ qs = copy(q);
 
 
 end # pdlyaps1!
+
+@testset "pdplyap, prdplyap && pfdplyap" begin
+# dperiod = 1
+A = [rand(2,2)/2]; B = [rand(2,3)];
+U = psplyapd(A,B; adj = false); 
+@test norm(U[1]*U[1]'-A[1]*U[1]*U[1]'*A[1]'-B[1]*B[1]') < 1.e-7
+A = [rand(2,2)/2]; B = [rand(2,1)];
+U = psplyapd(A,B; adj = false); 
+@test norm(U[1]*U[1]'-A[1]*U[1]*U[1]'*A[1]'-B[1]*B[1]') < 1.e-7
+A = [.1*rand(2,2)]; C = [rand(3,2)];
+U = psplyapd(A,C; adj = true); 
+@test norm(U[1]'*U[1]-A[1]'*U[1]'*U[1]*A[1]-C[1]'*C[1]) < 1.e-7
+A = [.1*rand(2,2)]; C = [rand(1,2)];
+U = psplyapd(A,C; adj = true); 
+@test norm(U[1]'*U[1]-A[1]'*U[1]'*U[1]*A[1]-C[1]'*C[1]) < 1.e-7
+
+# constant dimensions
+na = [5, 5]; ma = [5,5]; p = 2; m = 2; pa = 2; pc = 2; pb = 2; 
+Ad = PeriodicMatrix([0.1*rand(Float64,ma[i],na[i]) for i in 1:pa],pa);  
+Bd = PeriodicMatrix([rand(ma[i],m) for i in 1:pb],pb);
+Cd = PeriodicMatrix([rand(p,na[i]) for i in 1:pc],pc);
+# A*X*A' + B*B' =  σX, if adj = false, 
+U = pdplyap(Ad, Bd; adj = false)
+X = U*U'; 
+@test norm(Ad*X*Ad'-pmshift(X)+Bd*Bd') < 1.e-7 
+# A'σXA + C'*C = X, if adj = true,
+U = pdplyap(Ad, Cd; adj = true); 
+X = U'*U; 
+@test norm(Ad'*pmshift(X)*Ad-X+Cd'*Cd) < 1.e-7 
+
+U = pfdplyap(Ad, Bd)
+X = U*U'; 
+@test norm(Ad*X*Ad'-pmshift(X)+Bd*Bd') < 1.e-7 
+# A'σXA + C'*C = X, if adj = true,
+U = prdplyap(Ad, Cd); 
+X = U'*U; 
+@test norm(Ad'*pmshift(X)*Ad-X+Cd'*Cd) < 1.e-7 
+
+
+# time-varying dimensions
+na = [5, 3, 3, 4, 1]; ma = [3, 3, 4, 1, 5]; pa = 5; pc = 5; pb = 5; p = 2; m = 2;   
+#na = 5*na; ma = 5*ma;
+Ad = PeriodicMatrix([0.1*rand(Float64,ma[i],na[i]) for i in 1:pa],pa);  
+Bd = PeriodicMatrix([rand(ma[i],m) for i in 1:pb],pb);
+Cd = PeriodicMatrix([rand(p,na[i]) for i in 1:pc],pc);
+# A*X*A' + B*B' =  σX, if adj = false, 
+U = pdplyap(Ad, Bd; adj = false);
+X = U*U'; 
+@test norm(Ad*X*Ad'-pmshift(X)+Bd*Bd') < 1.e-7 
+# A'σXA + C'*C = X, if adj = true,
+@time U = pdplyap(Ad, Cd; adj = true); 
+X = U'*U; 
+@test norm(Ad'*pmshift(X)*Ad-X+Cd'*Cd) < 1.e-7 
+
+U = pfdplyap(Ad, Bd)
+X = U*U'; 
+@test norm(Ad*X*Ad'-pmshift(X)+Bd*Bd') < 1.e-7 
+# A'σXA + C'*C = X, if adj = true,
+U = prdplyap(Ad, Cd); 
+X = U'*U; 
+@test norm(Ad'*pmshift(X)*Ad-X+Cd'*Cd) < 1.e-7 
+
+
+# constant dimensions
+n = 5; p = 2; m = 2; pa = 2; pc = 2; pb = 2; 
+Ad = PeriodicArray(0.1*rand(Float64,n,n,pa),pa);  
+Bd = PeriodicArray(rand(Float64,n,m,pb),pb); 
+Cd = PeriodicArray(rand(Float64,p,n,pc),pc); 
+# A*X*A' + B*B' =  σX, if adj = false, 
+U = pdplyap(Ad, Bd; adj = false)
+X = U*U'; 
+@test norm(Ad*X*Ad'-pmshift(X)+Bd*Bd') < 1.e-7 
+# A'σXA + C'*C = X, if adj = true,
+U = pdplyap(Ad, Cd; adj = true); 
+X = U'*U; 
+@test norm(Ad'*pmshift(X)*Ad-X+Cd'*Cd) < 1.e-7 
+
+U = pfdplyap(Ad, Bd)
+X = U*U'; 
+@test norm(Ad*X*Ad'-pmshift(X)+Bd*Bd') < 1.e-7 
+# A'σXA + C'*C = X, if adj = true,
+U = prdplyap(Ad, Cd); 
+X = U'*U; 
+@test norm(Ad'*pmshift(X)*Ad-X+Cd'*Cd) < 1.e-7 
+
+
+
+n = 5; p = 2; m = 2; pa = 5; pc = 2; pb = 1; 
+Ad = PeriodicArray(0.1*rand(Float64,n,n,pa),pa);  
+Bd = PeriodicArray(rand(Float64,n,m,pb),pb); 
+Cd = PeriodicArray(rand(Float64,p,n,pc),pc); 
+# A*X*A' + B*B' =  σX, if adj = false, 
+U = pdplyap(Ad, Bd; adj = false)
+X = U*U'; 
+@test norm(Ad*X*Ad'-pmshift(X)+Bd*Bd') < 1.e-7 
+# A'σXA + C'*C = X, if adj = true,
+U = pdplyap(Ad, Cd; adj = true); 
+X = U'*U; 
+@test norm(Ad'*pmshift(X)*Ad-X+Cd'*Cd) < 1.e-7 
+
+
+U = pfdplyap(Ad, Bd)
+X = U*U'; 
+@test norm(Ad*X*Ad'-pmshift(X)+Bd*Bd') < 1.e-7 
+# A'σXA + C'*C = X, if adj = true,
+U = prdplyap(Ad, Cd); 
+X = U'*U; 
+@test norm(Ad'*pmshift(X)*Ad-X+Cd'*Cd) < 1.e-7 
+
+
+
+end   
 
 end # module

@@ -135,6 +135,35 @@ function monodromy(A::PM, K::Int = 1; solver = "non-stiff", reltol = 1e-3, absto
    end
    return PeriodicArray(M,A.period; nperiod)
 end
+function monodromy(A::PM) where {T, PM <: PeriodicTimeSeriesMatrix{:c,T}} 
+   n = size(A,1)
+   n == size(A,2) || error("the periodic matrix must be square")
+   nperiod = A.nperiod
+   K = length(A)
+   Ts = A.period/K/nperiod
+
+   M = Array{float(T),3}(undef, n, n, K) 
+
+   Threads.@threads for i = 1:K
+      @inbounds M[:,:,i] = exp(A.values[i]*Ts) 
+   end
+   return PeriodicArray(M,A.period; nperiod)
+end
+function monodromy(A::PM) where {T, PM <: PeriodicSwitchingMatrix{:c,T}} 
+   n = size(A,1)
+   n == size(A,2) || error("the periodic matrix must be square")
+   nperiod = A.nperiod
+   K = length(A)
+   Ts = A.period/K/nperiod
+
+   M = Array{float(T),3}(undef, n, n, K) 
+   Δt = [diff(A.ts); A.period-A.ts[K]]
+   Threads.@threads for i = 1:K
+      @inbounds M[:,:,i] = exp(A.values[i]*Δt[i]) 
+   end
+   return PeriodicArray(M,A.period; nperiod)
+end
+
 """
      pseig(A, K = 1; lifting = false, solver, reltol, abstol, dt) -> ev
 
@@ -340,10 +369,27 @@ function psceig(at::PM, K::Int = 1; kwargs...) where
    ce = log.(complex(pseig(at, K; kwargs...)))/at.period
    return isreal(ce) ? real(ce) : ce
 end
-function psceig(at::Union{PeriodicSymbolicMatrix, PeriodicTimeSeriesMatrix}, K::Int = 1; kwargs...) 
+function psceig(at::PeriodicSymbolicMatrix, K::Int = 1; kwargs...) 
    ce = log.(complex(pseig(convert(PeriodicFunctionMatrix,at), K; kwargs...)))/at.period
    return isreal(ce) ? real(ce) : ce
 end
+function psceig(at::PeriodicTimeSeriesMatrix, K::Int = 1; method = "cubic", kwargs...) 
+   if method == "constant"
+      M = monodromy(at) 
+      ev = length(at) == 1 ? eigvals(view(M.M,:,:,1)) : pschur(M.M; withZ = false)[3]
+      ce = log.(complex(ev))/at.period
+  else
+      ce = log.(complex(pseig(convert(PeriodicFunctionMatrix,at; method), K; kwargs...)))/at.period
+   end
+   return isreal(ce) ? real(ce) : ce
+end
+function psceig(at::PeriodicSwitchingMatrix) 
+   M = monodromy(at) 
+   ev = length(at) == 1 ? eigvals(view(M.M,:,:,1)) : pschur(M.M; withZ = false)[3]
+   ce = log.(complex(ev))/at.period
+   return isreal(ce) ? real(ce) : ce
+end
+
 """
     psceighr(Ahr::HarmonicArray[, N]; P, nperiod, shift, atol) -> ce
 
@@ -1221,7 +1267,58 @@ For the periodic matrix `A(t)` and the time value `tval`, `Aval = A(tval)` is ev
 end
 tpmeval(A::FourierFunctionMatrix, t::Real ) = (A.M)(t)
 tpmeval(A::HarmonicArray, t::Real ) = hreval(A, t; exact = true) 
-
+function tpmeval(A::PeriodicTimeSeriesMatrix, t::Real )
+   tsub = A.period/A.nperiod
+   ns = length(A.values)
+   Δ = tsub/ns
+   ind = Int(round(mod(t,tsub)/Δ))+1
+   ind <= ns || (ind = 1) 
+   return A.values[ind]
+end
+function tpmeval(A::PeriodicSwitchingMatrix, t::Real )
+   ind = findfirst(A.ts .> mod(t,A.period/A.nperiod))
+   isnothing(ind) ? ind = length(A) : ind -= 1
+   return A.values[ind]
+end
+# function tpmeval(A::SwitchingPeriodicMatrix, t::Real )
+#    ts = [0; Int.(round.(A.ns[1:end-1]))]*A.Ts
+#    ind = findfirst(ts .> mod(t,A.period/A.nperiod))
+#    isnothing(ind) ? ind = length(A.M) : ind -= 1
+#    return A.M[ind]
+# end
+function tpmeval(A::SwitchingPeriodicMatrix, t::Real )
+   nv = length(A.ns)
+   k = Int(floor(mod(t,A.period/A.nperiod) / A.Ts)) 
+   ind = findfirst(view(A.ns,1:nv-1) .> mod(k,A.dperiod))
+   isnothing(ind) && (ind = nv)
+   return A.M[ind]
+end
+function tpmeval(A::PeriodicMatrix, t::Real )
+   nv = length(A.M)
+   k = Int(floor(mod(t,A.period/A.nperiod) / A.Ts)) 
+   ind = mod(k+1,A.dperiod) 
+   ind == 0 && (ind = nv)
+   return A.M[ind]
+end
+function tpmeval(A::PeriodicArray, t::Real )
+   nv = size(A.M,3)
+   k = Int(floor(mod(t,A.period/A.nperiod) / A.Ts)) 
+   ind = mod(k+1,A.dperiod) 
+   ind == 0 && (ind = nv)
+   return A.M[:,:,ind]
+end
+function kpmeval(A::SwitchingPeriodicMatrix, k::Int)
+   ind = findfirst(A.ns .>= mod(k-1,A.dperiod)+1)
+   return A.M[ind]
+end
+(F::PeriodicFunctionMatrix)(t) = (F.f).(t)
+(F::FourierFunctionMatrix)(t) = (F.M)(t) 
+(F::HarmonicArray)(t) = hreval(F, t; exact = true) 
+(F::PeriodicSwitchingMatrix)(t) = tpmeval(F, t) 
+(F::SwitchingPeriodicMatrix)(t) = tpmeval(F, t) 
+(F::PeriodicMatrix)(t) = tpmeval(F, t) 
+(F::PeriodicArray)(t) = tpmeval(F, t) 
+   
 """
     pmaverage(A) -> Am 
 
@@ -1233,7 +1330,8 @@ function pmaverage(A::PM) where {PM <: Union{PeriodicFunctionMatrix,PeriodicSymb
 end
 pmaverage(A::HarmonicArray) = real(A.values[:,:,1])
 function pmaverage(A::FourierFunctionMatrix)
-    typeof(size(A)) == Tuple{} ? coefficients(A.M)[1] : getindex.(coefficients.(Matrix(A.M)),1)
+   #typeof(size(A)) == Tuple{} ? coefficients(A.M)[1] : getindex.(coefficients.(Matrix(A.M)),1)
+   get.(coefficients.(Matrix(A.M)),1,0.0)
 end
 function getpm(A::PeriodicMatrix, k, dperiod::Union{Int,Missing} = missing)
    i = ismissing(dperiod) ? mod(k-1,A.dperiod)+1 : mod(k-1,dperiod)+1

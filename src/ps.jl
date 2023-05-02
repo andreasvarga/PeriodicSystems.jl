@@ -95,10 +95,10 @@ end
 ps(A::APMorVM, B::APMorVM, C::APMorVM, D::APMorVM, period::Real) =
     ps(set_period(A,period), set_period(B,period), set_period(C,period), set_period(D,period))
 ps(PMT::Type, A::APMorVM, B::APMorVM, C::APMorVM, D::APMorVM, period::Real) =
-    ps(typeof(A) <: AbstractVecOrMat ? A : convert(PMT,set_period(A,period)), 
-       typeof(B) <: AbstractVecOrMat ? B : convert(PMT,set_period(B,period)), 
-       typeof(C) <: AbstractVecOrMat ? C : convert(PMT,set_period(C,period)), 
-       typeof(D) <: AbstractVecOrMat ? D : convert(PMT,set_period(D,period)))
+    ps(typeof(A) <: AbstractVecOrMat ? PMT(A,period) : convert(PMT,set_period(A,period)), 
+       typeof(B) <: AbstractVecOrMat ? PMT(B,period) : convert(PMT,set_period(B,period)), 
+       typeof(C) <: AbstractVecOrMat ? PMT(C,period) : convert(PMT,set_period(C,period)), 
+       typeof(D) <: AbstractVecOrMat ? PMT(D,period) : convert(PMT,set_period(D,period)))
 
 ps(A::APMorVM, B::APMorVM, C::APMorVM) = ps(A,B,C,zeros(Float64,size(C,1)[1],size(B,2)[1]))
 function ps(PMT::Type, A::APMorVM, B::APMorVM, C::APMorVM)
@@ -120,20 +120,49 @@ function ps(D::PM) where {PM <: AbstractPeriodicArray}
        convert(PMT,PeriodicFunctionMatrix(zeros(0,m),D.period)), 
        convert(PMT,PeriodicFunctionMatrix(zeros(p,0),D.period)), D)
 end
-function ps(sys::DST, period::Real) where {DST <: DescriptorStateSpace}
+function ps(sys::DST, period::Real; ns::Int = 1) where {DST <: DescriptorStateSpace}
     sys.E == I || error("only standard state-spece models supported")
     Ts = sys.Ts
     if Ts == 0
        ps(PeriodicFunctionMatrix(sys.A,period), PeriodicFunctionMatrix(sys.B,period),
           PeriodicFunctionMatrix(sys.C,period),PeriodicFunctionMatrix(sys.D,period))
     else
-      r = rationalize(period/abs(Ts))
-      denominator(r) == 1 || error("incommensurate period and sample time")
-      d = Ts == -1 ? 1 : numerator(r)
+      if Ts > 0  
+         r = rationalize(period/abs(Ts))
+         denominator(r) == 1 || error("incommensurate period and sample time")
+         d = numerator(r)
+      else
+         ns > 0 || throw(ArgumentError("number of time samples must be positive, got $ns"))
+         d = ns
+      end
       ps(PeriodicMatrix(sys.A, period; nperiod = d), PeriodicMatrix(sys.B,period; nperiod = d), 
          PeriodicMatrix(sys.C,period; nperiod = d), PeriodicMatrix(sys.D,period; nperiod = d))
     end
 end
+function ps(PMT::Type, sys::DST, period::Real; ns::Int = 1) where {DST <: DescriptorStateSpace}
+    sys.E == I || error("only standard state-spece models supported")
+    Ts = sys.Ts
+    if Ts == 0
+       PMT ∈ (PeriodicFunctionMatrix, HarmonicArray, PeriodicSwitchingMatrix, PeriodicTimeSeriesMatrix, PeriodicSymbolicMatrix, FourierFunctionMatrix) ||
+             error("only continuous periodic matrix types allowed")
+       ps(PMT(sys.A,period), PMT(sys.B,period), PMT(sys.C,period), PMT(sys.D,period))
+    else
+       PMT ∈ (PeriodicMatrix, PeriodicArray, SwitchingPeriodicMatrix) ||
+             error("only discrete periodic matrix types allowed")
+       if Ts > 0  
+          r = rationalize(period/abs(Ts))
+          denominator(r) == 1 || error("incommensurate period and sample time")
+          d = numerator(r)
+       else
+          ns > 0 || throw(ArgumentError("number of time samples must be positive, got $ns"))
+          d = ns
+       end
+       ps(PMT(sys.A, period; nperiod = d), PMT(sys.B,period; nperiod = d), 
+          PMT(sys.C,period; nperiod = d), PMT(sys.D,period; nperiod = d))
+    end
+end
+
+
 islti(psys::PeriodicStateSpace) = isconstant(psys.A) && isconstant(psys.B) && isconstant(psys.C) && isconstant(psys.D) 
 
 function ps(A::AbstractVecOrMat, B::AbstractVecOrMat, C::AbstractVecOrMat, D::AbstractVecOrMat, period::Real; Ts::Union{Real,Missing} = missing) 

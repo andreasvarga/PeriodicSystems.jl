@@ -83,6 +83,8 @@ end
 *(A::PeriodicArray, C::Real) = PeriodicArray(C*A.M, A.period; nperiod = A.nperiod)
 *(A::Real, C::PeriodicArray) = PeriodicArray(A*C.M, C.period; nperiod = C.nperiod)
 /(A::PeriodicArray, C::Real) = *(A, 1/C)
+*(J::UniformScaling{<:Real}, A::PeriodicArray) = J.λ*A
+*(A::PeriodicArray, J::UniformScaling{<:Real}) = A*J.λ
 
 LinearAlgebra.issymmetric(A::PeriodicArray) = all([issymmetric(A.M[:,:,i]) for i in 1:A.dperiod])
 Base.iszero(A::PeriodicArray) = iszero(A.M)
@@ -172,6 +174,8 @@ end
 *(A::PeriodicMatrix, C::Real) = PeriodicMatrix(C.*A.M, A.period; nperiod = A.nperiod)
 *(A::Real, C::PeriodicMatrix) = PeriodicMatrix(A.*C.M, C.period; nperiod = C.nperiod)
 /(A::PeriodicMatrix, C::Real) = *(A, 1/C)
+*(J::UniformScaling{<:Real}, A::PeriodicMatrix) = J.λ*A
+*(A::PeriodicMatrix, J::UniformScaling{<:Real}) = A*J.λ
 
 LinearAlgebra.issymmetric(A::PeriodicMatrix) = all([issymmetric(A.M[i]) for i in 1:A.dperiod])
 Base.iszero(A::PeriodicMatrix) = iszero(A.M)
@@ -188,6 +192,153 @@ function Base.isapprox(A::PeriodicMatrix, J::UniformScaling{<:Real}; kwargs...)
 end
 Base.isapprox(J::UniformScaling{<:Real}, A::PeriodicMatrix; kwargs...) = isapprox(A, J; kwargs...)
 
+function horzcat(A::PeriodicMatrix, B::PeriodicMatrix)
+    A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
+    period = promote_period(A, B)
+    pa = length(A) 
+    pb = length(B)
+    p = lcm(pa,pb)
+    nta = numerator(rationalize(period/A.period))
+    K = nta*A.nperiod*pa
+    T = promote_type(eltype(A),eltype(B))
+    X = Vector{Matrix{T}}(undef, p)
+    for i = 1:p
+        ia = mod(i-1,pa)+1
+        ib = mod(i-1,pb)+1
+        size(A.M[ia],1) == size(B.M[ib],1) || throw(DimensionMismatch("A and B have incompatible dimension"))
+        X[i] = [A.M[ia] B.M[ib]]
+    end
+    return PeriodicMatrix(X, period; nperiod = div(K,p))
+end
+Base.hcat(A::PeriodicMatrix, B::PeriodicMatrix) = horzcat(A,B)
+function vertcat(A::PeriodicMatrix, B::PeriodicMatrix)
+    A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
+    period = promote_period(A, B)
+    pa = length(A) 
+    pb = length(B)
+    p = lcm(pa,pb)
+    nta = numerator(rationalize(period/A.period))
+    K = nta*A.nperiod*pa
+    T = promote_type(eltype(A),eltype(B))
+    X = Vector{Matrix{T}}(undef, p)
+    for i = 1:p
+        ia = mod(i-1,pa)+1
+        ib = mod(i-1,pb)+1
+        size(A.M[ia],2) == size(B.M[ib],2) || throw(DimensionMismatch("A and B have incompatible dimension"))
+        X[i] = [A.M[ia]; B.M[ib]]
+    end
+    return PeriodicMatrix(X, period; nperiod = div(K,p))
+end
+Base.vcat(A::PeriodicMatrix, B::PeriodicMatrix) = vertcat(A,B)
+
+#  SwitchingPeriodicMatrix
+LinearAlgebra.inv(A::SwitchingPeriodicMatrix) = SwitchingPeriodicMatrix(inv.(A.M), A.ns, A.period; nperiod = A.nperiod)
+Base.iszero(A::SwitchingPeriodicMatrix) = iszero(A.M)
+function +(A::SwitchingPeriodicMatrix, B::SwitchingPeriodicMatrix)
+    A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
+    A.period == B.period && A.nperiod == B.nperiod && A.ns == B.ns &&
+    (return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([A.M[i]+B.M[i] for i in 1:length(A.M)], A.ns, A.period, A.nperiod))
+    isconstant(A) && 
+       (return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([A.M[1]+B.M[i] for i in 1:length(B.M)], B.ns, B.period, B.nperiod))
+    isconstant(B) && 
+       (return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([A.M[i]+B.M[1] for i in 1:length(A.M)], A.ns, A.period, A.nperiod))
+    A.period == B.period || error("periods must be equal for addition")
+    nperiod = A.nperiod
+    if  nperiod == B.nperiod
+        ns = unique(sort([A.ns;B.ns]))
+    else
+        nperiod = gcd(A.nperiod,B.nperiod)
+        ns = unique(sort([vcat([(i-1)*A.dperiod .+ A.ns for i in 1:div(A.nperiod,nperiod)]...);
+                          vcat([(i-1)*B.dperiod .+ B.ns for i in 1:div(B.nperiod,nperiod)]...)]))
+    end
+    N = length(ns)                  
+    return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([kpmeval(A,ns[i])+kpmeval(B,ns[i]) for i in 1:N], ns, A.period, nperiod)   
+end
++(A::SwitchingPeriodicMatrix, C::AbstractMatrix) = +(A, SwitchingPeriodicMatrix([C], [A.dperiod], A.period))
++(A::AbstractMatrix, C::SwitchingPeriodicMatrix) = +(SwitchingPeriodicMatrix([A], [C.dperiod], C.period), C)
+-(A::SwitchingPeriodicMatrix) = SwitchingPeriodicMatrix{:d,eltype(A)}(-A.M, A.ns, A.period, A.nperiod)
+-(A::SwitchingPeriodicMatrix, B::SwitchingPeriodicMatrix) = +(A,-B)
+-(A::SwitchingPeriodicMatrix, C::AbstractMatrix) = +(A,-C)
+-(A::AbstractMatrix, C::SwitchingPeriodicMatrix) = +(A, -C)
+function (+)(A::SwitchingPeriodicMatrix, J::UniformScaling{<:Real}) 
+    nv, mv = size(A)
+    n = minimum(nv) 
+    n == maximum(nv) == minimum(mv) == maximum(mv) || throw(DimensionMismatch("A must be square"))
+    A+Matrix(J(n))
+end
+(+)(J::UniformScaling{<:Real}, A::SwitchingPeriodicMatrix) = +(A,J)
+(-)(A::SwitchingPeriodicMatrix, J::UniformScaling{<:Real}) = +(A,-J)
+(-)(J::UniformScaling{<:Real}, A::SwitchingPeriodicMatrix) = +(-A,J)
+
+function *(A::SwitchingPeriodicMatrix, B::SwitchingPeriodicMatrix)
+    A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
+    A.period == B.period && A.nperiod == B.nperiod && A.ns == B.ns &&
+    (return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([A.M[i]*B.M[i] for i in 1:length(A.M)], A.ns, A.period, A.nperiod))
+    isconstant(A) && 
+       (return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([A.M[1]*B.M[i] for i in 1:length(B.M)], B.ns, B.period, B.nperiod))
+    isconstant(B) && 
+       (return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([A.M[i]*B.M[1] for i in 1:length(A.M)], A.ns, A.period, A.nperiod))
+    A.period == B.period || error("periods must be equal for multiplication")
+    nperiod = A.nperiod
+    if  nperiod == B.nperiod
+        ns = unique(sort([A.ns;B.ns]))
+    else
+        nperiod = gcd(A.nperiod,B.nperiod)
+        ns = unique(sort([vcat([(i-1)*A.dperiod .+ A.ns for i in 1:div(A.nperiod,nperiod)]...);
+                          vcat([(i-1)*B.dperiod .+ B.ns for i in 1:div(B.nperiod,nperiod)]...)]))
+    end
+    N = length(ns)                  
+    return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([kpmeval(A,ns[i])*kpmeval(B,ns[i]) for i in 1:N], ns, A.period, nperiod)   
+end
+*(A::SwitchingPeriodicMatrix, C::AbstractMatrix) = SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(C))}([A.M[i]*C for i in 1:length(A.M)], A.ns, A.period, A.nperiod)
+*(A::AbstractMatrix, C::SwitchingPeriodicMatrix) = SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(C))}([A*C.M[i] for i in 1:length(C.M)], C.ns, C.period, C.nperiod)
+*(A::SwitchingPeriodicMatrix, C::Real) = SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(C))}([A.M[i]*C for i in 1:length(A.M)], A.ns, A.period, A.nperiod)
+*(C::Real, A::SwitchingPeriodicMatrix) = SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(C))}([C*A.M[i] for i in 1:length(A.M)], A.ns, A.period, A.nperiod)
+/(A::SwitchingPeriodicMatrix, C::Real) = *(A, 1/C)
+*(J::UniformScaling{<:Real}, A::SwitchingPeriodicMatrix) = J.λ*A
+*(A::SwitchingPeriodicMatrix, J::UniformScaling{<:Real}) = A*J.λ
+
+function horzcat(A::SwitchingPeriodicMatrix, B::SwitchingPeriodicMatrix)
+    A.period == B.period && A.nperiod == B.nperiod && A.ns == B.ns &&
+        (return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([[A.M[i] B.M[i]] for i in 1:length(A.M)], A.ns, A.period, A.nperiod))
+    isconstant(A) && 
+       (return SwitchingPeriodicMatrix{:dct,promote_type(eltype(A),eltype(B))}([[A.M[1] B.M[i]] for i in 1:length(B.M)], B.ns, B.period, B.nperiod))
+    isconstant(B) && 
+       (return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([[A.M[i] B.M[1]] for i in 1:length(Av)], A.ns, A.period, A.nperiod))
+    A.period == B.period || error("periods must be equal for horizontal concatenation")
+    nperiod = A.nperiod
+    if  nperiod == B.nperiod
+        ns = unique(sort([A.ns;B.ns]))
+    else
+        nperiod = gcd(A.nperiod,B.nperiod)
+        ns = unique(sort([vcat([(i-1)*A.dperiod .+ A.ns for i in 1:div(A.nperiod,nperiod)]...);
+                          vcat([(i-1)*B.dperiod .+ B.ns for i in 1:div(B.nperiod,nperiod)]...)]))
+    end
+    N = length(ns)                  
+    return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([[kpmeval(A,ns[i]) kpmeval(B,ns[i])] for i in 1:N], ns, A.period, nperiod)   
+end
+Base.hcat(A::SwitchingPeriodicMatrix, B::SwitchingPeriodicMatrix) = horzcat(A,B)
+
+function vertcat(A::SwitchingPeriodicMatrix, B::SwitchingPeriodicMatrix)
+    A.period == B.period && A.nperiod == B.nperiod && A.ns == B.ns &&
+        (return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([[A.M[i]; B.M[i]] for i in 1:length(A.M)], A.ns, A.period, A.nperiod))
+    isconstant(A) && 
+       (return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([[A.M[1]; B.M[i]] for i in 1:length(B.M)], B.ns, B.period, B.nperiod))
+    isconstant(B) && 
+       (return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([[A.M[i]; B.M[1]] for i in 1:length(A.M)], A.ns, A.period, A.nperiod))
+    A.period == B.period || error("periods must be equal for vertical concatenation")
+    nperiod = A.nperiod
+    if  nperiod == B.nperiod
+        ns = unique(sort([A.ns;B.ns]))
+    else
+        nperiod = gcd(A.nperiod,B.nperiod)
+        ns = unique(sort([vcat([(i-1)*A.dperiod .+ A.ns for i in 1:div(A.nperiod,nperiod)]...);
+                          vcat([(i-1)*B.dperiod .+ B.ns for i in 1:div(B.nperiod,nperiod)]...)]))
+    end
+    N = length(ns)                  
+    return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([[kpmeval(A,ns[i]); kpmeval(B,ns[i])] for i in 1:N], ns, A.period, nperiod)   
+end
+Base.vcat(A::SwitchingPeriodicMatrix, B::SwitchingPeriodicMatrix) = vertcat(A,B)
 
 # Operations with periodic function matrices
 function derivative(A::PeriodicFunctionMatrix{:c,T};  h = A.period*sqrt(eps(T)), method = "cd") where {T}
@@ -255,6 +406,9 @@ function *(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix)
 *(A::PeriodicFunctionMatrix, C::Real) = PeriodicFunctionMatrix{:c,eltype(A)}(t -> C.*A.f(t), A.period, A.dims, A.nperiod,A._isconstant)
 *(A::Real, C::PeriodicFunctionMatrix) = PeriodicFunctionMatrix{:c,eltype(A)}(t -> A.*C.f(t), C.period, C.dims, C.nperiod,C._isconstant)
 /(A::PeriodicFunctionMatrix, C::Real) = *(A, 1/C)
+*(J::UniformScaling{<:Real}, A::PeriodicFunctionMatrix) = J.λ*A
+*(A::PeriodicFunctionMatrix, J::UniformScaling{<:Real}) = A*J.λ
+
 
 Base.iszero(A::PeriodicFunctionMatrix) = iszero(A.f(rand()*A.period))
 LinearAlgebra.issymmetric(A::PeriodicFunctionMatrix) = issymmetric(A.f(rand()*A.period))
@@ -335,6 +489,8 @@ function *(A::PeriodicSymbolicMatrix, B::PeriodicSymbolicMatrix)
 *(A::PeriodicSymbolicMatrix, C::Real) = PeriodicSymbolicMatrix(C*A.F, A.period; nperiod = A.nperiod)
 *(C::Real, A::PeriodicSymbolicMatrix) = PeriodicSymbolicMatrix(C*A.F, A.period; nperiod = A.nperiod)
 /(A::PeriodicSymbolicMatrix, C::Real) = *(A, 1/C)
+*(J::UniformScaling{<:Real}, A::PeriodicSymbolicMatrix) = J.λ*A 
+*(A::PeriodicSymbolicMatrix, J::UniformScaling{<:Real}) = A*J.λ
 
 Base.iszero(A::PeriodicSymbolicMatrix) = iszero(A.F)
 LinearAlgebra.issymmetric(A::PeriodicSymbolicMatrix) = iszero(A.F-transpose(A.F))
@@ -401,11 +557,9 @@ end
 LinearAlgebra.adjoint(A::HarmonicArray) = transpose(A)
 function norm(A::HarmonicArray, p::Real = 2; K = 128) 
     nrm = 0. 
-    Δ = A.period/K
-    ts = zero(eltype(Δ))
+    Δ = A.period/A.nperiod/K
     for i = 1:K       
-        nrm = max(nrm,opnorm(tpmeval(A, ts),p)) 
-        ts += Δ
+        nrm = max(nrm,opnorm(tpmeval(A, (i-1)*Δ),p)) 
     end 
     return nrm
 end
@@ -414,25 +568,28 @@ function +(A::HarmonicArray, B::HarmonicArray)
        m, n, la = size(A.values)
        mb, nb, lb = size(B.values)
        (m, n) == (mb, nb) || throw(DimensionMismatch("A and B must have the same size"))
-       T = promote_type(eltype(A),eltype(B))
+       T = promote_type(eltype(A.values),eltype(B.values))
        lmax = max(la,lb)
-       Ahr = zeros(Complex{T},n,m,lmax)
+       Ahr = zeros(T,m,n,lmax)
        if la >= lb
-          Ahr = copy(A.values) 
-          Ahr[:,:,1:lb] .+= B.values[:,:,1:lb]  
+          copyto!(view(Ahr,1:m,1:n,1:la),A.values) 
+          #Ahr[:,:,1:la] = copy(A.values) 
+          Ahr[:,:,1:lb] .+= view(B.values,1:m,1:n,1:lb)  
        else
-          Ahr = copy(B.values) 
-          Ahr[:,:,1:la] .+= A.values[:,:,1:la]  
+          copyto!(view(Ahr,1:m,1:n,1:lb),B.values) 
+          #Ahr = copy(B.values) 
+          Ahr[:,:,1:la] .+= view(A.values,1:m,1:n,1:la)  
        end
-       tol = 10*eps(T)*max(norm(A.values,Inf),norm(B.values,Inf)) 
+       tol = 10*eps(real(T))*max(norm(A.values,Inf),norm(B.values,Inf)) 
        l = lmax
        for i = lmax:-1:2
            norm(Ahr[:,:,i],Inf) > tol && break
            l -= 1
        end
        l < lmax && (Ahr = Ahr[:,:,1:l])
-       return HarmonicArray{:c,T}(Ahr, A.period, nperiod = A.nperiod) 
+       return HarmonicArray{:c,real(T)}(Ahr, A.period, nperiod = A.nperiod) 
     else
+       #TODO: fix different numbers of subperiods 
        convert(HarmonicArray,convert(PeriodicFunctionMatrix,A) + convert(PeriodicFunctionMatrix,B))
     end
 end
@@ -453,8 +610,15 @@ end
 
 *(A::HarmonicArray, B::HarmonicArray) = convert(HarmonicArray,convert(PeriodicFunctionMatrix,A) * convert(PeriodicFunctionMatrix,B))
 # TODO: perform * explicitly
-*(A::HarmonicArray, C::AbstractMatrix) = *(A, HarmonicArray(C, A.period))
-#*(A::AbstractMatrix, C::HarmonicArray) = *(HarmonicArray(A, C.period), C)
+function *(A::HarmonicArray, C::AbstractMatrix)
+    m, n, k = size(A.values)
+    nc = size(C,2)
+    T = promote_type(eltype(A.values),eltype(C))
+    vals = Array{T,3}(undef,m,nc,k)
+    [vals[:,:,i] = view(A.values,1:m,1:n,i)*C for i in 1:k]
+    return HarmonicArray(vals, A.period; nperiod = A.nperiod)
+    #*(A, HarmonicArray(C, A.period))
+end
 function *(A::AbstractMatrix, C::HarmonicArray) 
     m, n, k = size(C.values)
     ma = size(A,1)
@@ -463,6 +627,9 @@ end
 *(A::HarmonicArray, C::Real) = HarmonicArray(C*A.values, A.period; nperiod = A.nperiod)
 *(C::Real, A::HarmonicArray) = HarmonicArray(C*A.values, A.period; nperiod = A.nperiod)
 /(A::HarmonicArray, C::Real) = *(A, 1/C)
+*(J::UniformScaling{<:Real}, A::HarmonicArray) = J.λ*A
+*(A::HarmonicArray, J::UniformScaling{<:Real}) = A*J.λ
+
 
 Base.iszero(A::HarmonicArray) = all([iszero(A.values[:,:,i]) for i in 1:size(A.values,3)])
 LinearAlgebra.issymmetric(A::HarmonicArray) = all([issymmetric(A.values[:,:,i]) for i in 1:size(A.values,3)])
@@ -492,6 +659,42 @@ function Base.isapprox(A::HarmonicArray, J::UniformScaling{<:Real}; kwargs...)
     isapprox(tpmeval(A,ts), J; kwargs...) 
 end
 Base.isapprox(J::UniformScaling{<:Real}, A::HarmonicArray; kwargs...) = isapprox(A, J; kwargs...)
+
+function horzcat(A::HarmonicArray, B::HarmonicArray)
+    if A.period == B.period && A.nperiod == B.nperiod
+       m, n, la = size(A.values)
+       mb, nb, lb = size(B.values)
+       m == mb || throw(DimensionMismatch("A and B must have the same number of rows"))
+       T = promote_type(eltype(A),eltype(B))
+       lmax = max(la,lb)
+       Ahr = zeros(Complex{T},m,n+nb,lmax)
+       copyto!(view(Ahr,1:m,1:n,1:la), view(A.values,1:m,1:n,1:la))
+       copyto!(view(Ahr,1:m,n+1:n+nb,1:la), view(B.values,1:m,1:nb,1:lb))
+       return HarmonicArray{:c,T}(Ahr, A.period, nperiod = A.nperiod) 
+    else
+       #TODO: fix different numbers of subperiods 
+       convert(HarmonicArray,[convert(PeriodicFunctionMatrix,A) convert(PeriodicFunctionMatrix,B)])
+    end
+end
+Base.hcat(A::HarmonicArray, B::HarmonicArray) = horzcat(A,B)
+
+function vertcat(A::HarmonicArray, B::HarmonicArray)
+    if A.period == B.period && A.nperiod == B.nperiod
+       m, n, la = size(A.values)
+       mb, nb, lb = size(B.values)
+       n == nb || throw(DimensionMismatch("A and B must have the same number of columns"))
+       T = promote_type(eltype(A),eltype(B))
+       lmax = max(la,lb)
+       Ahr = zeros(Complex{T},m+mb,n,lmax)
+       copyto!(view(Ahr,1:m,1:n,1:la), view(A.values,1:m,1:n,1:la))
+       copyto!(view(Ahr,m+1:m+mb,1:n,1:la), view(B.values,1:mb,1:nb,1:lb))
+       return HarmonicArray{:c,T}(Ahr, A.period, nperiod = A.nperiod) 
+    else
+       #TODO: fix different numbers of subperiods 
+       convert(HarmonicArray,[convert(PeriodicFunctionMatrix,A); convert(PeriodicFunctionMatrix,B)])
+    end
+end
+Base.vcat(A::HarmonicArray, B::HarmonicArray) = vertcat(A,B)
 
 
 #FourierFunctionMatrices
@@ -556,6 +759,9 @@ end
 *(A::FourierFunctionMatrix, C::Real) = FourierFunctionMatrix(C*A.M, A.period)
 *(C::Real, A::FourierFunctionMatrix) = FourierFunctionMatrix(C*A.M, A.period)
 /(A::FourierFunctionMatrix, C::Real) = *(A, 1/C)
+*(J::UniformScaling{<:Real}, A::FourierFunctionMatrix) = J.λ*A
+*(A::FourierFunctionMatrix, J::UniformScaling{<:Real}) = A*J.λ
+
 
 Base.iszero(A::FourierFunctionMatrix) = iszero(A.M)
 LinearAlgebra.issymmetric(A::FourierFunctionMatrix) = iszero(A.M-transpose(A.M))
@@ -606,7 +812,11 @@ function +(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix)
        (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([B.values[i]+A.values[1] for i in 1:length(B)], B.period, B.nperiod))
     isconstant(B) && 
        (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([A.values[i]+B.values[1] for i in 1:length(A)], A.period, A.nperiod))
-    convert(PeriodicTimeSeriesMatrix,convert(HarmonicArray,A) + convert(HarmonicArray,B))
+    A.period == B.period || error("periods must be equal for vertical concatenation")
+    nperiod = gcd(A.nperiod,B.nperiod)
+    ns = lcm(length(A),length(B))
+    Δ = A.period/nperiod/ns
+    return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([tpmeval(A,(i-1)*Δ)+tpmeval(B,(i-1)*Δ) for i in 1:ns], A.period, nperiod)        
 end
 +(A::PeriodicTimeSeriesMatrix, C::AbstractMatrix) = +(A, PeriodicTimeSeriesMatrix(C, A.period))
 +(A::AbstractMatrix, C::PeriodicTimeSeriesMatrix) = +(PeriodicTimeSeriesMatrix(A, C.period), C)
@@ -631,13 +841,20 @@ function *(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix)
        (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([A.values[1]*B.values[i] for i in 1:length(B)], B.period, B.nperiod))
     isconstant(B) && 
        (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([A.values[i]*B.values[1] for i in 1:length(A)], A.period, A.nperiod))
-    convert(PeriodicTimeSeriesMatrix,convert(HarmonicArray,A) * convert(HarmonicArray,B))
+    A.period == B.period || error("periods must be equal for vertical concatenation")
+    nperiod = gcd(A.nperiod,B.nperiod)
+    ns = lcm(length(A),length(B))
+    Δ = A.period/nperiod/ns
+    return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([tpmeval(A,(i-1)*Δ)*tpmeval(B,(i-1)*Δ) for i in 1:ns], A.period, nperiod)        
 end
 *(A::PeriodicTimeSeriesMatrix, C::AbstractMatrix) = *(A, PeriodicTimeSeriesMatrix(C, A.period))
 *(A::AbstractMatrix, C::PeriodicTimeSeriesMatrix) = *(PeriodicTimeSeriesMatrix(A, C.period), C)
 *(A::PeriodicTimeSeriesMatrix, C::Real) = PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(C))}([A.values[i]*C for i in 1:length(A)], A.period, A.nperiod)
 *(C::Real, A::PeriodicTimeSeriesMatrix) = PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(C))}([C*A.values[i] for i in 1:length(A)], A.period, A.nperiod)
 /(A::PeriodicTimeSeriesMatrix, C::Real) = *(A, 1/C)
+*(J::UniformScaling{<:Real}, A::PeriodicTimeSeriesMatrix) = J.λ*A
+*(A::PeriodicTimeSeriesMatrix, J::UniformScaling{<:Real}) = A*J.λ
+
 
 Base.iszero(A::PeriodicTimeSeriesMatrix) = iszero(A.values)
 LinearAlgebra.issymmetric(A::PeriodicTimeSeriesMatrix) = all(issymmetric.(A.values))
@@ -653,3 +870,160 @@ function Base.isapprox(A::PeriodicTimeSeriesMatrix, J::UniformScaling{<:Real}; k
     all([isapprox(A.values[i], J; kwargs...) for i in 1:length(A.values)])
 end
 Base.isapprox(J::UniformScaling{<:Real}, A::PeriodicTimeSeriesMatrix; kwargs...) = isapprox(A, J; kwargs...)
+
+function horzcat(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix)
+    A.period == B.period && A.nperiod == B.nperiod && length(A) == length(B) && 
+        (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[A.values[i] B.values[i]] for i in 1:length(A)], A.period, A.nperiod))
+    isconstant(A) && 
+       (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[A.values[1] B.values[i]] for i in 1:length(B)], B.period, B.nperiod))
+    isconstant(B) && 
+       (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[A.values[i] B.values[1]] for i in 1:length(A)], A.period, A.nperiod))
+    A.period == B.period || error("periods must be equal for horizontal concatenation")
+    nperiod = gcd(A.nperiod,B.nperiod)
+    ns = lcm(length(A),length(B))
+    Δ = A.period/nperiod/ns
+    return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[tpmeval(A,(i-1)*Δ) tpmeval(B,(i-1)*Δ)] for i in 1:ns], A.period, nperiod)        
+end
+Base.hcat(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix) = horzcat(A,B)
+
+function vertcat(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix)
+    A.period == B.period && A.nperiod == B.nperiod && length(A) == length(B) && 
+        (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[A.values[i]; B.values[i]] for i in 1:length(A)], A.period, A.nperiod))
+    isconstant(A) && 
+       (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[A.values[1]; B.values[i]] for i in 1:length(B)], B.period, B.nperiod))
+    isconstant(B) && 
+       (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[A.values[i]; B.values[1]] for i in 1:length(A)], A.period, A.nperiod))
+    A.period == B.period || error("periods must be equal for vertical concatenation")
+    nperiod = gcd(A.nperiod,B.nperiod)
+    ns = lcm(length(A),length(B))
+    Δ = A.period/nperiod/ns
+    return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[tpmeval(A,(i-1)*Δ); tpmeval(B,(i-1)*Δ)] for i in 1:ns], A.period, nperiod)        
+end
+Base.vcat(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix) = vertcat(A,B)
+
+
+# Operations with periodic switching matrices
+function derivative(A::PeriodicSwitchingMatrix{:c,T}) where {T}
+    PeriodicSwitchingMatrix{:c,T}([zeros(T,size(A,1),size(A,2)) for i in 1:length(A)], A.ts, A.period, A.nperiod)
+end
+LinearAlgebra.inv(A::PeriodicSwitchingMatrix) = PeriodicSwitchingMatrix(inv.(A.values), A.ts, A.period; nperiod = A.nperiod)
+LinearAlgebra.transpose(A::PeriodicSwitchingMatrix{:c,T}) where {T} = 
+    PeriodicSwitchingMatrix{:c,T}([copy(transpose(A.values[i])) for i in 1:length(A)], A.ts, A.period, A.nperiod)
+LinearAlgebra.adjoint(A::PeriodicSwitchingMatrix) = transpose(A)
+#LinearAlgebra.tr(A::PeriodicSwitchingMatrix) = PeriodicSwitchingMatrix(tr.(A.values), A.period; nperiod = A.nperiod)
+LinearAlgebra.tr(A::PeriodicSwitchingMatrix) = PeriodicSwitchingMatrix([[tr(A.values[i])] for i in 1:length(A)], A.ts, A.period; nperiod = A.nperiod)
+LinearAlgebra.eigvals(A::PeriodicSwitchingMatrix) = [eigvals(A.values[i]) for i in 1:length(A)]
+
+function norm(A::PeriodicSwitchingMatrix, p::Real = 2) 
+    nrm = 0. 
+    for i = 1:length(A)       
+        nrm = max(nrm,opnorm(A.values[i],p)) 
+    end 
+    return nrm  
+end
+function +(A::PeriodicSwitchingMatrix, B::PeriodicSwitchingMatrix)
+    A.period == B.period && A.nperiod == B.nperiod && length(A) == length(B) && A.ts == B.ts &&
+        (return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([A.values[i]+B.values[i] for i in 1:length(A)], A.ts, A.period, A.nperiod))
+    isconstant(A) && 
+       (return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([B.values[i]+A.values[1] for i in 1:length(B)], B.ts, B.period, B.nperiod))
+    isconstant(B) && 
+       (return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([A.values[i]+B.values[1] for i in 1:length(A)], A.ts, A.period, A.nperiod))
+    A.period == B.period || error("periods must be equal for addition")
+    if A.nperiod == B.nperiod
+        ts = unique(sort([A.ts;B.ts]))
+    else
+        ts = unique(sort([vcat([(i-1)*A.period/A.nperiod .+ A.ts for i in 1:A.nperiod]...);
+                          vcat([(i-1)*B.period/B.nperiod .+ B.ts for i in 1:B.nperiod]...)]))
+    end
+    return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([tpmeval(A,ts[i])+tpmeval(B,ts[i]) for i in 1:length(ts)], ts, A.period, gcd(A.nperiod,B.nperiod))
+end
++(A::PeriodicSwitchingMatrix, C::AbstractMatrix) = +(A, PeriodicSwitchingMatrix([C], [0], A.period))
++(A::AbstractMatrix, C::PeriodicSwitchingMatrix) = +(PeriodicSwitchingMatrix([A], [0], C.period), C)
+-(A::PeriodicSwitchingMatrix) = PeriodicSwitchingMatrix{:c,eltype(A)}([-A.values[i] for i in 1:length(A)], A.ts, A.period, A.nperiod)
+-(A::PeriodicSwitchingMatrix, B::PeriodicSwitchingMatrix) = +(A,-B)
+-(A::PeriodicSwitchingMatrix, C::AbstractMatrix) = +(A,-C)
+-(A::AbstractMatrix, C::PeriodicSwitchingMatrix) = +(A, -C)
+
+function (+)(A::PeriodicSwitchingMatrix, J::UniformScaling{<:Real}) 
+    n = size(A,1)
+    n == size(A,2) || throw(DimensionMismatch("A must be square"))
+    A+Matrix(J(n))
+end
+(+)(J::UniformScaling{<:Real}, A::PeriodicSwitchingMatrix) = +(A,J)
+(-)(A::PeriodicSwitchingMatrix, J::UniformScaling{<:Real}) = +(A,-J)
+(-)(J::UniformScaling{<:Real}, A::PeriodicSwitchingMatrix) = +(-A,J)
+
+function *(A::PeriodicSwitchingMatrix, B::PeriodicSwitchingMatrix)
+    A.period == B.period && A.nperiod == B.nperiod && length(A) == length(B) && A.ts == B.ts &&
+        (return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([A.values[i]*B.values[i] for i in 1:length(A)], A.ts, A.period, A.nperiod))
+    isconstant(A) && 
+       (return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([A.values[1]*B.values[i] for i in 1:length(B)], B.ts, B.period, B.nperiod))
+    isconstant(B) && 
+       (return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([A.values[i]*B.values[1] for i in 1:length(A)], A.ts, A.period, A.nperiod))
+    A.period == B.period || error("periods must be equal for multiplication")
+    if A.nperiod == B.nperiod
+        ts = unique(sort([A.ts;B.ts]))
+    else
+        ts = unique(sort([vcat([(i-1)*A.period/A.nperiod .+ A.ts for i in 1:A.nperiod]...);
+                          vcat([(i-1)*B.period/B.nperiod .+ B.ts for i in 1:B.nperiod]...)]))
+    end
+    return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([tpmeval(A,ts[i])*tpmeval(B,ts[i]) for i in 1:length(ts)], ts, A.period, gcd(A.nperiod,B.nperiod))
+   end
+*(A::PeriodicSwitchingMatrix, C::AbstractMatrix) = PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(C))}([A.values[i]*C for i in 1:length(A)], A.ts, A.period, A.nperiod)
+*(A::AbstractMatrix, C::PeriodicSwitchingMatrix) = PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(C))}([A*C.values[i] for i in 1:length(C)], C.ts, C.period, C.nperiod)
+*(A::PeriodicSwitchingMatrix, C::Real) = PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(C))}([A.values[i]*C for i in 1:length(A)], A.ts, A.period, A.nperiod)
+*(C::Real, A::PeriodicSwitchingMatrix) = PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(C))}([C*A.values[i] for i in 1:length(A)], A.ts, A.period, A.nperiod)
+/(A::PeriodicSwitchingMatrix, C::Real) = *(A, 1/C)
+*(J::UniformScaling{<:Real}, A::PeriodicSwitchingMatrix) = J.λ*A
+*(A::PeriodicSwitchingMatrix, J::UniformScaling{<:Real}) = A*J.λ
+
+Base.iszero(A::PeriodicSwitchingMatrix) = iszero(A.values)
+LinearAlgebra.issymmetric(A::PeriodicSwitchingMatrix) = all(issymmetric.(A.values))
+function ==(A::PeriodicSwitchingMatrix, B::PeriodicSwitchingMatrix)
+    isconstant(A) && isconstant(B) && (return isequal(A.values, B.values))
+    isequal(A.values, B.values) &&  (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod) && A.ts == B.ts
+end
+function Base.isapprox(A::PeriodicSwitchingMatrix, B::PeriodicSwitchingMatrix; rtol::Real = sqrt(eps(Float64)), atol::Real = 0)
+    isconstant(A) && isconstant(B) && (return isapprox(A.values, B.values; rtol, atol))
+    isapprox(A.values, B.values; rtol, atol) && (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod) && A.ts == B.ts
+end
+function Base.isapprox(A::PeriodicSwitchingMatrix, J::UniformScaling{<:Real}; kwargs...)
+    all([isapprox(A.values[i], J; kwargs...) for i in 1:length(A.values)])
+end
+Base.isapprox(J::UniformScaling{<:Real}, A::PeriodicSwitchingMatrix; kwargs...) = isapprox(A, J; kwargs...)
+
+function horzcat(A::PeriodicSwitchingMatrix, B::PeriodicSwitchingMatrix)
+    A.period == B.period && A.nperiod == B.nperiod && length(A) == length(B) && A.ts == B.ts &&
+        (return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([[A.values[i] B.values[i]] for i in 1:length(A)], A.ts, A.period, A.nperiod))
+    isconstant(A) && 
+       (return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([[A.values[1] B.values[i]] for i in 1:length(B)], B.ts, B.period, B.nperiod))
+    isconstant(B) && 
+       (return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([[A.values[i] B.values[1]] for i in 1:length(A)], A.ts, A.period, A.nperiod))
+    A.period == B.period || error("periods must be equal for horizontal concatenation")
+    if A.nperiod == B.nperiod
+        ts = unique(sort([A.ts;B.ts]))
+    else
+        ts = unique(sort([vcat([(i-1)*A.period/A.nperiod .+ A.ts for i in 1:A.nperiod]...);
+                          vcat([(i-1)*B.period/B.nperiod .+ B.ts for i in 1:B.nperiod]...)]))
+    end
+    return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([[tpmeval(A,ts[i]) tpmeval(B,ts[i])] for i in 1:length(ts)], ts, A.period, gcd(A.nperiod,B.nperiod))
+end
+Base.hcat(A::PeriodicSwitchingMatrix, B::PeriodicSwitchingMatrix) = horzcat(A,B)
+
+function vertcat(A::PeriodicSwitchingMatrix, B::PeriodicSwitchingMatrix)
+    A.period == B.period && A.nperiod == B.nperiod && length(A) == length(B) && A.ts == B.ts &&
+        (return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([[A.values[i]; B.values[i]] for i in 1:length(A)], A.ts, A.period, A.nperiod))
+    isconstant(A) && 
+       (return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([[A.values[1]; B.values[i]] for i in 1:length(B)], B.ts, B.period, B.nperiod))
+    isconstant(B) && 
+       (return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([[A.values[i]; B.values[1]] for i in 1:length(A)], A.ts, A.period, A.nperiod))
+    A.period == B.period || error("periods must be equal for vertical concatenation")
+    if A.nperiod == B.nperiod
+        ts = unique(sort([A.ts;B.ts]))
+    else
+        ts = unique(sort([vcat([(i-1)*A.period/A.nperiod .+ A.ts for i in 1:A.nperiod]...);
+                          vcat([(i-1)*B.period/B.nperiod .+ B.ts for i in 1:B.nperiod]...)]))
+    end
+    return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([[tpmeval(A,ts[i]); tpmeval(B,ts[i])] for i in 1:length(ts)], ts, A.period, gcd(A.nperiod,B.nperiod))
+end
+Base.vcat(A::PeriodicSwitchingMatrix, B::PeriodicSwitchingMatrix) = vertcat(A,B)

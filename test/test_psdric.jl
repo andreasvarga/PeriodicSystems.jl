@@ -91,7 +91,7 @@ R = PeriodicMatrix(eye(Float64,m),period; nperiod = rationalize(A.period/A.Ts).n
 C = PeriodicMatrix([rand(m,na[i]) for i in 1:p],period);
 Q = C'*C;
 
-@time X, EVALS, G = prdric(A,B,R,Q);
+@time X, EVALS, G = prdric(A,B,R,Q; fast = true);
 ev = pseig(A-B*G)
 Xs = pmshift(X)
 res = X-A'*(Xs -Xs*B*inv(R+B'*Xs*B)*B'*Xs)*A-Q;
@@ -130,7 +130,7 @@ R = PeriodicMatrix([R1, R2, R3],10);
 Q = PeriodicMatrix([C1'*C1, C2'*C2, C3'*C3],10);
 
 
-@time X, EVALS, G = prdric(A,B,R,Q);
+@time X, EVALS, G = prdric(A,B,R,Q; fast = true);
 ev = pseig(A-B*G)
 Xs = pmshift(X)
 res = X-A'*(Xs -Xs*B*inv(R+B'*Xs*B)*B'*Xs)*A-Q;
@@ -213,7 +213,7 @@ R = PeriodicArray(reshape([R1 R2 R3],1,1,3),10);
 Q = PeriodicArray(reshape([C1'*C1 C2'*C2 C3'*C3],3,3,3),10);
 
 
-@time X, EVALS, G = prdric(A,B,R,Q);
+@time X, EVALS, G = prdric(A,B,R,Q; fast = true);
 ev = pseig(A-B*G)
 Xs = pmshift(X)
 res = X-A'*(Xs -Xs*B*inv(R+B'*Xs*B)*B'*Xs)*A-Q;
@@ -255,7 +255,7 @@ A = convert(PeriodicArray,psys.A); B = convert(PeriodicArray,psys.B);
 q = [2 0 0 0; 0 1 0 0; 0 0 0 0;0 0 0 0]; r = [1.e-11;;];
 Q = PeriodicArray(q,period; nperiod=K); R = PeriodicArray(r,period; nperiod=K);
 
-@time X, EVALS, G = prdric(A,B,R,Q,itmax = 2);
+@time X, EVALS, G = prdric(A,B,R,Q,itmax = 2, fast = true);
 ev = pseig(A-B*G)
 Xs = pmshift(X)
 res = X-A'*(Xs -Xs*B*inv(R+B'*Xs*B)*B'*Xs)*A-Q;
