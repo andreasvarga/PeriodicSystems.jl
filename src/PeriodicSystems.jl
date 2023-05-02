@@ -14,7 +14,7 @@ using Random
 using Interpolations
 using Symbolics
 using Optim
-using Optimization, OptimizationOptimJL
+#using Optimization, OptimizationOptimJL
 #using StaticArrays
 #using DifferentialEquations
 using OrdinaryDiffEq
