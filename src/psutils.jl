@@ -1271,7 +1271,7 @@ function tpmeval(A::PeriodicTimeSeriesMatrix, t::Real )
    tsub = A.period/A.nperiod
    ns = length(A.values)
    Δ = tsub/ns
-   ind = Int(round(mod(t,tsub)/Δ))+1
+   ind = Int(floor(round(mod(t,tsub)/Δ)))+1
    ind <= ns || (ind = 1) 
    return A.values[ind]
 end
@@ -1330,8 +1330,9 @@ function pmaverage(A::PM) where {PM <: Union{PeriodicFunctionMatrix,PeriodicSymb
 end
 pmaverage(A::HarmonicArray) = real(A.values[:,:,1])
 function pmaverage(A::FourierFunctionMatrix)
+   typeof(size(A)) == Tuple{} ? (return coefficients(A.M)[1]) : (return get.(coefficients.(Matrix(A.M)),1,0.0))
    #typeof(size(A)) == Tuple{} ? coefficients(A.M)[1] : getindex.(coefficients.(Matrix(A.M)),1)
-   get.(coefficients.(Matrix(A.M)),1,0.0)
+   #get.(coefficients.(Matrix(A.M)),1,0.0)
 end
 function getpm(A::PeriodicMatrix, k, dperiod::Union{Int,Missing} = missing)
    i = ismissing(dperiod) ? mod(k-1,A.dperiod)+1 : mod(k-1,dperiod)+1

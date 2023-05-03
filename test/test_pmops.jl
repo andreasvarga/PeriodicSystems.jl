@@ -186,7 +186,7 @@ Cts = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(C,2*pi));
 Cdts = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(Cd,2*pi));
 Xts = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(X,8*pi,nperiod=4));
 Xderts = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(Xder,16*pi,nperiod=8));
-@test Ats*Xts+Xts*Ats'+Cts ≈  derivative(Xts) ≈ Xderts
+@test Ats*Xts+Xts*Ats'+Cts ≈  derivative(Xts) ≈ Xderts  
 @test Ats'*Xts+Xts*Ats+Cdts ≈ -derivative(Xts) 
 @test norm(Ats*Xts+Xts*Ats'+Cts-derivative(Xts),Inf) < 1.e-7 && norm(derivative(Xts)- Xderts) < 1.e-7
 @test norm(Ats'*Xts+Xts*Ats+Cdts+derivative(Xts),1) < 1.e-7
@@ -203,9 +203,9 @@ Xd = PeriodicArray(x,px);
 Qdf = -Ad*Xd*Ad'+pmshift(Xd); Qdf = (Qdf+transpose(Qdf))/2
 Qdr = -Ad'*pmshift(Xd)*Ad+Xd; Qdr = (Qdr+transpose(Qdr))/2
 
-Xf = pflyap(Ad, Qdf);
+Xf = pfdlyap(Ad, Qdf);
 @test Ad*Xf*Ad' + Qdf ≈ pmshift(Xf) && Xd ≈ Xf
-Xr = prlyap(Ad, Qdr);
+Xr = prdlyap(Ad, Qdr);
 @test Ad'*pmshift(Xr)*Ad + Qdr ≈ Xr && Xd ≈ Xr
 
 
@@ -226,9 +226,9 @@ Qdf1 = -Ad1*Xd1*Ad1'+pmshift(Xd1); Qdf1 = (Qdf1+transpose(Qdf1))/2
 Qdr1 = -Ad1'*pmshift(Xd1)*Ad1+Xd1; Qdr1 = (Qdr1+transpose(Qdr1))/2
 
 @test Ad1 == Ad && (Ad1+Ad)/3 ≈ 2*Ad/3 && issymmetric(Qdf1+Qdr1)
-Xf1 = pflyap(Ad1, Qdf1);
+Xf1 = pfdlyap(Ad1, Qdf1);
 @test Ad*Xf1*Ad' + Qdf ≈ pmshift(Xf1) && Xd ≈ Xf1
-Xr1 = prlyap(Ad1, Qdr1);
+Xr1 = prdlyap(Ad1, Qdr1);
 @test Ad'*pmshift(Xr1)*Ad + Qdr ≈ Xr1 && Xd ≈ Xr1
 
 @test Ad[1:2,1:1].M == Ad.M[1:2,1:1,:]  && lastindex(Ad,1) == n && lastindex(Ad,2) == n
@@ -242,9 +242,9 @@ Xd = PeriodicMatrix([ x[i]+x[i]' for i in 1:px],px);
 Qdf = -Ad*Xd*Ad'+pmshift(Xd); Qdf = (Qdf+transpose(Qdf))/2
 Qdr = -Ad'*pmshift(Xd)*Ad+Xd; Qdr = (Qdr+transpose(Qdr))/2
 
-Xf = pflyap(Ad, Qdf);
+Xf = pfdlyap(Ad, Qdf);
 @test Ad*Xf*Ad' + Qdf ≈ pmshift(Xf) && Xd ≈ Xf
-Xr = prlyap(Ad, Qdr);
+Xr = prdlyap(Ad, Qdr);
 @test Ad'*pmshift(Xr)*Ad + Qdr ≈ Xr && Xd ≈ Xr
 
 
@@ -265,9 +265,9 @@ Qdf1 = -Ad1*Xd1*Ad1'+pmshift(Xd1); Qdf1 = (Qdf1+transpose(Qdf1))/2
 Qdr1 = -Ad1'*pmshift(Xd1)*Ad1+Xd1; Qdr1 = (Qdr1+transpose(Qdr1))/2
 
 @test Ad1 == Ad && (Ad1+Ad)/3 ≈ 2*Ad/3 && issymmetric(Qdf1+Qdr1)
-Xf1 = pflyap(Ad1, Qdf1);
+Xf1 = pfdlyap(Ad1, Qdf1);
 @test Ad*Xf1*Ad' + Qdf ≈ pmshift(Xf1) && Xd ≈ Xf1
-Xr1 = prlyap(Ad1, Qdr1);
+Xr1 = prdlyap(Ad1, Qdr1);
 @test Ad'*pmshift(Xr1)*Ad + Qdr ≈ Xr1 && Xd ≈ Xr1
 
 @test Ad[1:2,1:1].M == [Ad.M[i][1:2,1:1] for i in 1:length(Ad)] && lastindex(Ad,1) == n && lastindex(Ad,2) == n
@@ -282,9 +282,9 @@ Xd = PeriodicMatrix([ x[i]+x[i]' for i in 1:px],px);
 Qdf = -Ad*Xd*Ad'+pmshift(Xd); Qdf = (Qdf+transpose(Qdf))/2
 Qdr = -Ad'*pmshift(Xd)*Ad+Xd; Qdr = (Qdr+transpose(Qdr))/2
 
-Xf = pflyap(Ad, Qdf);
+Xf = pfdlyap(Ad, Qdf);
 @test Ad*Xf*Ad' + Qdf ≈ pmshift(Xf) && Xd ≈ Xf
-Xr = prlyap(Ad, Qdr);
+Xr = prdlyap(Ad, Qdr);
 @test Ad'*pmshift(Xr)*Ad + Qdr ≈ Xr && Xd ≈ Xr
 
 Qds = pmshift(Qdf); 
@@ -301,9 +301,9 @@ Qdf1 = -Ad1*Xd1*Ad1'+pmshift(Xd1); Qdf1 = (Qdf1+transpose(Qdf1))/2
 Qdr1 = -Ad1'*pmshift(Xd1)*Ad1+Xd1; Qdr1 = (Qdr1+transpose(Qdr1))/2
 
 @test Ad1 == Ad && (Ad1+Ad)/3 ≈ 2*Ad/3 && issymmetric(Qdf1)&& issymmetric(Qdr1)
-Xf1 = pflyap(Ad1, Qdf1);
+Xf1 = pfdlyap(Ad1, Qdf1);
 @test Ad*Xf1*Ad' + Qdf ≈ pmshift(Xf1) && Xd ≈ Xf1
-Xr1 = prlyap(Ad1, Qdr1);
+Xr1 = prdlyap(Ad1, Qdr1);
 @test Ad'*pmshift(Xr1)*Ad + Qdr ≈ Xr1 && Xd ≈ Xr1
 
 @test Ad[1:1,1:1].M == [Ad.M[i][1:1,1:1] for i in 1:length(Ad)] && lastindex(Ad,1) == 1 && lastindex(Ad,2) == 1

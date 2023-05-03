@@ -427,8 +427,9 @@ nh2pc = psh2norm(psysc)
 period = π; ω = 2. ;
 
 P1 = PeriodicFunctionMatrix(t->[cos(ω*t) sin(ω*t); -sin(ω*t) cos(ω*t)],period); 
-PM = PeriodicFunctionMatrix
-PM = PeriodicTimeSeriesMatrix
+# PM = PeriodicFunctionMatrix
+# PM = PeriodicTimeSeriesMatrix
+# PM = FourierFunctionMatrix
 for PM in (PeriodicFunctionMatrix, HarmonicArray, FourierFunctionMatrix, PeriodicSymbolicMatrix, PeriodicTimeSeriesMatrix)
 #for PM in (HarmonicArray, )
     println("type = $PM")
@@ -448,7 +449,7 @@ for PM in (PeriodicFunctionMatrix, HarmonicArray, FourierFunctionMatrix, Periodi
         @time nh2pa = psh2norm(psys,K; adj = true, solver, reltol=1.e-10, abstol = 1.e-10)
         @time nh2paq = psh2norm(psys,K; adj = true, solver, reltol=1.e-10, abstol = 1.e-10, quad = true)
         @time nt1=sqrt.(tr(pmaverage(psys.C*pfclyap(psys.A, psys.B*psys.B'; K,solver,reltol=1.e-10,abstol=1.e-10)*psys.C')))[1]
-        @time nt1a=sqrt.(pmaverage(tr(psys.C*pfclyap(psys.A, psys.B*psys.B'; K,solver,reltol=1.e-10,abstol=1.e-10)*psys.C')))[1]
+        @time nt1a=sqrt.(pmaverage(tr(psys.C*pfclyap(psys.A, psys.B*psys.B'; K,solver,reltol=1.e-10,abstol=1.e-10)*psys.C')))[1] # error
         @time nt2=sqrt.(tr(pmaverage(psys.B'*prclyap(psys.A, psys.C'*psys.C; K,solver,reltol=1.e-10,abstol=1.e-10)*psys.B)))[1]
         @time nt2a=sqrt.(pmaverage(tr(psys.B'*prclyap(psys.A, psys.C'*psys.C; K,solver,reltol=1.e-10,abstol=1.e-10)*psys.B)))[1]
         @test nh2pc ≈ nh2p ≈ nh2pa ≈ nh2pq ≈ nh2paq     

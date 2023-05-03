@@ -812,11 +812,20 @@ function +(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix)
        (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([B.values[i]+A.values[1] for i in 1:length(B)], B.period, B.nperiod))
     isconstant(B) && 
        (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([A.values[i]+B.values[1] for i in 1:length(A)], A.period, A.nperiod))
-    A.period == B.period || error("periods must be equal for vertical concatenation")
-    nperiod = gcd(A.nperiod,B.nperiod)
-    ns = lcm(length(A),length(B))
-    Δ = A.period/nperiod/ns
-    return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([tpmeval(A,(i-1)*Δ)+tpmeval(B,(i-1)*Δ) for i in 1:ns], A.period, nperiod)        
+    if A.period == B.period 
+       nperiod = gcd(A.nperiod,B.nperiod)
+       ns = lcm(length(A),length(B))
+       Δ = A.period/nperiod/ns
+       return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([tpmeval(A,(i-1)*Δ)+tpmeval(B,(i-1)*Δ) for i in 1:ns], A.period, nperiod) 
+    else       
+       Tsub = A.period/A.nperiod
+       Tsub ≈ B.period/B.nperiod || error("periods or subperiods must be equal for addition")
+       nperiod = lcm(A.nperiod,B.nperiod)
+       period = Tsub*nperiod
+       ns = lcm(length(A),length(B))
+       Δ = Tsub/ns
+       return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([tpmeval(A,(i-1)*Δ)+tpmeval(B,(i-1)*Δ) for i in 1:ns], period, nperiod)   
+    end     
 end
 +(A::PeriodicTimeSeriesMatrix, C::AbstractMatrix) = +(A, PeriodicTimeSeriesMatrix(C, A.period))
 +(A::AbstractMatrix, C::PeriodicTimeSeriesMatrix) = +(PeriodicTimeSeriesMatrix(A, C.period), C)
@@ -841,11 +850,20 @@ function *(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix)
        (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([A.values[1]*B.values[i] for i in 1:length(B)], B.period, B.nperiod))
     isconstant(B) && 
        (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([A.values[i]*B.values[1] for i in 1:length(A)], A.period, A.nperiod))
-    A.period == B.period || error("periods must be equal for vertical concatenation")
-    nperiod = gcd(A.nperiod,B.nperiod)
-    ns = lcm(length(A),length(B))
-    Δ = A.period/nperiod/ns
-    return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([tpmeval(A,(i-1)*Δ)*tpmeval(B,(i-1)*Δ) for i in 1:ns], A.period, nperiod)        
+    if A.period == B.period 
+       nperiod = gcd(A.nperiod,B.nperiod)
+       ns = lcm(length(A),length(B))
+       Δ = A.period/nperiod/ns
+       return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([tpmeval(A,(i-1)*Δ)*tpmeval(B,(i-1)*Δ) for i in 1:ns], A.period, nperiod) 
+    else          
+       Tsub = A.period/A.nperiod
+       Tsub ≈ B.period/B.nperiod || error("periods or subperiods must be equal for multiplication")
+       nperiod = lcm(A.nperiod,B.nperiod)
+       period = Tsub*nperiod
+       ns = lcm(length(A),length(B))
+       Δ = Tsub/ns
+       return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([tpmeval(A,(i-1)*Δ)*tpmeval(B,(i-1)*Δ) for i in 1:ns], period, nperiod)   
+    end     
 end
 *(A::PeriodicTimeSeriesMatrix, C::AbstractMatrix) = *(A, PeriodicTimeSeriesMatrix(C, A.period))
 *(A::AbstractMatrix, C::PeriodicTimeSeriesMatrix) = *(PeriodicTimeSeriesMatrix(A, C.period), C)
@@ -878,11 +896,20 @@ function horzcat(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix)
        (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[A.values[1] B.values[i]] for i in 1:length(B)], B.period, B.nperiod))
     isconstant(B) && 
        (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[A.values[i] B.values[1]] for i in 1:length(A)], A.period, A.nperiod))
-    A.period == B.period || error("periods must be equal for horizontal concatenation")
-    nperiod = gcd(A.nperiod,B.nperiod)
-    ns = lcm(length(A),length(B))
-    Δ = A.period/nperiod/ns
-    return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[tpmeval(A,(i-1)*Δ) tpmeval(B,(i-1)*Δ)] for i in 1:ns], A.period, nperiod)        
+    if A.period == B.period 
+        nperiod = gcd(A.nperiod,B.nperiod)
+        ns = lcm(length(A),length(B))
+        Δ = A.period/nperiod/ns
+        return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[tpmeval(A,(i-1)*Δ) tpmeval(B,(i-1)*Δ)] for i in 1:ns], A.period, nperiod) 
+    else          
+        Tsub = A.period/A.nperiod
+        Tsub ≈ B.period/B.nperiod || error("periods or subperiods must be equal for horizontal concatenation")
+        nperiod = lcm(A.nperiod,B.nperiod)
+        period = Tsub*nperiod
+        ns = lcm(length(A),length(B))
+        Δ = Tsub/ns
+        return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[tpmeval(A,(i-1)*Δ) tpmeval(B,(i-1)*Δ)] for i in 1:ns], period, nperiod)   
+    end     
 end
 Base.hcat(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix) = horzcat(A,B)
 
@@ -893,11 +920,20 @@ function vertcat(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix)
        (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[A.values[1]; B.values[i]] for i in 1:length(B)], B.period, B.nperiod))
     isconstant(B) && 
        (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[A.values[i]; B.values[1]] for i in 1:length(A)], A.period, A.nperiod))
-    A.period == B.period || error("periods must be equal for vertical concatenation")
-    nperiod = gcd(A.nperiod,B.nperiod)
-    ns = lcm(length(A),length(B))
-    Δ = A.period/nperiod/ns
-    return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[tpmeval(A,(i-1)*Δ); tpmeval(B,(i-1)*Δ)] for i in 1:ns], A.period, nperiod)        
+    if A.period == B.period 
+        nperiod = gcd(A.nperiod,B.nperiod)
+        ns = lcm(length(A),length(B))
+        Δ = A.period/nperiod/ns
+        return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[tpmeval(A,(i-1)*Δ); tpmeval(B,(i-1)*Δ)] for i in 1:ns], A.period, nperiod) 
+    else          
+        Tsub = A.period/A.nperiod
+        Tsub ≈ B.period/B.nperiod || error("periods or subperiods must be equal for vertical concatenation")
+        nperiod = lcm(A.nperiod,B.nperiod)
+        period = Tsub*nperiod
+        ns = lcm(length(A),length(B))
+        Δ = Tsub/ns
+        return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[tpmeval(A,(i-1)*Δ); tpmeval(B,(i-1)*Δ)] for i in 1:ns], period, nperiod)   
+    end     
 end
 Base.vcat(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix) = vertcat(A,B)
 

@@ -775,6 +775,12 @@ function Base.getproperty(A::PeriodicTimeSeriesMatrix, d::Symbol)
    end
 end
 
+function Base.getindex(A::PTS, ind::Int) where PTS <: PeriodicTimeSeriesMatrix
+   A.values[mod(ind-1,length(A.values))+1]
+end
+function Base.lastindex(A::PTS) where PTS <: PeriodicTimeSeriesMatrix
+   return length(A.values)
+end
 
 function Base.getindex(A::PM, inds...) where PM <: PeriodicTimeSeriesMatrix
    size(inds, 1) != 2 &&
@@ -933,8 +939,9 @@ Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicMatrix) =
     convert(PeriodicTimeSeriesMatrix, pm2pa(A))
 Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicArray) =
     PeriodicTimeSeriesMatrix([A.M[:,:,i] for i in 1:size(A.M,3)], A.period; nperiod = A.nperiod)
-Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::FourierFunctionMatrix; ns::Int = 128) =
-   convert(PeriodicTimeSeriesMatrix,convert(PeriodicFunctionMatrix,A;ns))
+function Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::FourierFunctionMatrix; ns::Int = 128)
+    convert(PeriodicTimeSeriesMatrix,convert(PeriodicFunctionMatrix,A);ns)
+end
 function Base.convert(::Type{<:PeriodicTimeSeriesMatrix}, A::PM; ns::Int = 128) where {PM <: PeriodicSwitchingMatrix}
    ns > 0 || throw(ArgumentError("number of samples must be positive, got $ns"))
    isconstant(A) && (return PeriodicTimeSeriesMatrix(A.values[1], A.period; nperiod = A.nperiod))

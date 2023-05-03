@@ -134,14 +134,19 @@ Xf = convert(FourierFunctionMatrix,Xt);
 Ats = convert(PeriodicTimeSeriesMatrix,At);
 Cts = convert(PeriodicTimeSeriesMatrix,Ct);
 Cdts = convert(PeriodicTimeSeriesMatrix,Cdt);
-tt = Vector((1:500)*2*pi/500) 
-@time Yts = pclyap(Ats, Cts, K = 500, reltol = 1.e-10);
+K = 512
+K = 500
+tt = Vector((1:K-1)*2*pi/K) 
+@time Yts = pclyap(Ats, Cts; K, reltol = 1.e-10);
 @test maximum(norm.(tvmeval(Yts,tt).-Xt.f.(tt))) < 1.e-7
-@test norm(Ats*Yts+Yts*Ats'+Cts-derivative(Yts)) < 1.e-7
+td = derivative(Yts)
+t = Ats*Yts+Yts*Ats'+Cts-derivative(Yts)
+norm(t)
+@test norm(Ats*Yts+Yts*Ats'+Cts-derivative(Yts)) < 1.e-7 #error
 
 @time Yts = pclyap(Ats, Cdts, K = 500, adj = true, reltol = 1.e-10)
 @test maximum(norm.(tvmeval(Yts,tt).-Xt.f.(tt))) < 1.e-7
-@test norm(Ats'*Yts+Yts*Ats+Cdts+derivative(Yts)) < 1.e-7
+@test norm(Ats'*Yts+Yts*Ats+Cdts+derivative(Yts)) < 1.e-7  #error
 
 
 @time Yts = pfclyap(Ats, Cts, K = 500, reltol = 1.e-10);
@@ -270,8 +275,8 @@ psysc = ps(a,PeriodicFunctionMatrix(b,period),c,d);
 K = 120;
 @time psys = psc2d(psysc,period/K,reltol = 1.e-10);
 
-@time Qd = prlyap(psys.A,transpose(psys.C)*psys.C);
-@time Rd = pflyap(psys.A, psys.B*transpose(psys.B));
+@time Qd = prdlyap(psys.A,transpose(psys.C)*psys.C);
+@time Rd = pfdlyap(psys.A, psys.B*transpose(psys.B));
 @test norm(Qd) > 1.e3 && norm(Rd) > 1.e3
 
 end # psclyap
