@@ -30,14 +30,13 @@ Bc = PeriodicTimeSeriesMatrix(B,period)
 # @variables t
 # P = PeriodicSymbolicMatrix([cos(ω*t) sin(ω*t); -sin(ω*t) cos(ω*t)],period); PM = PeriodicSymbolicMatrix
 
-P1 = PeriodicFunctionMatrix(t->[cos(ω*t) sin(ω*t); -sin(ω*t) cos(ω*t)],period); PM = PeriodicFunctionMatrix
+P1 = PeriodicFunctionMatrix(t->[cos(ω*t) sin(ω*t); -sin(ω*t) cos(ω*t)],period); 
+PM = PeriodicFunctionMatrix
 
 #P = convert(HarmonicArray,P); PM = HarmonicArray
 
 #P = convert(FourierFunctionMatrix,P); PM = FourierFunctionMatrix
-PM = HarmonicArray
-PM = PeriodicTimeSeriesMatrix
-
+PM = PeriodicSymbolicMatrix
 
 for PM in (PeriodicFunctionMatrix, HarmonicArray, PeriodicSymbolicMatrix, FourierFunctionMatrix, PeriodicTimeSeriesMatrix)
     println("type = $PM")
@@ -56,7 +55,7 @@ for PM in (PeriodicFunctionMatrix, HarmonicArray, PeriodicSymbolicMatrix, Fourie
     solver = "symplectic"
     for solver in ("non-stiff", "stiff", "symplectic", "linear", "noidea")
         println("solver = $solver")
-        @time X, EVALS, F = prcric(Ap, Bp, Rp, Qp; K = N, solver, reltol = 1.e-10, abstol = 1.e-10, fast = true) 
+        @time X, EVALS, F = prcric(Ap, Bp, Rp, Qp; K = N, solver, reltol = 1.e-10, abstol = 1.e-10, fast = true) #error
         Errx = norm(X-Xp)/norm(Xp); Errf = norm(F-Fp)/norm(Fp)
         println("Errx = $Errx Errf = $Errf")
         @test Errx < 1.e-7 && Errf < 1.e-6 && norm(sort(real(EVALS)) - sort(EVALSref)) < 1.e-2

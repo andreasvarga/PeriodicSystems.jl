@@ -131,28 +131,24 @@ Xf = convert(FourierFunctionMatrix,Xt);
 
 
 # solve using periodic time-series matrices
-Ats = convert(PeriodicTimeSeriesMatrix,At);
-Cts = convert(PeriodicTimeSeriesMatrix,Ct);
-Cdts = convert(PeriodicTimeSeriesMatrix,Cdt);
 K = 512
-K = 500
+Ats = convert(PeriodicTimeSeriesMatrix,At;ns = K);
+Cts = convert(PeriodicTimeSeriesMatrix,Ct;ns = K);
+Cdts = convert(PeriodicTimeSeriesMatrix,Cdt;ns = K);
 tt = Vector((1:K-1)*2*pi/K) 
 @time Yts = pclyap(Ats, Cts; K, reltol = 1.e-10);
 @test maximum(norm.(tvmeval(Yts,tt).-Xt.f.(tt))) < 1.e-7
-td = derivative(Yts)
-t = Ats*Yts+Yts*Ats'+Cts-derivative(Yts)
-norm(t)
-@test norm(Ats*Yts+Yts*Ats'+Cts-derivative(Yts)) < 1.e-7 #error
+@test norm(Ats*Yts+Yts*Ats'+Cts-derivative(Yts)) < 1.e-7  
 
-@time Yts = pclyap(Ats, Cdts, K = 500, adj = true, reltol = 1.e-10)
+@time Yts = pclyap(Ats, Cdts; K, adj = true, reltol = 1.e-10)
 @test maximum(norm.(tvmeval(Yts,tt).-Xt.f.(tt))) < 1.e-7
-@test norm(Ats'*Yts+Yts*Ats+Cdts+derivative(Yts)) < 1.e-7  #error
+@test norm(Ats'*Yts+Yts*Ats+Cdts+derivative(Yts)) < 1.e-7  
 
 
-@time Yts = pfclyap(Ats, Cts, K = 500, reltol = 1.e-10);
+@time Yts = pfclyap(Ats, Cts; K, reltol = 1.e-10);
 @test maximum(norm.(tvmeval(Yts,tt).-Xt.f.(tt))) < 1.e-7
 
-@time Yts = prclyap(Ats, Cdts, K = 500, reltol = 1.e-10)
+@time Yts = prclyap(Ats, Cdts; K, reltol = 1.e-10)
 @test maximum(norm.(tvmeval(Yts,tt).-Xt.f.(tt))) < 1.e-7
 
 

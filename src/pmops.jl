@@ -435,7 +435,16 @@ function derivative(A::PeriodicSymbolicMatrix)
     @variables t   
     return PeriodicSymbolicMatrix{:c,Num}(Symbolics.derivative(A.F,t), A.period, nperiod = A.nperiod)
 end
-LinearAlgebra.inv(A::PeriodicSymbolicMatrix) = PeriodicSymbolicMatrix(inv(A.F), A.period; nperiod = A.nperiod)
+#LinearAlgebra.inv(A::PeriodicSymbolicMatrix) = PeriodicSymbolicMatrix(inv(A.F), A.period; nperiod = A.nperiod)
+function LinearAlgebra.inv(A::PeriodicSymbolicMatrix)
+    if isconstant(A)
+       # fix for Symbolics.jl issue #895
+       @variables t 
+       PeriodicSymbolicMatrix(Num.(inv(Symbolics.unwrap.(substitute.(A.F, (Dict(t => 0.),))))), A.period; nperiod = A.nperiod)    
+    else
+       PeriodicSymbolicMatrix(inv(A.F), A.period; nperiod = A.nperiod)
+    end
+end
 function LinearAlgebra.transpose(A::PeriodicSymbolicMatrix)  
     return PeriodicSymbolicMatrix{:c,Num}(copy(transpose(A.F)), A.period, nperiod = A.nperiod)
 end
