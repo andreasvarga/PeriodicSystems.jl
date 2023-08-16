@@ -91,6 +91,12 @@ Base.size(A::PeriodicMatrix, d::Integer) = size.(A.M,d)
 Base.length(A::PeriodicMatrix) = A.dperiod
 Base.eltype(A::PeriodicMatrix{:d,T}) where T = T
 
+function Base.getindex(A::PM, ind::Int) where PM <: PeriodicMatrix
+   A.M[mod(ind-1,A.dperiod)+1]
+end
+function Base.lastindex(A::PM) where PM <: PeriodicMatrix
+   return A.dperiod
+end
 function Base.getindex(A::PM, inds...) where PM <: PeriodicMatrix
    size(inds, 1) != 2 &&
        error("Must specify 2 indices to index a periodic matrix")
@@ -132,7 +138,9 @@ struct SwitchingPeriodicMatrix{Domain,T} <: AbstractPeriodicArray{Domain,T}
    period::Float64
    nperiod::Int
 end
+
 # additional constructors
+#function  SwitchingPeriodicMatrix(M::Vector{<: Matrix}, ns::Vector{Int}, period::Real; nperiod::Int = 1) 
 function  SwitchingPeriodicMatrix(M::Vector{MT}, ns::Vector{Int}, period::Real; nperiod::Int = 1) where {MT <: Array} 
    period > 0 || error("period must be positive") 
    nperiod > 0 || error("number of subperiods must be positive") 
@@ -150,8 +158,8 @@ function  SwitchingPeriodicMatrix(M::Vector{MT}, ns::Vector{Int}, period::Real; 
 end
 SwitchingPeriodicMatrix{:d,T}(A::Vector{Matrix{T}}, ns::Vector{Int}, period::Real; nperiod::Int = 1) where {T} = 
    SwitchingPeriodicMatrix{:d,T}(A, ns, period, nperiod)
-SwitchingPeriodicMatrix(M::Vector{Matrix{T}}, ns::Vector{Int}, period::Real; nperiod::Int = 1) where {T <: Real} = 
-   SwitchingPeriodicMatrix{:d,T}(M, ns, period, nperiod)
+# SwitchingPeriodicMatrix(M::Vector{Matrix{T}}, ns::Vector{Int}, period::Real; nperiod::Int = 1) where {T <: Real} = 
+#    SwitchingPeriodicMatrix{:d,T}(M, ns, period, nperiod)
 SwitchingPeriodicMatrix(M::VecOrMat{T}, ns::Vector{Int}, period::Real; nperiod::Int = 1) where {T <: Real} =
    SwitchingPeriodicMatrix{:d,T}([reshape(M,size(M,1),size(M,2))], ns, period, nperiod)
 SwitchingPeriodicMatrix(M::VecOrMat{T}, period::Real; nperiod::Int = 1) where {T <: Real} =
@@ -187,7 +195,7 @@ Base.propertynames(A::SwitchingPeriodicMatrix) = (:dperiod, :Ts, fieldnames(type
 isconstant(A::SwitchingPeriodicMatrix) = (length(A.ns) == 1)
 Base.size(A::SwitchingPeriodicMatrix) = (size.(A.M,1),size.(A.M,2))
 Base.size(A::SwitchingPeriodicMatrix, d::Integer) = size.(A.M,d)
-Base.length(A::SwitchingPeriodicMatrix) = A.dperiod
+Base.length(A::SwitchingPeriodicMatrix) = length(A.ns)
 Base.eltype(A::SwitchingPeriodicMatrix{:d,T}) where T = T
 
 function Base.getindex(A::SPM, ind::Int) where SPM <: SwitchingPeriodicMatrix
@@ -268,6 +276,12 @@ Base.size(A::PeriodicArray, d::Integer) = size(A.M,d)
 Base.length(A::PeriodicArray) = A.dperiod
 Base.eltype(A::PeriodicArray{:d,T}) where T = T
 
+function Base.getindex(A::PM, ind::Int) where PM <: PeriodicArray
+   A.M[:,:,mod(ind-1,A.dperiod)+1]
+end
+function Base.lastindex(A::PM) where PM <: PeriodicArray
+   return A.dperiod
+end
 function Base.getindex(A::PM, inds...) where PM <: PeriodicArray
    size(inds, 1) != 2 &&
        error("Must specify 2 indices to index a periodic matrix")
@@ -503,15 +517,24 @@ FourierFunctionMatrix(A0::VecOrMat{T}, period::Real) where {T <: Real}  =
 FourierFunctionMatrix{:c,T}(A0::VecOrMat, period::Real) where {T <: Real}  = 
     FourierFunctionMatrix{:c,float(T)}(Fun(t->float(T).(A0),Fourier(0..period)), period) 
 function isconstant(A::FourierFunctionMatrix)
-   for i = 1:size(A.M,1)
-       for j = 1: size(A.M,2)
-           ncoefficients(chop(A.M[i,j])) <= 1 || (return false)
-       end
+   k = length(size(A.M))
+   if  k > 1
+     for i = 1:size(A,1)
+          for j = 1: size(A,2)
+              ncoefficients(chop(A.M[i,j])) <= 1 || (return false)
+          end
+      end
+   elseif k == 1
+      for i = 1:size(A,1)
+          ncoefficients(chop(A.M[i])) <= 1 || (return false)
+      end
+   else
+      ncoefficients(chop(A.M)) <= 1 || (return false)      
    end
    return true
 end
 isperiodic(A::FourierFunctionMatrix) = true
-Base.size(A::FourierFunctionMatrix) = size(A.M)
+Base.size(A::FourierFunctionMatrix) = (size(A.M,1),size(A.M,2))
 Base.eltype(A::FourierFunctionMatrix{:c,T}) where T = T
 
 function Base.getindex(A::PM, inds...) where PM <: FourierFunctionMatrix
@@ -669,10 +692,9 @@ PeriodicSwitchingMatrix(At::Union{Vector{Vector{T}},Vector{Matrix{T}}}, ts::Vect
      PeriodicSwitchingMatrix{:c,T}(At, ts, period; nperiod)  
 PeriodicSwitchingMatrix{:c,T}(A::Union{Vector{Vector{T1}},Vector{Matrix{T1}}}, ts::Vector{T2}, period::Real; nperiod::Int = 1) where {T<: Real, T1 <: Real,T2 <: Real} = 
      PeriodicSwitchingMatrix([T.(A[i]) for i in 1:length(A)], ts, period; nperiod)
-PeriodicSwitchingMatrix(At::VecOrMat{T}, period::Real; ts::Vector{T1} = [0.0], nperiod::Int = 1) where {T <: Real, T1 <: Real}  = 
-        PeriodicSwitchingMatrix([reshape(At,size(At,1),size(At,2))], ts, period; nperiod) 
-#
-# period change
+function PeriodicSwitchingMatrix(At::VecOrMat{T}, period::Real; ts::Vector{T1} = [0.0], nperiod::Int = 1) where {T <: Real, T1 <: Real}
+   PeriodicSwitchingMatrix([reshape(At,size(At,1),size(At,2))], ts, period; nperiod)
+end
 function PeriodicSwitchingMatrix{:c,T}(A::PeriodicSwitchingMatrix{:c,T1}, period::Real) where {T<: Real, T1 <: Real}
    Aperiod = A.period
    r = rationalize(Aperiod/period)
@@ -798,26 +820,39 @@ Base.convert(::Type{PeriodicMatrix}, A::PeriodicArray{:d,T}) where T =
              PeriodicMatrix{:d,T}([A.M[:,:,i] for i in 1:size(A.M,3)],A.period; nperiod = A.nperiod)
 Base.convert(::Type{PeriodicMatrix}, A::SwitchingPeriodicMatrix{:d,T}) where {T} = 
              PeriodicMatrix{:d,T}([A[i] for i in 1:A.dperiod],A.period; nperiod = A.nperiod)
-Base.convert(::Type{SwitchingPeriodicMatrix}, A::PeriodicMatrix{:d,T}) where {T} = 
-             SwitchingPeriodicMatrix{:d,T}([A.M[i] for i in 1:length(A)],collect(1:length(A)), A.period; nperiod = A.nperiod)
-
-# conversions to discrete-time PeriodicArray
-# function Base.convert(::Type{PeriodicArray}, A::PeriodicMatrix{:d,T}) where T
-#     N = length(A)
-#     m, n = size.(A,1), size.(A,2)
-#     N == 0 && PeriodicArray(Array{T,3}(undef,0,0,0),A.period)
-#     if any(m .!= m[1]) || any(m .!= m[1]) 
-#        @warn "Non-constant dimensions: the resulting component matrices padded with zeros"
-#        t = zeros(T,maximum(m),maximum(n),N)
-#        [copyto!(view(t,1:m[i],1:n[i],i),A[i]) for i in 1:N]
-#        PeriodicArray{:d,T}(t,A.period)
-#     else
-#        t = zeros(T,m[1],n[1],N)
-#        [copyto!(view(t,:,:,i),A[i]) for i in 1:N]
-#        PeriodicArray{:d,T}(t,A.period)
-#     end
-# end
+function Base.convert(::Type{SwitchingPeriodicMatrix}, A::PeriodicMatrix{:d,T}) where {T}
+   ns = Int[]
+   na = length(A.M)
+   k = 0
+   i = 1
+   while i <= na
+       i == na && (push!(ns,na); break)
+       for j = i+1:na
+           k += 1
+           !isequal(A.M[i],A.M[j]) && (push!(ns,k); break)
+       end
+       i = k+1
+   end
+   SwitchingPeriodicMatrix{:d,T}([A.M[ns[i]] for i in 1:length(ns)],ns, A.period; nperiod = A.nperiod)
+end
 Base.convert(::Type{PeriodicArray}, A::PeriodicMatrix) = pm2pa(A)
+function Base.convert(::Type{SwitchingPeriodicMatrix}, A::PeriodicArray{:d,T}) where {T}
+   ns = Int[]
+   na = size(A.M,3)
+   k = 0
+   i = 1
+   while i <= na
+       i == na && (push!(ns,na); break)
+       for j = i+1:na
+           k += 1
+           !isequal(A.M[:,:,i],A.M[:,:,j]) && (push!(ns,k); break)
+       end
+       i = k+1
+   end
+   SwitchingPeriodicMatrix{:d,T}([A.M[:,:,ns[i]] for i in 1:length(ns)],ns, A.period; nperiod = A.nperiod)
+end
+Base.convert(::Type{PeriodicArray}, A::SwitchingPeriodicMatrix) = convert(PeriodicArray,convert(PeriodicMatrix,A))
+
 
 
 # conversions to continuous-time PeriodicFunctionMatrix
@@ -856,6 +891,8 @@ Base.convert(::Type{PeriodicFunctionMatrix{:c,T}}, ahr::HarmonicArray)  where T 
          PeriodicFunctionMatrix{:c,T}(t::Real -> hreval(ahr,T(t)), ahr.period, size(ahr), ahr.nperiod, isconstant(ahr))
 #Base.convert(::Type{PeriodicFunctionMatrix}, At::PeriodicTimeSeriesMatrix) = ts2pfm(At; method = "cubic")
 Base.convert(::Type{PeriodicFunctionMatrix}, At::PeriodicTimeSeriesMatrix; method = "cubic") = ts2pfm(At; method)
+#Base.convert(::Type{PeriodicFunctionMatrix}, At::PeriodicSwitchingMatrix; method = "cubic") = ts2pfm(convert(PeriodicTimeSeriesMatrix,At); method)
+#Base.convert(::Type{PeriodicFunctionMatrix}, At::PeriodicSwitchingMatrix; method = "linear") = tsw2pfm(At; method)
 Base.convert(::Type{PeriodicFunctionMatrix}, A::PeriodicSwitchingMatrix) = 
          PeriodicFunctionMatrix{:c,eltype(A)}(t::Real -> tpmeval(A,t), A.period, size(A), A.nperiod, isconstant(A))
 
@@ -899,11 +936,21 @@ end
 # conversions to continuous-time PeriodicSymbolicMatrix
 function Base.convert(::Type{PeriodicSymbolicMatrix}, A::PeriodicFunctionMatrix) 
    @variables t
-   PeriodicSymbolicMatrix(Num.(A.f(t)), A.period; nperiod = A.nperiod)
+   # PeriodicSymbolicMatrix(Num.(A.f(t)), A.period; nperiod = A.nperiod)
+   M = try 
+      Num.(A.f(t))
+   catch 
+      return convert(PeriodicSymbolicMatrix,convert(HarmonicArray,A))
+   end
+   PeriodicSymbolicMatrix(M, A.period; nperiod = A.nperiod)
 end
-function Base.convert(::Type{PeriodicSymbolicMatrix{:c,T}}, A::PeriodicFunctionMatrix) where T
-   @variables t
-   PeriodicSymbolicMatrix(Num.(A.f(t)), A.period; nperiod = A.nperiod)
+function Base.convert(::Type{PeriodicSymbolicMatrix{:c,T}}, A::PeriodicFunctionMatrix) where {T}
+   try 
+      @variables t
+      PeriodicSymbolicMatrix(Num.(A.f(t)), A.period; nperiod = A.nperiod)
+   catch
+      convert(PeriodicSymbolicMatrix,convert(HarmonicArray,A))
+   end
 end
 Base.convert(::Type{PeriodicSymbolicMatrix}, ahr::HarmonicArray) = 
    PeriodicSymbolicMatrix(hr2psm(ahr), ahr.period; nperiod = ahr.nperiod)
@@ -919,6 +966,7 @@ Base.convert(::Type{HarmonicArray}, A::PeriodicFunctionMatrix) = pfm2hr(A)
 Base.convert(::Type{HarmonicArray}, A::PeriodicSymbolicMatrix) = psm2hr(A)
 #Base.convert(::Type{HarmonicArray}, A::FourierFunctionMatrix) = pfm2hr(convert(PeriodicFunctionMatrix,A))
 Base.convert(::Type{HarmonicArray}, A::FourierFunctionMatrix) = ffm2hr(A)
+Base.convert(::Type{HarmonicArray}, A::PeriodicSwitchingMatrix) = ts2hr(convert(PeriodicTimeSeriesMatrix,A;ns=128))
 
 # conversions to PeriodicTimeSeriesMatrix
 function Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicSymbolicMatrix; ns::Int = 128)
@@ -942,28 +990,53 @@ Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::PeriodicArray) =
 function Base.convert(::Type{PeriodicTimeSeriesMatrix}, A::FourierFunctionMatrix; ns::Int = 128)
     convert(PeriodicTimeSeriesMatrix,convert(PeriodicFunctionMatrix,A);ns)
 end
-function Base.convert(::Type{<:PeriodicTimeSeriesMatrix}, A::PM; ns::Int = 128) where {PM <: PeriodicSwitchingMatrix}
+function Base.convert(::Type{<:PeriodicTimeSeriesMatrix}, A::PM; ns::Int = 1) where {PM <: PeriodicSwitchingMatrix}
    ns > 0 || throw(ArgumentError("number of samples must be positive, got $ns"))
    isconstant(A) && (return PeriodicTimeSeriesMatrix(A.values[1], A.period; nperiod = A.nperiod))
    dt = [diff(A.ts); A.period/A.nperiod-A.ts[end]]
-   maximum(dt) == minimum(dt) && (ns = length(A))
-   Δ = A.period/ns/A.nperiod
-   return PeriodicTimeSeriesMatrix([tpmeval(A,(i-1)*Δ) for i in 1:ns], A.period; nperiod = A.nperiod)
+   Δ = minimum(dt)
+   nlim = 2^10
+   for a in dt
+      a ≈ Δ && continue
+      den = rationalize(a/Δ).den
+      if den > nlim 
+         ns = max(128,length(A.ts))
+         @warn "incommensurate sampling times: ns = $ns is used"
+         #ns = 1024; 
+         Δ = A.period/ns/A.nperiod
+         return PeriodicTimeSeriesMatrix([tpmeval(A,(i-1)*Δ) for i in 1:ns], A.period; nperiod = A.nperiod)
+      end
+      den == 1 || (Δ /= den)
+   end
+   @show ns
+   #K = rationalize(A.period/A.nperiod/Δ).num # minimum number of possible sample times
+   K = round(Int,A.period/A.nperiod/Δ) # minimum number of possible sample times
+   if ns > 1 
+      K = lcm(K,ns)
+      Δ = A.period/K/A.nperiod
+   end
+   return PeriodicTimeSeriesMatrix([tpmeval(A,(i-1)*Δ) for i in 1:K], A.period; nperiod = A.nperiod)
 end
-# function Base.convert(::Type{PeriodicTimeSeriesMatrix{:c,T}}, A::PeriodicSwitchingMatrix{:c,T1}; ns::Int = 128) where {T,T1}
-#    ns > 0 || throw(ArgumentError("number of samples must be positive, got $ns"))
-#    isconstant(A) && (return PeriodicTimeSeriesMatrix(T.(A.values[1]), A.period; nperiod = A.nperiod))
-#    dt = [diff(A.ts); A.period/A.nperiod-A.ts[end]]
-#    maximum(dt) == minimum(dt) && (ns = length(A))
-#    Δ = A.period/ns/A.nperiod
-#    return PeriodicTimeSeriesMatrix([T.(tpmeval(A,(i-1)*Δ)) for i in 1:ns], A.period; nperiod = A.nperiod)
-# end
 
-# function Base.convert(::Type{PeriodicSwitchingMatrix{:c,T}}, A::PeriodicTimeSeriesMatrix{:c,T1}) where {T,T1}
-#     ns = length(A)
-#     PeriodicSwitchingMatrix{:c,eltype(A)}([A.values[i] for i in 1:ns], collect((0:ns-1)*(A.period/A.nperiod/ns)), A.period; nperiod = A.nperiod)
-# end
-function Base.convert(::Type{<:PeriodicSwitchingMatrix}, A::PM)  where {PM <: PeriodicTimeSeriesMatrix}
-   ns = length(A)
-   PeriodicSwitchingMatrix{:c,eltype(A)}([A.values[i] for i in 1:ns], collect((0:ns-1)*(A.period/A.nperiod/ns)), A.period; nperiod = A.nperiod)
+# conversions to PeriodicSwitchingMatrix
+function Base.convert(::Type{PeriodicSwitchingMatrix}, A::PeriodicFunctionMatrix; ns::Int = 128)
+   ns > 0 || throw(ArgumentError("number of samples must be positive, got $ns"))
+   convert(PeriodicSwitchingMatrix,convert(PeriodicTimeSeriesMatrix,A;ns))
+end
+
+function Base.convert(::Type{PeriodicSwitchingMatrix}, A::PeriodicTimeSeriesMatrix) 
+   ns = Int[]
+   na = length(A.values)
+   k = 0
+   i = 1
+   while i <= na
+       i == na && (push!(ns,na); break)
+       for j = i+1:na
+           k += 1
+           !isequal(A.values[i],A.values[j]) && (push!(ns,k); break)
+       end
+       i = k+1
+   end
+   Δ = A.period/na/A.nperiod
+   PeriodicSwitchingMatrix{:c,eltype(A)}([A.values[ns[i]] for i in 1:length(ns)], [0; Δ*ns[1:end-1]], A.period; nperiod = A.nperiod)
 end

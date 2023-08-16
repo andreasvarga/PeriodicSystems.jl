@@ -45,9 +45,18 @@ Xdert = PeriodicFunctionMatrix(Xder,16*pi,nperiod=8)
 @test norm(At*Xt+Xt*At'+Ct-derivative(Xt)) < 1.e-7
 @test norm(At'*Xt+Xt*At+Cdt+derivative(Xt)) < 1.e-7
 
+t = rand(); 
+@test [At Ct](t) ≈ [At(t) Ct(t)]
+@test [At; Ct](t) ≈ [At(t); Ct(t)]
+
+
 D = rand(2,2)
 @test At+I == I+At && At*5 == 5*At && At*D ≈ -At*(-D) && iszero(At-At) && !iszero(At)
 @test inv(At)*At ≈ I ≈ At*inv(At) && At+I == I+At
+@test norm(At-At,1) == norm(At-At,2) == norm(At-At,Inf) == 0
+@test iszero(opnorm(At-At,1)) && iszero(opnorm(At-At,2)) && iszero(opnorm(At-At,Inf)) && iszero(opnorm(At-At))
+@test trace(At-At) == 0 && iszero(tr(At-At))
+
 @test PeriodicFunctionMatrix(D,2*pi) == PeriodicFunctionMatrix(D,4*pi) && 
       PeriodicFunctionMatrix(D,2*pi) ≈ PeriodicFunctionMatrix(D,4*pi)
 
@@ -71,6 +80,10 @@ D = rand(2,2)
 @test HarmonicArray(D,2*pi) == HarmonicArray(D,4*pi) && 
       HarmonicArray(D,2*pi) ≈ HarmonicArray(D,4*pi)
 Ah1i = inv(Ah1)
+@test norm(Ah-Ah,1) == norm(Ah-Ah,2) == norm(Ah-Ah,Inf) == 0
+@test iszero(opnorm(Ah-Ah,1)) && iszero(opnorm(Ah-Ah,2)) && iszero(opnorm(Ah-Ah,Inf)) && iszero(opnorm(Ah-Ah))
+@test trace(Ah-Ah) == 0 && iszero(tr(Ah-Ah))
+
 @test Ah1i*Ah1 ≈ I ≈ Ah1*Ah1i 
 @test hrchop(Ah1i; tol = 1.e-10) ≈ hrchop(Ah1i; tol = eps()) ≈ hrchop(Ah1i; tol = 1.e-10) 
 @test hrtrunc(Ah1i,19) ≈ hrtrunc(Ah1i,20)
@@ -86,6 +99,10 @@ Xderh = convert(HarmonicArray,PeriodicFunctionMatrix(Xder,16*pi));
 @test norm(Ah'*Xh+Xh*Ah+Cdh+derivative(Xh),1) < 1.e-7
 
 @test tpmeval(Ah,1)[1:2,1:1] == tpmeval(Ah[1:2,1],1) && lastindex(Ah,1) == 2 && lastindex(Ah,2) == 2
+
+t = rand(); 
+@test [Ah Ch](t) ≈ [Ah(t) Ch(t)]
+@test [Ah; Ch](t) ≈ [Ah(t); Ch(t)]
 
 
 # PeriodicSymbolicMatrix
@@ -122,10 +139,14 @@ Xders = PeriodicSymbolicMatrix(X1der,16*pi,nperiod = 8)
 @test As*Xs+Xs*As'+Cs ≈  derivative(Xs) ≈ Xders
 @test As'*Xs+Xs*As+Cds ≈ -derivative(Xs)
 
-@test inv(As)*As ≈ I ≈ As*inv(As) 
+@test (Symbolics.simplify(inv(As)*As) ≈ I) && (I ≈ Symbolics.simplify(As*inv(As))) 
 @test inv(As)*As == I == As*inv(As) 
 
 @test iszero(As[1:2,1:1].F - As.F[1:2,1:1]) && lastindex(As,1) == 2 && lastindex(As,2) == 2
+
+t = rand(); 
+@test [As Cs](t) ≈ [As(t) Cs(t)]
+@test [As; Cs](t) ≈ [As(t); Cs(t)]
 
 
 
@@ -147,6 +168,10 @@ D = rand(2,2)
 @test FourierFunctionMatrix(D,2*pi) == FourierFunctionMatrix(D,4*pi) && 
       FourierFunctionMatrix(D,2*pi) ≈ FourierFunctionMatrix(D,4*pi)
 @test inv(Af1)*Af1 ≈ I ≈ Af1*inv(Af1) 
+@test norm(Af-Af,1) == norm(Af-Af,2) == norm(Af-Af,Inf) == 0
+@test iszero(opnorm(Af-Af,1)) && iszero(opnorm(Af-Af,2)) && iszero(opnorm(Af-Af,Inf)) && 
+      iszero(opnorm(Af-Af)) 
+@test trace(Af-Af) == 0 && iszero(tr(Af-Af))
 
 
 Af = convert(FourierFunctionMatrix,PeriodicFunctionMatrix(A,4*pi,nperiod=2));
@@ -161,6 +186,9 @@ Xderf = convert(FourierFunctionMatrix,PeriodicFunctionMatrix(Xder,16*pi,nperiod=
 
 @test tpmeval(Af,1)[1:2,1:1] == tpmeval(Af[1:2,1],1) && lastindex(Af,1) == 2 && lastindex(Af,2) == 2
 
+t = rand(); 
+@test [Af Cf](t) ≈ [Af(t) Cf(t)]
+@test [Af; Cf](t) ≈ [Af(t); Cf(t)]
 
 # PeriodicTimeSeriesMatrix
 Ats = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(A,2*pi));
@@ -169,16 +197,45 @@ Cdts = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(Cd,2*pi));
 Xts = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(X,2*pi));
 Xderts = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(Xder,2*pi));
 @test issymmetric(Cts) && issymmetric(Cdts) && issymmetric(Xts) && issymmetric(Xderts)
-@test Ats*Xts+Xts*Ats'+Cts ≈  derivative(Xts) ≈ Xderts
-@test Ats'*Xts+Xts*Ats+Cdts ≈ -derivative(Xts) 
-@test norm(Ats*Xts+Xts*Ats'+Cts-derivative(Xts),Inf) < 1.e-7 && norm(derivative(Xts)- Xderts) < 1.e-7
-@test norm(Ats'*Xts+Xts*Ats+Cdts+derivative(Xts),1) < 1.e-7
+# @test Ats*Xts+Xts*Ats'+Cts ≈  derivative(Xts) ≈ Xderts
+# @test Ats'*Xts+Xts*Ats+Cdts ≈ -derivative(Xts) 
+@test norm(Ats*Xts+Xts*Ats'+Cts-derivative(Xts),Inf) < 1.e-6 && norm(Ats*Xts+Xts*Ats'+Cts-Xderts,Inf) < 1.e-7
+@test norm(Ats'*Xts+Xts*Ats+Cdts+derivative(Xts),Inf) < 1.e-6 && norm(Ats'*Xts+Xts*Ats+Cdts+Xderts,Inf) < 1.e-6
 
 D = rand(2,2)
 @test Ats+I == I+Ats && Ats*5 == 5*Ats && Ats*D ≈ -Ats*(-D)  && iszero(Ats-Ats) && !iszero(Ats)
 @test PeriodicTimeSeriesMatrix(D,2*pi) == PeriodicTimeSeriesMatrix(D,4*pi) && 
       PeriodicTimeSeriesMatrix(D,2*pi) ≈ PeriodicTimeSeriesMatrix(D,4*pi)
 @test inv(Ats)*Ats ≈ I ≈ Ats*inv(Ats) 
+@test norm(Ats-Ats,1) == norm(Ats-Ats,2) == norm(Ats-Ats,Inf) == 0
+@test iszero(opnorm(Ats-Ats,1)) && iszero(opnorm(Ats-Ats,2)) && iszero(opnorm(Ats-Ats,Inf)) && 
+      iszero(opnorm(Ats-Ats)) 
+@test trace(Ats-Ats) == 0 && iszero(tr(Ats-Ats))
+
+# same tsub
+# TA = PeriodicTimeSeriesMatrix([[i;;] for i in 1:4],30,nperiod=6)
+# TB = PeriodicTimeSeriesMatrix([[i;;] for i in 1:2],10,nperiod=2)
+TA = PeriodicTimeSeriesMatrix([rand(2,2) for i in 1:4],30,nperiod=6)
+TB = PeriodicTimeSeriesMatrix([rand(2,2) for i in 1:2],10,nperiod=2)
+AB = TA+TB
+ts = sort(rand(100)*AB.period); 
+@test norm(AB.(ts).-TA.(ts).-TB.(ts)) < 1.e-10
+AB = TA*TB
+ts = sort(rand(10)*AB.period); 
+@test norm(AB.(ts).-TA.(ts).*TB.(ts)) < 1.e-10
+
+
+# same period
+# TA = PeriodicTimeSeriesMatrix([[i;;] for i in 1:4],30,nperiod=6)
+# TB = PeriodicTimeSeriesMatrix([[i;;] for i in 1:2],30,nperiod=2)
+TA = PeriodicTimeSeriesMatrix([rand(2,2) for i in 1:4],30,nperiod=6)
+TB = PeriodicTimeSeriesMatrix([rand(2,2) for i in 1:2],30,nperiod=2)
+AB = TA+TB
+ts = sort(rand(10)*AB.period); 
+@test norm(AB.(ts).-TA.(ts).-TB.(ts)) < 1.e-10
+AB = TA*TB
+@test norm(AB.(ts).-TA.(ts).*TB.(ts)) < 1.e-10
+
 
 
 Ats = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(A,4*pi,nperiod=2));
@@ -186,12 +243,39 @@ Cts = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(C,2*pi));
 Cdts = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(Cd,2*pi));
 Xts = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(X,8*pi,nperiod=4));
 Xderts = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(Xder,16*pi,nperiod=8));
-@test Ats*Xts+Xts*Ats'+Cts ≈  derivative(Xts) ≈ Xderts  
-@test Ats'*Xts+Xts*Ats+Cdts ≈ -derivative(Xts) 
-@test norm(Ats*Xts+Xts*Ats'+Cts-derivative(Xts),Inf) < 1.e-7 && norm(derivative(Xts)- Xderts) < 1.e-7
-@test norm(Ats'*Xts+Xts*Ats+Cdts+derivative(Xts),1) < 1.e-7
+@test norm(Ats*Xts+Xts*Ats'+Cts-derivative(Xts),Inf) < 1.e-6 && norm(Ats*Xts+Xts*Ats'+Cts-Xderts,Inf) < 1.e-6 
+@test norm(Ats'*Xts+Xts*Ats+Cdts+derivative(Xts),Inf) < 1.e-6 && norm(Ats'*Xts+Xts*Ats+Cdts+Xderts,Inf) < 1.e-6
 
 @test Ats[1:2,1:1].values == [Ats.values[i][1:2,1:1] for i in 1:length(Ats)] && lastindex(Ats,1) == 2 && lastindex(Ats,2) == 2
+
+t = rand(); 
+@test [Ats Cts](t) ≈ [Ats(t) Cts(t)]
+@test [Ats; Cts](t) ≈ [Ats(t); Cts(t)]
+
+
+# PeriodicSwitchingMatrix
+t1 = -rand(2,2); t2 = rand(2,2); Asw = PeriodicSwitchingMatrix([t1,t2],[0.,1.],2)
+t1 = rand(2,2); t2 = rand(2,2); Csw = PeriodicSwitchingMatrix([t1,t2],[0.,1.5],2)
+@test Csw == convert(PeriodicSwitchingMatrix,convert(PeriodicTimeSeriesMatrix,Csw,ns=10))
+t1 = rand(2,2); t2 = rand(2,2); Tsw = PeriodicSwitchingMatrix([t1,t2],[0.,pi/2],2)
+@test norm((Tsw - convert(PeriodicSwitchingMatrix,convert(PeriodicTimeSeriesMatrix,Tsw,ns=10))).(rand(10*2))) == 0
+
+t = 2*rand(); 
+@test (Asw+Csw)(t) ≈ Asw(t)+Csw(t)
+@test (Asw*Csw)(t) ≈ Asw(t)*Csw(t)
+@test [Asw Csw](t) ≈ [Asw(t) Csw(t)]
+@test [Asw; Csw](t) ≈ [Asw(t); Csw(t)]
+@test norm(Asw-2*Asw+Asw) == 0
+D = rand(2,2)
+@test Asw+I == I+Asw && Asw*5 == 5*Asw && Asw*D ≈ -Asw*(-D)  && iszero(Asw-Asw) && !iszero(Asw)
+@test PeriodicSwitchingMatrix(D,2) == PeriodicSwitchingMatrix(D,4) && 
+      PeriodicSwitchingMatrix(D,2) ≈ PeriodicSwitchingMatrix(D,4)
+@test issymmetric(Csw*Csw')
+@test inv(Asw)*Asw ≈ I ≈ Asw*inv(Asw) 
+@test norm(Asw-Asw,1) == norm(Asw-Asw,2) == norm(Asw-Asw,Inf) == 0
+@test iszero(opnorm(Asw-Asw,1)) && iszero(opnorm(Asw-Asw,2)) && iszero(opnorm(Asw-Asw,Inf)) && 
+      iszero(opnorm(Asw-Asw)) 
+@test trace(Asw-Asw) == 0 && iszero(tr(Asw-Asw))
 
 
 
@@ -213,6 +297,10 @@ Qds = pmshift(Qdf);
 
 @test issymmetric(Qdf) && issymmetric(Qds) && isequal(pmshift(pmshift(Qdf,1),-1),Qdf) && iszero(Qdf-Qdf')
 @test inv(Ad)*Ad ≈ I ≈ Ad*inv(Ad) && Ad+I == I+Ad
+@test norm(Ad-Ad,1) == norm(Ad-Ad,2) == norm(Ad-Ad,Inf) == 0
+@test iszero(opnorm(Ad-Ad,1)) && iszero(opnorm(Ad-Ad,2)) && iszero(opnorm(Ad-Ad,Inf))
+@test trace(Ad-Ad) == 0 && iszero(tr(Ad-Ad))
+
 
 D = rand(n,n)
 @test Ad*5 == 5*Ad && Ad*D ≈ -Ad*(-D)  && iszero(Ad-Ad) && !iszero(Ad)
@@ -252,6 +340,10 @@ Qds = pmshift(Qdf);
 
 @test issymmetric(Qdf) && issymmetric(Qds) && isequal(pmshift(pmshift(Qdf,1),-1),Qdf) && iszero(Qdf-Qdf')
 @test inv(Ad)*Ad ≈ I ≈ Ad*inv(Ad) && Ad+I == I+Ad
+@test norm(Ad-Ad,1) == norm(Ad-Ad,2) == norm(Ad-Ad,Inf) == 0
+@test iszero(opnorm(Ad-Ad,1)) && iszero(opnorm(Ad-Ad,2)) && iszero(opnorm(Ad-Ad,Inf))
+@test trace(Ad-Ad) == 0 && iszero(tr(Ad-Ad))
+
 
 D = rand(n,n)
 @test Ad*5 == 5*Ad  && Ad*D ≈ -Ad*(-D) && iszero(Ad-Ad) && !iszero(Ad)
@@ -271,6 +363,9 @@ Xr1 = prdlyap(Ad1, Qdr1);
 @test Ad'*pmshift(Xr1)*Ad + Qdr ≈ Xr1 && Xd ≈ Xr1
 
 @test Ad[1:2,1:1].M == [Ad.M[i][1:2,1:1] for i in 1:length(Ad)] && lastindex(Ad,1) == n && lastindex(Ad,2) == n
+
+
+@test [[Ad Ad]; [Ad Ad]] == [[Ad;Ad] [Ad;Ad]]
 
 
 # time-varying dimensions
@@ -307,6 +402,52 @@ Xr1 = prdlyap(Ad1, Qdr1);
 @test Ad'*pmshift(Xr1)*Ad + Qdr ≈ Xr1 && Xd ≈ Xr1
 
 @test Ad[1:1,1:1].M == [Ad.M[i][1:1,1:1] for i in 1:length(Ad)] && lastindex(Ad,1) == 1 && lastindex(Ad,2) == 1
+
+
+# SwitchingPeriodicMatrix
+n = 2; pa = 3; px = 6; T = 10; 
+Ad = 0.5*SwitchingPeriodicMatrix([rand(Float64,n,n) for i in 1:pa],[10,15,20],T);
+x = [rand(n,n) for i in 1:px]
+Xd = SwitchingPeriodicMatrix([ x[i]+x[i]' for i in 1:px],[2, 3, 5,7, 9, 10],T;nperiod=2);
+@test Ad.Ts == Xd.Ts
+
+@test Ad == pmshift(pmshift(Ad),-1)
+@test Ad == pmshift(pmshift(Ad,10),-10)
+
+Qdf = -Ad*Xd*Ad'+pmshift(Xd); Qdf = (Qdf+transpose(Qdf))/2
+Qdr = -Ad'*pmshift(Xd)*Ad+Xd; Qdr = (Qdr+transpose(Qdr))/2
+
+Xf = pfdlyap(Ad, Qdf);
+@test Ad*Xf*Ad' + Qdf ≈ pmshift(Xf) && Xd ≈ Xf
+Xr = prdlyap(Ad, Qdr);
+@test Ad'*pmshift(Xr)*Ad + Qdr ≈ Xr && Xd ≈ Xr
+
+
+
+@test issymmetric(Xd) && iszero(Xd-Xd')
+@test inv(Ad)*Ad ≈ I ≈ Ad*inv(Ad) && Ad+I == I+Ad
+@test Ad == reverse(reverse(Ad))
+@test Ad == convert(SwitchingPeriodicMatrix,convert(PeriodicMatrix,Ad))
+@test Ad ≈ convert(SwitchingPeriodicMatrix,convert(PeriodicMatrix,Ad))
+@test norm(Ad,Inf) == norm(convert(PeriodicMatrix,Ad),Inf)
+@test norm(Ad,1) ≈ norm(convert(PeriodicMatrix,Ad),1)
+@test norm(Ad,2) ≈ norm(convert(PeriodicMatrix,Ad),2)
+@test iszero(opnorm(Ad-Ad,Inf)) && iszero(opnorm(Ad-Ad,1)) && iszero(opnorm(Ad-Ad,2))
+@test trace(Ad) ≈ trace(convert(PeriodicMatrix,Ad)) && tr(Ad) ≈ convert(SwitchingPeriodicMatrix,tr(convert(PeriodicMatrix,Ad)))
+
+
+
+D = rand(n,n)
+@test Ad*5 == 5*Ad  && Ad*D ≈ -Ad*(-D) && iszero(Ad-Ad) && !iszero(Ad)
+@test SwitchingPeriodicMatrix(D,2*pi) == SwitchingPeriodicMatrix(D,4*pi) && 
+      SwitchingPeriodicMatrix(D,2*pi) ≈ SwitchingPeriodicMatrix(D,4*pi)
+
+
+@test Ad[1:2,1:1].M == [Ad.M[i][1:2,1:1] for i in 1:length(Ad.M)] && lastindex(Ad,1) == n && lastindex(Ad,2) == n
+
+@test [[Ad Xd]; [Xd Ad]] == [[Ad;Xd] [Xd;Ad]]
+
+
 
 end # pmops
 

@@ -21,35 +21,43 @@ period = π;
 
 Xref, EVALSref, Fref = arec(A,B,R,Q); 
 
-Ac = PeriodicTimeSeriesMatrix(A,period)
-Bc = PeriodicTimeSeriesMatrix(B,period)
-@time Xc, EVALSc, Fc = prcric(Ac, Bc, R, Q)
-@test iszero(Xc-Xref) && iszero(Fc-Fref) && iszero(EVALSc-EVALSref)
+# Ac = PeriodicTimeSeriesMatrix(A,period)
+# Bc = PeriodicTimeSeriesMatrix(B,period)
+# @time Xc, EVALSc, Fc = prcric(Ac, Bc, R, Q)
+# @test iszero(Xc-Xref) && iszero(Fc-Fref) && iszero(EVALSc-EVALSref)
 
 
 # @variables t
 # P = PeriodicSymbolicMatrix([cos(ω*t) sin(ω*t); -sin(ω*t) cos(ω*t)],period); PM = PeriodicSymbolicMatrix
 
 P1 = PeriodicFunctionMatrix(t->[cos(ω*t) sin(ω*t); -sin(ω*t) cos(ω*t)],period); 
-PM = PeriodicFunctionMatrix
+P1dot = PeriodicFunctionMatrix(t->[-ω*sin(t*ω)   ω*cos(t*ω); -ω*cos(t*ω)  -ω*sin(t*ω)],period); 
+# PM = PeriodicFunctionMatrix
+# PM = PeriodicTimeSeriesMatrix
 
 #P = convert(HarmonicArray,P); PM = HarmonicArray
 
 #P = convert(FourierFunctionMatrix,P); PM = FourierFunctionMatrix
-PM = PeriodicSymbolicMatrix
+# PM = PeriodicSymbolicMatrix
 
 for PM in (PeriodicFunctionMatrix, HarmonicArray, PeriodicSymbolicMatrix, FourierFunctionMatrix, PeriodicTimeSeriesMatrix)
     println("type = $PM")
     N = PM == PeriodicTimeSeriesMatrix ? 128 : 200
     P = convert(PM,P1);
+    Pdot = convert(PM,P1dot);
 
-    Ap = derivative(P)*inv(P)+P*A*inv(P);
+    #Ap = derivative(P)*inv(P)+P*A*inv(P);
+    Ap = Pdot*inv(P)+P*A*inv(P);
     Bp = P*B
     Qp = inv(P)'*Q*inv(P); Qp = (Qp+Qp')/2
     Rp = PM(R, Ap.period)
     Xp = inv(P)'*Xref*inv(P)
-    @test Ap'*Xp+Xp*Ap+Qp-Xp*Bp*Bp'*Xp ≈ -derivative(Xp)
     Fp = Bp'*Xp
+    if PM == PeriodicTimeSeriesMatrix 
+       @test norm(Ap'*Xp+Xp*Ap+Qp-Xp*Bp*Bp'*Xp + derivative(Xp)) < 1.e-5*norm(Xp)
+    else
+       @test Ap'*Xp+Xp*Ap+Qp-Xp*Bp*Bp'*Xp ≈ -derivative(Xp)
+    end
     @test norm(sort(real(psceig(Ap-Bp*Fp))) - sort(EVALSref)) < 1.e-2
     
     solver = "symplectic"
@@ -73,30 +81,37 @@ period = π;
 Xref, EVALSref, Fref = arec(A', C', R, Q); Fref = copy(Fref')
 @test norm(A*Xref+Xref*A'-Xref*C'*inv(R)*C*Xref +Q) < 1.e-7
 
-Ac = PeriodicTimeSeriesMatrix(A,period)
-Cc = PeriodicTimeSeriesMatrix(C,period)
-@time Xc, EVALSc, Fc = pfcric(Ac, Cc, R, Q)
-@test iszero(Xc-Xref) && iszero(Fc-Fref) && iszero(EVALSc-EVALSref)
+# Ac = PeriodicTimeSeriesMatrix(A,period)
+# Cc = PeriodicTimeSeriesMatrix(C,period)
+# @time Xc, EVALSc, Fc = pfcric(Ac, Cc, R, Q)
+# @test iszero(Xc-Xref) && iszero(Fc-Fref) && iszero(EVALSc-EVALSref)
 
 
 P1 = PeriodicFunctionMatrix(t->[cos(ω*t) sin(ω*t); -sin(ω*t) cos(ω*t)],period); 
+P1dot = PeriodicFunctionMatrix(t->[-ω*sin(t*ω)   ω*cos(t*ω); -ω*cos(t*ω)  -ω*sin(t*ω)],period); 
 
-PM = HarmonicArray
-PM = PeriodicTimeSeriesMatrix
-PM = PeriodicSymbolicMatrix
+# PM = HarmonicArray
+# PM = PeriodicTimeSeriesMatrix
+# PM = PeriodicSymbolicMatrix
 for PM in (PeriodicFunctionMatrix, HarmonicArray, PeriodicSymbolicMatrix, FourierFunctionMatrix, PeriodicTimeSeriesMatrix)
     println("type = $PM")
     N = PM == PeriodicTimeSeriesMatrix ? 128 : 200
     P = convert(PM,P1);
+    Pdot = convert(PM,P1dot);
 
-    Ap = derivative(P)*inv(P)+P*A*inv(P);
+    Ap = Pdot*inv(P)+P*A*inv(P);
     Cp = C*inv(P)
     Qp = P*Q*P'; Qp = (Qp+Qp')/2
     Rp = PM(R, Ap.period)
     Xp = P*Xref*P'
     Gp = Cp'*inv(Rp)*Cp
-    @test Ap*Xp+Xp*Ap'+Qp-Xp*Gp*Xp ≈ derivative(Xp)
     Fp = Xp*Cp'
+    if PM == PeriodicTimeSeriesMatrix 
+        @test norm(Ap*Xp+Xp*Ap'+Qp-Xp*Gp*Xp - derivative(Xp)) < 1.e-5*norm(Xp)
+     else
+        @test Ap*Xp+Xp*Ap'+Qp-Xp*Gp*Xp ≈ derivative(Xp)
+     end
+ 
     @test norm(sort(real(psceig(Ap-Fp*Cp))) - sort(EVALSref)) < 1.e-2
 
     

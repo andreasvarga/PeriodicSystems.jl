@@ -33,7 +33,7 @@ The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/Ordi
 `solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 """
 function tvstm(A::PM, tf::Real, t0::Real = 0; solver = "", reltol = 1e-3, abstol = 1e-7, dt = (tf-t0)/10) where 
-         {T, PM <: Union{PeriodicFunctionMatrix{:c,T},HarmonicArray{:c,T},FourierFunctionMatrix{:c,T}}} 
+         {T, PM <: Union{PeriodicFunctionMatrix{:c,T},PeriodicSymbolicMatrix{:c,T}, HarmonicArray{:c,T},FourierFunctionMatrix{:c,T}}} 
    n = size(A,1)
    n == size(A,2) || error("the function matrix must be square")
 
@@ -42,7 +42,7 @@ function tvstm(A::PM, tf::Real, t0::Real = 0; solver = "", reltol = 1e-3, abstol
    T1 = promote_type(typeof(t0), typeof(tf))
 
    # using OrdinaryDiffEq
-   u0 = Matrix{T}(I,n,n)
+   u0 = Matrix{eltype(A) == Num ? Float64 : T}(I,n,n)
    tspan = (T1(t0),T1(tf))
    if solver != "linear" 
       LPVODE!(du,u,p,t) = mul!(du,tpmeval(A,t),u)
@@ -260,6 +260,9 @@ _References_
 """
 function pseig(A::PeriodicArray{:d,T}; fast::Bool = false) where T
    pseig(A.M; fast).^(A.nperiod)
+end
+function pseig(A::SwitchingPeriodicMatrix{:d,T}; fast::Bool = false) where T
+   pseig(convert(PeriodicArray,A).M; fast).^(A.nperiod)
 end
 function pseig(A::Array{T,3}; rev::Bool = true, fast::Bool = false) where T
    n = size(A,1)
@@ -543,11 +546,15 @@ function ts2pfm(A::PeriodicTimeSeriesMatrix; method = "linear")
    N == 0 && error("empty time array not supported")
    N == 1 && (return PeriodicFunctionMatrix(t -> A.values[1], A.period; nperiod = A.nperiod, isconst = true))
    #ts = (0:N-1)*(A.period/N)
-   ts = (0:N-1)*(A.period/N/A.nperiod)
+   d = A.period/N/A.nperiod
+   ts = (0:N-1)*d
    n1, n2 = size(A.values[1])
    intparray = Array{Any,2}(undef, n1, n2)
-   if method == "constant"      
-      [intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Constant(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
+   if method == "constant"     
+      # use simple function evaluation
+      return PeriodicFunctionMatrix(t -> tpmeval(A,t), A.period; nperiod = A.nperiod, isconst = isconstant(A))
+      # ts = ts.+d/2  # use center points
+      # [intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Constant(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
    elseif method == "linear" || N == 2
       [intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Linear(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
    elseif method == "quadratic" || N == 3     
@@ -559,6 +566,29 @@ function ts2pfm(A::PeriodicTimeSeriesMatrix; method = "linear")
    end
    return PeriodicFunctionMatrix(t -> [intparray[i,j](t) for i in 1:n1, j in 1:n2 ], A.period; nperiod = A.nperiod, isconst = isconstant(A))
 end
+# function tsw2pfm(A::PeriodicSwitchingMatrix; method = "linear")
+#    N = length(A.values)
+#    N == 0 && error("empty time array not supported")
+#    N == 1 && (return PeriodicFunctionMatrix(t -> A.values[1], A.period; nperiod = A.nperiod, isconst = true))
+#    #ts = (0:N-1)*(A.period/N)
+#    # d = A.period/N/A.nperiod
+#    # ts = (0:N-1)*d
+#    ts = A.ts
+#    n1, n2 = size(A.values[1])
+#    intparray = Array{Any,2}(undef, n1, n2)
+#    if method == "constant"     
+#       # use simple function evaluation
+#       return PeriodicFunctionMatrix(t -> tpmeval(A,t), A.period; nperiod = A.nperiod, isconst = isconstant(A))
+#       # ts = ts.+d/2  # use center points
+#       # [intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A.values,i,j), BSpline(Constant(Periodic(OnCell())))), Periodic()), ts) for i in 1:n1, j in 1:n2]
+#    elseif method == "linear" || N == 2
+#       [intparray[i,j] = linear_interpolation(ts,getindex.(A.values,i,j); extrapolation_bc=Periodic()) for i in 1:n1, j in 1:n2]
+#    else
+#       error("no such option method = $method")
+#    end
+#    return PeriodicFunctionMatrix(t -> [intparray[i,j](t) for i in 1:n1, j in 1:n2 ], A.period; nperiod = A.nperiod, isconst = isconstant(A))
+# end
+
 """
      ts2hr(A::PeriodicTimeSeriesMatrix; atol = 0, rtol, n, squeeze = true) -> Ahr::HarmonicArray
 
@@ -1138,6 +1168,11 @@ function tvmeval(A::PeriodicTimeSeriesMatrix{:c,T}, t::Union{Real,Vector{<:Real}
    end
    return [[intparray[i,j].(te[k]) for i in 1:n1, j in 1:n2 ] for k = 1:nt ]
 end
+function tvmeval(A::PeriodicSwitchingMatrix{:c,T}, t::Union{Real,Vector{<:Real}}; method = "linear") where T
+   #tvmeval(convert(PeriodicTimeSeriesMatrix,A), t; method)
+   [tpmeval(A, x) for x in t]
+end
+
 """
      hreval(Ahr::HarmonicArray, t; ntrunc, exact = true) -> A::Matrix
 
@@ -1263,20 +1298,26 @@ Evaluate the time value of a continuous-time periodic matrix.
 
 For the periodic matrix `A(t)` and the time value `tval`, `Aval = A(tval)` is evaluated for the time value `t = tval`. 
 """
-   return (A.f).(t)
+   #return (A.f).(t)
+   return reshape((A.f).(t),size(A,1),size(A,2))
 end
 tpmeval(A::FourierFunctionMatrix, t::Real ) = (A.M)(t)
+function tpmeval(A::PeriodicSymbolicMatrix, t::Real)
+   te = isa(t,Real) ? [mod(t,A.period)] : mod.(t,A.period)
+   return (convert(PeriodicFunctionMatrix,A).f).(te)[1]
+end
+
 tpmeval(A::HarmonicArray, t::Real ) = hreval(A, t; exact = true) 
 function tpmeval(A::PeriodicTimeSeriesMatrix, t::Real )
    tsub = A.period/A.nperiod
    ns = length(A.values)
    Δ = tsub/ns
-   ind = Int(floor(round(mod(t,tsub)/Δ)))+1
+   ind = floor(Int,mod(t,tsub)/Δ)+1
    ind <= ns || (ind = 1) 
    return A.values[ind]
 end
 function tpmeval(A::PeriodicSwitchingMatrix, t::Real )
-   ind = findfirst(A.ts .> mod(t,A.period/A.nperiod))
+   ind = findfirst(A.ts .> mod(t,A.period/A.nperiod)*(1+10*eps()))
    isnothing(ind) ? ind = length(A) : ind -= 1
    return A.values[ind]
 end
@@ -1312,8 +1353,10 @@ function kpmeval(A::SwitchingPeriodicMatrix, k::Int)
    return A.M[ind]
 end
 (F::PeriodicFunctionMatrix)(t) = (F.f).(t)
+(F::PeriodicSymbolicMatrix)(t) = tpmeval(F, t)
 (F::FourierFunctionMatrix)(t) = (F.M)(t) 
 (F::HarmonicArray)(t) = hreval(F, t; exact = true) 
+(F::PeriodicTimeSeriesMatrix)(t) = tpmeval(F, t) 
 (F::PeriodicSwitchingMatrix)(t) = tpmeval(F, t) 
 (F::SwitchingPeriodicMatrix)(t) = tpmeval(F, t) 
 (F::PeriodicMatrix)(t) = tpmeval(F, t) 
@@ -1330,13 +1373,18 @@ function pmaverage(A::PM) where {PM <: Union{PeriodicFunctionMatrix,PeriodicSymb
 end
 pmaverage(A::HarmonicArray) = real(A.values[:,:,1])
 function pmaverage(A::FourierFunctionMatrix)
-   typeof(size(A)) == Tuple{} ? (return coefficients(A.M)[1]) : (return get.(coefficients.(Matrix(A.M)),1,0.0))
+   typeof(size(A.M)) == Tuple{} ? (return coefficients(A.M)[1]) : (return get.(coefficients.(Matrix(A.M)),1,0.0))
    #typeof(size(A)) == Tuple{} ? coefficients(A.M)[1] : getindex.(coefficients.(Matrix(A.M)),1)
    #get.(coefficients.(Matrix(A.M)),1,0.0)
 end
 function getpm(A::PeriodicMatrix, k, dperiod::Union{Int,Missing} = missing)
    i = ismissing(dperiod) ? mod(k-1,A.dperiod)+1 : mod(k-1,dperiod)+1
    return A.M[i]
+   #return view(A.M,i)
+end
+function getpm(A::SwitchingPeriodicMatrix, k, dperiod::Union{Int,Missing} = missing)
+   # i = ismissing(dperiod) ? mod(k-1,A.dperiod)+1 : mod(k-1,dperiod)+1
+   return A[k]
    #return view(A.M,i)
 end
 function getpm(A::PeriodicArray, k, dperiod::Union{Int,Missing} = missing)

@@ -19,6 +19,7 @@ using Optim
 #using DifferentialEquations
 using OrdinaryDiffEq
 using IRKGaussLegendre
+using Sundials
 using Primes
 withAPFUN && (using ApproxFun)
 using PeriodicSchurDecompositions
@@ -41,7 +42,7 @@ export withAPFUN
 
 export PeriodicStateSpace, pschur, pschur!, pschur1, pschur2, pgschur, pgschur!, phess, phess!, phess1, psreduc_reg, psreduc_fast, check_psim, mshift, pseig, 
        tvmeval, tpmeval, hreval, tvstm, psordschur!, psordschur1!, pgordschur!
-export ts2hr, ts2pfm, ts2ffm, pfm2hr, hr2psm, psm2hr, pm2pa, ffm2hr, pmaverage, hrtrunc, hrchop
+export ts2hr, ts2pfm, tsw2pfm, ts2ffm, pfm2hr, hr2psm, psm2hr, pm2pa, ffm2hr, pmaverage, hrtrunc, hrchop
 export monodromy, psceig, psceighr, psceigfr
 export PeriodicArray, PeriodicMatrix, SwitchingPeriodicMatrix
 export PeriodicTimeSeriesMatrix, PeriodicSwitchingMatrix, HarmonicArray, FourierFunctionMatrix, PeriodicFunctionMatrix,  PeriodicSymbolicMatrix
@@ -53,8 +54,9 @@ export ps2fls, hr2bt, hr2btupd, phasemat, ps2frls, DiagDerOp, ps2ls
 export pspole, pszero, isstable, psh2norm, pshanorm, pstimeresp, psstepresp
 export pdlyap, prdlyap, pfdlyap, pslyapd, pdlyaps!, pdlyaps1!, pdlyaps2!, pdlyaps3!, dpsylv2, dpsylv2!, pslyapdkr, dpsylv2krsol!, kronset!
 export prdplyap, pfdplyap, pdplyap, psplyapd
-export pmshift
+export pmshift, trace
 export pclyap, pfclyap, prclyap, pgclyap
+export pcplyap, pfcplyap, prcplyap, pgcplyap
 export pcric, prcric, pfcric, tvcric, pgcric, prdric, pfdric
 export derivative, pmrand, horzcat, vertcat
 export psfeedback

@@ -11,6 +11,11 @@ for PM in (:PeriodicArray, :PeriodicMatrix)
        end
     end
 end
+function pdlyap(A::PM, C::PM; adj::Bool = true) where {PM <: SwitchingPeriodicMatrix}
+   X = pdlyap(convert(PeriodicMatrix,A),convert(PeriodicMatrix,C); adj)
+   return convert(SwitchingPeriodicMatrix,X)
+end
+
 """
     pdlyap(A, C; adj = true) -> X
 
@@ -38,7 +43,7 @@ _Reference:_
               Int. J. Control, vol, 67, pp, 69-87, 1997.
 """
 pdlyap(A::PeriodicArray, C::PeriodicArray; adj::Bool = true) 
-for PM in (:PeriodicArray, :PeriodicMatrix)
+for PM in (:PeriodicArray, :PeriodicMatrix, :SwitchingPeriodicMatrix)
    @eval begin
       function prdlyap(A::$PM, C::$PM) 
          pdlyap(A, C; adj = true)

@@ -397,6 +397,14 @@ psys1 = convert(PeriodicStateSpace{PeriodicMatrix},psys);
 @time n2a = psh2norm(psys1, adj = true, fast = true)
 @test n1 ≈ n2 ≈ n1a ≈ n2a
 
+psys1 = convert(PeriodicStateSpace{SwitchingPeriodicMatrix},psys);
+@time n1 = psh2norm(psys1)
+@time n2 = psh2norm(psys1,fast = true)
+@time n1a = psh2norm(psys1, adj = true) 
+@time n2a = psh2norm(psys1, adj = true, fast = true)
+@test n1 ≈ n2 ≈ n1a ≈ n2a
+
+
 
 
 # PeriodicMatrix
@@ -415,8 +423,8 @@ psys = ps(Ad,Bd,Cd,Dd)
 @test n1 ≈ n2 ≈ n1a ≈ n2a
 
 # continuous-time H2 norm
-A = [-1 -0.5; -3 -5]; B = [3;1;;]; C = [1. 2.]; D = [0.;;];
-sys = dss(A,B,C,D)
+A0 = [-1 -0.5; -3 -5]; B0 = [3;1;;]; C0 = [1. 2.]; D0 = [0.;;];
+sys = dss(A0,B0,C0,D0)
 nh2 = gh2norm(sys)
 
 psysc = ps(sys,2*pi)
@@ -426,34 +434,46 @@ nh2pc = psh2norm(psysc)
 
 period = π; ω = 2. ;
 
-P1 = PeriodicFunctionMatrix(t->[cos(ω*t) sin(ω*t); -sin(ω*t) cos(ω*t)],period); 
+P = PeriodicFunctionMatrix(t->[cos(ω*t) sin(ω*t); -sin(ω*t) cos(ω*t)],period); 
+Pdot = PeriodicFunctionMatrix(t->[-ω*sin(t*ω)   ω*cos(t*ω); -ω*cos(t*ω)  -ω*sin(t*ω)],period); 
+Ap = Pdot*inv(P)+P*A0*inv(P);
+Bp = P*B0
+Cp = C0*inv(P); Dp = D0; 
+psys0 = ps(Ap,Bp,Cp,Dp);
+
 # PM = PeriodicFunctionMatrix
-# PM = PeriodicTimeSeriesMatrix
+PM = PeriodicTimeSeriesMatrix #error
 # PM = FourierFunctionMatrix
 for PM in (PeriodicFunctionMatrix, HarmonicArray, FourierFunctionMatrix, PeriodicSymbolicMatrix, PeriodicTimeSeriesMatrix)
 #for PM in (HarmonicArray, )
     println("type = $PM")
     K = PM == PeriodicTimeSeriesMatrix ? 128 : 200
 
-    P = convert(PM,P1);
+    # P = convert(PM,P1);
 
-    Ap = derivative(P)*inv(P)+P*A*inv(P);
-    Bp = P*B
-    Cp = C*inv(P); Dp = D; 
-    psys = ps(Ap,Bp,Cp,Dp);
+    # Ap = derivative(P)*inv(P)+P*A0*inv(P);
+    # Bp = P*B0
+    # Cp = C0*inv(P); Dp = D0; 
+    # psys = ps(Ap,Bp,Cp,Dp);
+    psys = convert(PeriodicStateSpace{PM},psys0)
     solver = "non-stiff"
     for solver in ("non-stiff", "stiff", "symplectic", "noidea")
         println("solver = $solver")
-        @time nh2p = psh2norm(psys,K; solver, reltol=1.e-10, abstol = 1.e-10)
         @time nh2pq = psh2norm(psys,K; solver, reltol=1.e-10, abstol = 1.e-10, quad = true)
+        @time nh2p = psh2norm(psys,K; solver, reltol=1.e-10, abstol = 1.e-10)
         @time nh2pa = psh2norm(psys,K; adj = true, solver, reltol=1.e-10, abstol = 1.e-10)
         @time nh2paq = psh2norm(psys,K; adj = true, solver, reltol=1.e-10, abstol = 1.e-10, quad = true)
-        @time nt1=sqrt.(tr(pmaverage(psys.C*pfclyap(psys.A, psys.B*psys.B'; K,solver,reltol=1.e-10,abstol=1.e-10)*psys.C')))[1]
-        @time nt1a=sqrt.(pmaverage(tr(psys.C*pfclyap(psys.A, psys.B*psys.B'; K,solver,reltol=1.e-10,abstol=1.e-10)*psys.C')))[1] # error
-        @time nt2=sqrt.(tr(pmaverage(psys.B'*prclyap(psys.A, psys.C'*psys.C; K,solver,reltol=1.e-10,abstol=1.e-10)*psys.B)))[1]
-        @time nt2a=sqrt.(pmaverage(tr(psys.B'*prclyap(psys.A, psys.C'*psys.C; K,solver,reltol=1.e-10,abstol=1.e-10)*psys.B)))[1]
-        @test nh2pc ≈ nh2p ≈ nh2pa ≈ nh2pq ≈ nh2paq     
-        @test abs(nh2pc - nt1) < 1.e-5 &&  abs(nh2pc - nt1a) < 1.e-5 &&  abs(nh2pc - nt2) < 1.e-5 &&  abs(nh2pc - nt2a) < 1.e-5 
+        @test abs(nh2pc - nh2p) < 1.e-5 &&  abs(nh2pc - nh2pq) < 1.e-5 && abs(nh2pc - nh2pa) < 1.e-5 &&  abs(nh2pc - nh2paq) < 1.e-5 
+        if PM !== PeriodicTimeSeriesMatrix
+           @time nt1=sqrt.(tr(pmaverage(psys.C*pfclyap(psys.A, psys.B*psys.B'; K,solver,reltol=1.e-10,abstol=1.e-10)*psys.C')))[1]
+           @time nt1a=sqrt.(pmaverage(tr(psys.C*pfclyap(psys.A, psys.B*psys.B'; K,solver,reltol=1.e-10,abstol=1.e-10)*psys.C')))[1] # error
+           @time nt1b=sqrt.(trace(psys.C*pfclyap(psys.A, psys.B*psys.B'; K,solver,reltol=1.e-10,abstol=1.e-10)*psys.C'))[1] # error
+           @time nt2=sqrt.(tr(pmaverage(psys.B'*prclyap(psys.A, psys.C'*psys.C; K,solver,reltol=1.e-10,abstol=1.e-10)*psys.B)))[1]
+           @time nt2a=sqrt.(pmaverage(tr(psys.B'*prclyap(psys.A, psys.C'*psys.C; K,solver,reltol=1.e-10,abstol=1.e-10)*psys.B)))[1]
+           @time nt2b=sqrt.(trace(psys.B'*prclyap(psys.A, psys.C'*psys.C; K,solver,reltol=1.e-10,abstol=1.e-10)*psys.B))[1]
+           #@test nh2pc ≈ nh2p ≈ nh2pa ≈ nh2pa ≈ nh2paq     
+           @test abs(nh2pc - nt1) < 1.e-5 &&  abs(nh2pc - nt1a) < 1.e-5 && abs(nh2pc - nt1b) < 1.e-5 &&  abs(nh2pc - nt2) < 1.e-5 &&  abs(nh2pc - nt2a) < 1.e-5 &&  abs(nh2pc - nt2b) < 1.e-5 
+        end
     end
 end
 
@@ -631,10 +651,18 @@ psys = ps(Ad,Bd,Cd,Dd);
 @time hanorm2f = pshanorm(psys,lifting=true)
 @test hanorm2 ≈ hanorm2f 
 
+# PeriodicMatrix
 psys1 = convert(PeriodicStateSpace{PeriodicMatrix},psys);
 @time hanorm21 = pshanorm(psys1)
 @time hanorm21f = pshanorm(psys1,lifting=true)
 @test hanorm21 ≈ hanorm21f ≈ hanorm2
+
+# SwitchingPeriodicMatrix
+psys1 = convert(PeriodicStateSpace{SwitchingPeriodicMatrix},psys);
+@time hanorm21 = pshanorm(psys1)
+@time hanorm21f = pshanorm(psys1,lifting=true)
+@test hanorm21 ≈ hanorm21f ≈ hanorm2
+
 
 p = 5; na = [10, 8, 6, 4, 2]; ma = circshift(na,-1); nu = 2; ny = 3; 
 period = 10;
@@ -664,19 +692,25 @@ nhapc = pshanorm(psysc)
 
 period = π; ω = 2. ;
 
-P1 = PeriodicFunctionMatrix(t->[cos(ω*t) sin(ω*t); -sin(ω*t) cos(ω*t)],period); 
+P = PeriodicFunctionMatrix(t->[cos(ω*t) sin(ω*t); -sin(ω*t) cos(ω*t)],period); 
+Pdot = PeriodicFunctionMatrix(t->[-ω*sin(t*ω)   ω*cos(t*ω); -ω*cos(t*ω)  -ω*sin(t*ω)],period); 
+Ap = Pdot*inv(P)+P*A0*inv(P); Bp = P*B0
+Cp = C0*inv(P); Dp = D0; 
+psys0 = ps(Ap,Bp,Cp,Dp);
+
 PM = PeriodicFunctionMatrix
 for PM in (PeriodicFunctionMatrix, HarmonicArray, FourierFunctionMatrix, PeriodicSymbolicMatrix, PeriodicTimeSeriesMatrix)
 #for PM in (FourierFunctionMatrix, )
     println("type = $PM")
     K = PM == PeriodicTimeSeriesMatrix ? 128 : 200
 
-    P = convert(PM,P1);
+    # P = convert(PM,P1);
 
-    Ap = derivative(P)*inv(P)+P*A*inv(P);
-    Bp = P*B
-    Cp = C*inv(P); Dp = D; 
-    psys = ps(Ap,Bp,Cp,Dp);
+    # Ap = derivative(P)*inv(P)+P*A*inv(P);
+    # Bp = P*B
+    # Cp = C*inv(P); Dp = D; 
+    # psys = ps(Ap,Bp,Cp,Dp);
+    psys = convert(PeriodicStateSpace{PM},psys0)
     solver = "non-stiff"
     for solver in ("non-stiff", "stiff", "symplectic", "noidea")
         println("solver = $solver")

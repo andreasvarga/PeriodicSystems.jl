@@ -324,10 +324,12 @@ function psh2norm(psys::PeriodicStateSpace{<: AbstractPeriodicArray{:d,T}}; adj:
     else
        if adj 
           Q = pdlyap(psys.A, psys.C'*psys.C,adj=true)
-          return sqrt(sum(tr(psys.B'*pmshift(Q,1)*psys.B+psys.D'*psys.D)))
+          return sqrt(trace(psys.B'*pmshift(Q,1)*psys.B+psys.D'*psys.D))
+          #return sqrt(sum(tr(psys.B'*pmshift(Q,1)*psys.B+psys.D'*psys.D)))
        else
           P = pdlyap(psys.A, psys.B*psys.B',adj=false)
-          return sqrt(sum(tr(psys.C*P*psys.C'+psys.D*psys.D')))
+          return sqrt(trace(psys.C*P*psys.C'+psys.D*psys.D'))
+          #return sqrt(sum(tr(psys.C*P*psys.C'+psys.D*psys.D')))
        end
     end
 end
@@ -407,7 +409,7 @@ function psh2norm(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix, Harm
               # (i == 1 || i == K) && (temp = temp/2) # for some reason the trapezoidal method is less accurate 
               nrm += temp
           end
-        end
+       end
        return sqrt(nrm*Ts*P.nperiod/psys.period)
     end
     μ = Vector{eltype(psys)}(undef,K)
@@ -439,9 +441,9 @@ function psh2norm(psys::PeriodicStateSpace{<:PeriodicTimeSeriesMatrix}, K::Int =
 end
 
 function tvh2norm(A::PM1, B::PM2, C::PM3, P::AbstractMatrix, tf, t0; adj = false, solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) where
-    {PM1 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}, 
-     PM2 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}, 
-     PM3 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}} 
+    {PM1 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicTimeSeriesMatrix}, 
+     PM2 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicTimeSeriesMatrix}, 
+     PM3 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicTimeSeriesMatrix}} 
     """
        tvh2norm(A, B, C, P, tf, to; adj, solver, reltol, abstol, dt) ->  μ 
  
@@ -648,19 +650,18 @@ _References_
 [1] A. Varga, On solving periodic differential matrix equations with applications to periodic system norms computation.
     Proc. CDC/ECC, Seville, p.6545-6550, 2005.  
 """
-function pshanorm(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix, HarmonicArray, FourierFunctionMatrix}}, K::Int = 1; smarg::Real = 1, 
+function pshanorm(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix, HarmonicArray, FourierFunctionMatrix,PeriodicSymbolicMatrix}}, K::Int = 1; smarg::Real = 1, 
                   offset::Real = sqrt(eps()), solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) 
     !isstable(psys, K; smarg, offset, solver, reltol, abstol) && error("The system must be stable")  # unstable system
     Q = pgclyap(psys.A, psys.C'*psys.C, K; adj = true, solver, reltol, abstol) 
     P = pgclyap(psys.A, psys.B*psys.B', K; adj = false, solver, reltol, abstol)
     return sqrt(maximum(norm.(eigvals(P*Q),Inf)))
 end
-function pshanorm(psys::PeriodicStateSpace{<:PeriodicSymbolicMatrix}, K::Int = 1; smarg::Real = 1, 
-                  offset::Real = sqrt(eps()), solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) 
-    pshanorm(convert(PeriodicStateSpace{PeriodicFunctionMatrix},psys), K; smarg, offset, solver, reltol, abstol, dt) 
-end
+# function pshanorm(psys::PeriodicStateSpace{<:PeriodicSymbolicMatrix}, K::Int = 1; smarg::Real = 1, 
+#                   offset::Real = sqrt(eps()), solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) 
+#     pshanorm(convert(PeriodicStateSpace{PeriodicFunctionMatrix},psys), K; smarg, offset, solver, reltol, abstol, dt) 
+# end
 function pshanorm(psys::PeriodicStateSpace{<:PeriodicTimeSeriesMatrix}, K::Int = 1; smarg::Real = 1, 
                   offset::Real = sqrt(eps()), solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) 
     pshanorm(convert(PeriodicStateSpace{HarmonicArray},psys), K; smarg, offset, solver, reltol, abstol, dt) 
 end
- 
