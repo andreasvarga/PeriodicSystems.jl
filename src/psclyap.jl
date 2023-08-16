@@ -29,7 +29,7 @@ equation using the periodic Schur method of [2].
 The resulting periodic generator is finally converted into a periodic function matrix which determines for a given `t` 
 the function value `X(t)` by integrating the appropriate ODE from the nearest grid point value. 
 
-To speedup function evaluations, an interpolation based function evaluations can be used 
+To speedup function evaluations, interpolation based function evaluations can be used 
 by setting the keyword argument `intpol = true` (default: `intpol = false`). 
 In this case the interpolation method to be used can be specified via the keyword argument
 `intpolmeth = meth`. The allowable values for `meth` are: `"constant"`, `"linear"`, `"quadratic"` and `"cubic"` (default) (see also [`ts2pfm`](@ref)).
@@ -148,7 +148,7 @@ and additionally `C` must be symmetric. The resulting symmetric periodic solutio
 set to the least common commensurate period of `A` and `C` and the number of subperiods
 is adjusted accordingly. 
 
-This function is merely an interface to [`pclyap`](@ref)) (see this function for the description of keyword parameters). 
+This function is merely an interface to [`pclyap`](@ref) (see this function for the description of keyword parameters). 
 """
 pfclyap(A::PeriodicFunctionMatrix, C::PeriodicFunctionMatrix; K::Int = 10, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7)
 """
@@ -165,7 +165,7 @@ and additionally `C` must be symmetric. The resulting symmetric periodic solutio
 set to the least common commensurate period of `A` and `C` and the number of subperiods
 is adjusted accordingly. 
 
-This function is merely an interface to [`pclyap`](@ref)) (see this function for the description of keyword parameters). 
+This function is merely an interface to [`pclyap`](@ref) (see this function for the description of keyword parameters). 
 """
 prclyap(A::PeriodicFunctionMatrix, C::PeriodicFunctionMatrix; K::Int = 10, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7)
 
@@ -275,6 +275,7 @@ function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", 
       T = promote_type(eltype(A),eltype(C),Float64)
       Ka = isconstant(A) ? 1 : Kc
       Kc1 = Kc*K
+      @show T, n, Ka*K 
       Ad = Array{T,3}(undef, n, n, Ka*K) 
       Cd = Array{T,3}(undef, n, n, Kc1) 
       Threads.@threads for i = 1:Ka
