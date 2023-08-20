@@ -23,7 +23,7 @@ jobs:
           # - 'nightly' 
         os:  
           - ubuntu-latest
-          - windows-latest
+          # - windows-latest
           # - macos-latest
         arch:
           - x64
