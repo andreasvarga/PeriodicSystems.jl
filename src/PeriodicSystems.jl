@@ -19,7 +19,6 @@ using Optim
 #using DifferentialEquations
 using OrdinaryDiffEq
 using IRKGaussLegendre
-using Sundials
 using Primes
 withAPFUN && (using ApproxFun)
 using PeriodicSchurDecompositions
