@@ -1,13 +1,20 @@
 # Release Notes
 
-## Version 0.6.1 (planned)
+## Version 0.6.2 (planned)
 
 The following new functions have been implemented:
-- solution of periodic Lyapunov equations with nonnegative solutions for their square-root factors (experimental)
 - memoryless output feedback connection of periodic systems (WIP)
 - output feedback stabilization of constant systems using periodic switching and periodic harmonic gains (WIP)
-- output feedback stabilization of periodic systems using periodic harmonic gains 
+- output feedback based stabilization of periodic systems using periodic harmonic gains 
 - state feedack based stabilization via linear-quadratic optimization
+
+## Version 0.6.1 
+
+The following new functions have been implemented:
+- solution of periodic Lyapunov differential equations with nonnegative solutions for their square-root factors
+
+The following breaking changes have been performed:
+- new interfaces for the solvers of periodic Riccati matrix differential equations 
 
 ## Version 0.6 
 
@@ -23,6 +30,7 @@ The following extensions have been implemented:
 - solution of periodic Lyapunov equations for discrete-time switching periodic matrices 
 - solution of periodic Lyapunov equations for continuous-time periodic switching matrices 
 
+New functions have been implemented for the solution of periodic discrete-time Lyapunov equations with nonnegative solutions for their square-root factors. 
 
 ## Version 0.5.2
 

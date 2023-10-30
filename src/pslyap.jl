@@ -2239,10 +2239,8 @@ where `σ` is the forward shift operator `σX(i) = X(i+1)`.
 The periodic matrix `A` must be stable, i.e., have all characteristic multipliers 
 with moduli less than one. 
 
-
 The periodic matrices `A` and `C` are either stored as 3-dimensional arrays or as
 as vectors of matrices. 
-
 
 The iterative method (Algorithm 5) of [1] and its dual version are employed.  
 
@@ -2271,17 +2269,13 @@ function psplyapd(A::AbstractVector{Matrix{T1}}, C::AbstractVector{Matrix{T2}}; 
    T = promote_type(T1, T2)
    T <: BlasFloat  || (T = promote_type(Float64,T))
  
-   #ii = adj ? argmin(ma) : argmin(na)
    ii = argmin(na)
 
-   #nmin = adj ? ma[ii] : na[ii] 
    nmin = na[ii]
    x = zeros(T,nmin,nmin)
 
    if adj
       U = Vector{Matrix}(undef,p)
-      #U[ii] = zeros(T,nmin,nmin)
-      # @show ii, ma, na
       # compute an initializing periodic factor U[ii]
       V = zeros(T,nmin,nmin)
       Φ = Matrix{T}(I(nmin))
@@ -2305,15 +2299,11 @@ function psplyapd(A::AbstractVector{Matrix{T1}}, C::AbstractVector{Matrix{T2}}; 
               jm1 = mod(i-2,p)+1
               iam1 = mod(i-2,pa)+1
               icm1 = mod(i-2,pc)+1
-              #@show j, jm1, iam1, icm1
               U[jm1] = qr([U[j]*A[iam1]; C[icm1]]).R
           end
-          #@show iter, norm(U[ii]'*U[ii]-x,1) 
-      end
+     end
    else
-      #@show ii, ma, na
       U = Vector{Matrix}(undef,p)
-      #U[ii] = zeros(T,nmin,nmin)
       # compute an initializing periodic factor U[ii]
       V = zeros(T,nmin,nmin)
       Φ = Matrix{T}(I(nmin))
@@ -2337,10 +2327,8 @@ function psplyapd(A::AbstractVector{Matrix{T1}}, C::AbstractVector{Matrix{T2}}; 
               jm1 = mod(i-2,p)+1
               iam1 = mod(i-2,pa)+1
               icm1 = mod(i-2,pc)+1
-              #@show j, jm1, iam1, icm1
               U[j] = rev(qr(rev([A[iam1]*U[jm1] C[icm1]]')).R')
           end
-          #@show iter, norm(U[ii]*U[ii]'-x,1) 
      end
    end
 
@@ -2386,8 +2374,6 @@ function psplyapd(A::AbstractArray{T1,3}, C::AbstractArray{T2,3}; adj::Bool = tr
    U = Array{T,3}(undef,n,n,p)
 
    if adj
-      #U[ii] = zeros(T,n,n)
-      # @show ii, ma, na
       # compute an initializing periodic factor U[ii]
       V = zeros(T,n,n)
       Φ = Matrix{T}(I(n))
@@ -2411,14 +2397,10 @@ function psplyapd(A::AbstractArray{T1,3}, C::AbstractArray{T2,3}; adj::Bool = tr
               jm1 = mod(i-2,p)+1
               iam1 = mod(i-2,pa)+1
               icm1 = mod(i-2,pc)+1
-              # @show j, jm1, iam1, icm1
               U[:,:,jm1] = qr([U[:,:,j]*A[:,:,iam1]; C[:,:,icm1]]).R
           end
-          #@show iter, norm(U[:,:,1]'*U[:,:,1]-x,1) 
       end
    else
-      #@show ii, ma, na
-      #U[ii] = zeros(T,n,n)
       # compute an initializing periodic factor U[ii]
       V = zeros(T,n,n)
       Φ = Matrix{T}(I(n))
@@ -2442,10 +2424,8 @@ function psplyapd(A::AbstractArray{T1,3}, C::AbstractArray{T2,3}; adj::Bool = tr
               jm1 = mod(i-2,p)+1
               iam1 = mod(i-2,pa)+1
               icm1 = mod(i-2,pc)+1
-              #@show j, jm1, iam1, icm1
               U[:,:,j] = rev(qr(rev([A[:,:,iam1]*U[:,:,jm1] C[:,:,icm1]]')).R')
           end
-          #@show iter, norm(U[:,:,1]*U[:,:,1]'-x,1) 
      end
    end
 
@@ -2502,7 +2482,6 @@ where `σ` is the forward shift operator `σX(i) = X(i+1)`.
 The periodic matrix `A` must be stable, i.e., have all characteristic multipliers 
 with moduli less than one. 
                
-
 The periodic matrices `A` and `B` must have the same type, the same dimensions and commensurate periods. 
 The resulting upper triangular periodic matrix `U` has the period 
 set to the least common commensurate period of `A` and `B` and the number of subperiods

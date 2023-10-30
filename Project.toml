@@ -1,7 +1,7 @@
 name = "PeriodicSystems"
 uuid = "5decd0d0-8a5f-11ec-2edd-87b25cbcd17e"
 authors = ["Andreas Varga <varga.andreas@gmail.com>"]
-version = "0.6.0"
+version = "0.6.1"
 
 [deps]
 ApproxFun = "28f2ccd6-bb30-5033-b560-165f7b14dc2f"
@@ -18,7 +18,6 @@ PeriodicSchurDecompositions = "e5aedecb-f6c0-4c91-b6ff-fbae4296f459"
 Polynomials = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
 Primes = "27ebfcd6-29c5-5fa9-bf4b-fb8fc14df3ae"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
-Sundials = "c3572dad-4567-51f8-b174-8c6c989267f4"
 SLICOT_jll = "545525a2-e20e-568b-b87f-b40a06098995"
 Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 
@@ -28,6 +27,7 @@ DescriptorSystems = "1.3"
 FFTW = "1"
 IRKGaussLegendre = "0.2"
 Interpolations = "0.13, 0.14"
+LinearAlgebra = "1"
 LinearMaps = "3.3"
 MatrixEquations = "2.2"
 MatrixPencils = "1.7"
@@ -36,16 +36,15 @@ OrdinaryDiffEq = "v5.72.2, 6"
 PeriodicSchurDecompositions = "0.1.1"
 Polynomials = "3.2"
 Primes = "0.5"
+Random = "1"
 SLICOT_jll = "5.8"
-Sundials = "4.17"
 Symbolics = "4, 5"
 julia = "1.8"
 
 
 [extras]
 LinearMaps = "7a12625a-238d-50fd-b39a-03d52299707e"
-Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Random", "Test"]
+test = ["LinearMaps", "Test"]

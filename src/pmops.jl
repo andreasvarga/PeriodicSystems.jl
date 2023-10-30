@@ -637,7 +637,11 @@ function horzcat(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix)
        return PeriodicFunctionMatrix{:c,T}(t -> [A.f(t) B.f(t)], period, (A.dims[1],A.dims[2]+B.dims[2]), nperiod, false)
     end
 end
+horzcat(A::PeriodicFunctionMatrix, C::AbstractMatrix) = horzcat(A, PeriodicFunctionMatrix(C, A.period))
+horzcat(A::AbstractMatrix, C::PeriodicFunctionMatrix) = horzcat(PeriodicFunctionMatrix(A, C.period), C)
 Base.hcat(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix) = horzcat(A,B)
+Base.hcat(A::PeriodicFunctionMatrix, B::AbstractMatrix) = horzcat(A,B)
+Base.hcat(A::AbstractMatrix, B::PeriodicFunctionMatrix) = horzcat(A,B)
 
 function vertcat(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix)
     period = promote_period(A, B)

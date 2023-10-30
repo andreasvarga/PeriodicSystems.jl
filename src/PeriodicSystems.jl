@@ -55,12 +55,12 @@ export pspole, pszero, isstable, psh2norm, pshanorm, pstimeresp, psstepresp
 export pdlyap, prdlyap, pfdlyap, pslyapd, pdlyaps!, pdlyaps1!, pdlyaps2!, pdlyaps3!, dpsylv2, dpsylv2!, pslyapdkr, dpsylv2krsol!, kronset!
 export prdplyap, pfdplyap, pdplyap, psplyapd
 export pmshift, trace
-export pclyap, pfclyap, prclyap, pgclyap
-export pcplyap, pfcplyap, prcplyap, pgcplyap
-export pcric, prcric, pfcric, tvcric, pgcric, prdric, pfdric
+export pclyap, pfclyap, prclyap, pgclyap, tvclyap_eval
+export pcplyap, pfcplyap, prcplyap, pgcplyap, tvcplyap_eval
+export pcric, prcric, pfcric, tvcric, pgcric, prdric, pfdric, tvcric_eval
 export derivative, pmrand, horzcat, vertcat
-export psfeedback
-export pspofstab_sw, pspofstab_hr, plqr
+#export psfeedback
+#export pspofstab_sw, pspofstab_hr, plqr
 
 abstract type AbstractDynamicalSystem end
 abstract type AbstractLTISystem <: AbstractDynamicalSystem end

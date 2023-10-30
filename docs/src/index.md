@@ -67,6 +67,9 @@ The targeted functionality of this package is described in [1] and will cover bo
 * **[`pdlyap`](@ref)** Solution of periodic discrete-time Lyapunov equations. 
 * **[`prdlyap`](@ref)** Solution of reverse-time periodic discrete-time Lyapunov equations. 
 * **[`pfdlyap`](@ref)**  Solution of forward-time periodic discrete-time Lyapunov equations.
+* **[`pcplyap`](@ref)** Solution of positve periodic Lyapunov differential equations. 
+* **[`prcplyap`](@ref)** Solution of positve reverse-time periodic Lyapunov differential equations.
+* **[`pfcplyap`](@ref)**  Solution of positve forward-time periodic Lyapunov differential equations.
 * **[`pdplyap`](@ref)** Solution of positve periodic discrete-time Lyapunov equations. 
 * **[`prdplyap`](@ref)** Solution of positve reverse-time periodic discrete-time Lyapunov equations. 
 * **[`pfdplyap`](@ref)**  Solution of positve forward-time periodic discrete-time Lyapunov equations.

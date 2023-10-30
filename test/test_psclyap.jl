@@ -13,6 +13,8 @@ println("Test_pclyap")
 @testset "pclyap, pcplyap" begin
 
 tt = Vector((1:500)*2*pi/500) 
+ts = [0.4459591888577492, 1.2072325802972004, 1.9910835248218244, 2.1998199838900527, 2.4360161318589695, 
+     2.9004720268745463, 2.934294124172935, 4.149208861412936, 4.260935465730602, 5.956614157549958]
 
 # generate symbolic periodic matrices
 @variables t
@@ -59,13 +61,10 @@ Ys = convert(PeriodicSymbolicMatrix,Yt)
 @test norm(As'*Yt+Yt*As+Cds + derivative(Yt)) < 1.e-6
 
 
-
-
-# @time Ys = pclyap(As,Cs'*Cs; adj = true, K = 1000, reltol = 1.e-10, abstol = 1.e-10);
-# @time Us = pcplyap(As,Cs; adj = true, K = 1000, reltol = 1.e-10, abstol = 1.e-10);
-# Xs = Us'*Us;
-# @test Xs ≈ Ys && norm(As'*Ys+Ys*As+Cs'*Cs + derivative(Ys)) < 1.e-6
-# @test Xs ≈ Ys && norm(As'*Xs+Xs*As+Cs'*Cs + derivative(Xs)) < 1.e-6
+@time Ys = pclyap(As,Cs'*Cs; adj = true, K = 1000, reltol = 1.e-10, abstol = 1.e-10);
+@time Us = pcplyap(As,Cs; adj = true, K = 1000, reltol = 1.e-10, abstol = 1.e-10);
+Xs = Us'*Us;
+@test norm(Xs-Ys) < 1.e-7 && norm(As'*Ys+Ys*As+Cs'*Cs + derivative(Ys)) < 1.e-4
 
 
 # generate periodic function matrices
@@ -84,7 +83,7 @@ Xd = PeriodicFunctionMatrix(Xdot,2*pi)
 
 @time Yt = pclyap(At, Ct, K = 512, intpol = true, reltol = 1.e-12, abstol=1.e-12);
 @time Yt1 = pclyap(At,Ct; K = 512, reltol = 1.e-12, abstol = 1.e-12,intpol=false);
-@test Xt ≈ Yt && Xd ≈ derivative(Yt) && norm(At*Yt+Yt*At'+Ct-derivative(Yt)) < 1.e-7 && norm(Yt1-Yt) < 1.e-7
+@test norm(Xt - Yt) < 1.e-7 && norm(Xd - derivative(Yt)) < 1.e-7 && norm(At*Yt+Yt*At'+Ct-derivative(Yt)) < 1.e-7 && norm(Yt1-Yt) < 1.e-7
 
 @time Yt1 = pclyap(At, Ct, K = 1, reltol = 1.e-12, abstol=1.e-12, intpol = false);
 @test Xt ≈ Yt1 && Xd ≈ derivative(Yt1) && norm(At*Yt1+Yt1*At'+Ct-derivative(Yt1)) < 1.e-7
@@ -101,19 +100,55 @@ Xd = PeriodicFunctionMatrix(Xdot,2*pi)
 @time Y = prclyap(At, Cdt, K = 500, reltol = 1.e-12, abstol=1.e-12)
 @test Xt ≈ Yt && norm(At'*Yt+Yt*At+Cdt+derivative(Yt)) < 1.e-6
 
-# # experimental 
-# @time Yt = pclyap(At,Ct*Ct'; adj = false, K = 10, reltol = 1.e-14, abstol = 1.e-14, intpol=false);
-# @time Ut = pcplyap(At,Ct; adj = false, K = 100, reltol = 1.e-14, abstol = 1.e-14);
+@time Yt = pclyap(At,Ct*Ct'; adj = false, K = 512, reltol = 1.e-14, abstol = 1.e-14, intpol=false);
+@time Ut = pcplyap(At,Ct; adj = false, K = 512, reltol = 1.e-14, abstol = 1.e-14, intpol=false);
+Xt2 = Ut*Ut'; 
+@test norm(At*Yt+Yt*At'+Ct*Ct' - derivative(Yt)) < 1.e-4
+@test Xt2 ≈ Yt && norm(At*Xt2+Xt2*At'+Ct*Ct' - derivative(Ut)*Ut'-Ut*derivative(Ut)') < 1.e-4
+
+
+@time Yt = pclyap(At,Ct'*Ct; adj = true, K = 1000, reltol = 1.e-14, abstol = 1.e-14, intpol=false);
+@time Ut = pcplyap(At,Ct; adj = true, K = 1000, reltol = 1.e-14, abstol = 1.e-14, intpol=false);
+Xt2 = Ut'*Ut; 
+@test norm(At'*Yt+Yt*At+Ct'*Ct + derivative(Yt)) < 1.e-4
+@test Xt2 ≈ Yt && norm(At'*Xt2+Xt2*At+Ct'*Ct + derivative(Ut)'*Ut+Ut'*derivative(Ut)) < 1.e-4
+
+# # check implicit solver based solution 
+# @time Yt = pclyap(At,Ct*Ct'; adj = false, K = 512, reltol = 1.e-14, abstol = 1.e-14, intpol=false);
+# @time Ut = pcplyap(At,Ct; adj = false, K = 512, reltol = 1.e-10, abstol = 1.e-10, intpol=false, implicit = true);
 # Xt2 = Ut*Ut'; 
 # @test norm(At*Yt+Yt*At'+Ct*Ct' - derivative(Yt)) < 1.e-4
-# @test Xt2 ≈ Yt && norm(At*Xt2+Xt2*At'+Ct*Ct' - derivative(Ut)*Ut'+Ut*derivative(Ut)') < 1.e-4
+# @test Xt2 ≈ Yt && norm(At*Xt2+Xt2*At'+Ct*Ct' - derivative(Ut)*Ut'-Ut*derivative(Ut)') < 1.e-4*norm(Xt2)
 
 
-# @time Yt = pclyap(At,Ct'*Ct; adj = true, K = 1000, reltol = 1.e-14, abstol = 1.e-14);
-# @time Ut = pcplyap(At,Ct; adj = true, K = 1000, reltol = 1.e-14, abstol = 1.e-14);
+# @time Yt = pclyap(At,Ct'*Ct; adj = true, K = 512, reltol = 1.e-14, abstol = 1.e-14, intpol=false);
+# @time Ut = pcplyap(At,Ct; adj = true, K = 512, reltol = 1.e-10, abstol = 1.e-10, intpol=false, implicit = true);
 # Xt2 = Ut'*Ut; 
 # @test norm(At'*Yt+Yt*At+Ct'*Ct + derivative(Yt)) < 1.e-4
-# @test Xt2 ≈ Yt && norm(At'*Xt2+Xt2*At+Ct'*Ct + derivative(Ut)'*Ut+Ut'*derivative(Ut)) < 1.e-4
+# @test Xt2 ≈ Yt && norm(At'*Xt2+Xt2*At+Ct'*Ct + derivative(Ut)'*Ut+Ut'*derivative(Ut)) < 1.e-4*norm(Xt2)
+
+# singular factors
+At1 = [[At zeros(2,2)]; [zeros(2,2) At]]; Ct1 = [Ct; -Ct];
+Ut1 = pgcplyap(At1, Ct1, 64; adj = false, solver = "", reltol = 1.e-10, abstol = 1.e-10);
+@test all(cond.(Ut1.values) .> 1.e-6)
+@time Ut2 = pcplyap(At1,Ct1; adj = false, K = 64, reltol = 1.e-10, abstol = 1.e-10, intpol=false); 
+ti = collect((0:63)*(2pi/64)).+eps(20.);
+@test all(isapprox.(Ut1.(ti),Ut2.(ti),rtol=1.e-6))
+
+
+# # check explicit solver based solution  # fails but still works without errors
+# @time Yt = pclyap(At,Ct*Ct'; adj = false, K = 512, reltol = 1.e-14, abstol = 1.e-14, intpol=false);
+# @time Ut = pcplyap(At,Ct; adj = false, K = 512, solver = "non-stiff", reltol = 1.e-10, abstol = 1.e-6, intpol=false, implicit = false);
+# Xt2 = Ut*Ut'; 
+# @test norm(At*Yt+Yt*At'+Ct*Ct' - derivative(Yt)) < 1.e-4
+# @test Xt2 ≈ Yt && norm(At*Xt2+Xt2*At'+Ct*Ct' - derivative(Ut)*Ut'-Ut*derivative(Ut)') < 1.e-4*norm(Xt2)
+
+
+# @time Yt = pclyap(At,Ct'*Ct; adj = true, K = 512, reltol = 1.e-14, abstol = 1.e-14, intpol=false);
+# @time Ut = pcplyap(At,Ct; adj = true, K = 512, reltol = 1.e-5, abstol = 1.e-5, intpol=false, implicit =false);
+# Xt2 = Ut'*Ut; 
+# @test norm(At'*Yt+Yt*At+Ct'*Ct + derivative(Yt)) < 1.e-4
+# @test Xt2 ≈ Yt && norm(At'*Xt2+Xt2*At+Ct'*Ct + derivative(Ut)'*Ut+Ut'*derivative(Ut)) < 1.e-4*norm(Xt2)
 
 
 K = 500
@@ -295,13 +330,13 @@ ts = [0.4459591888577492, 1.2072325802972004, 1.9910835248218244, 2.199819983890
 @time Yt = pclyap(Asw, Cdsw; K = 2, adj = true, reltol = 1.e-10, abstol = 1.e-10)
 @test norm((Asw'*Yt+Yt*Asw+Cdsw+derivative(Yt)).(ts)) < 1.e-6  
 
-@time Yt = pfclyap(Asw, Csw; K, reltol = 1.e-10, abstol = 1.e-10);
+@time Yt = pfclyap(Asw, Csw; reltol = 1.e-10, abstol = 1.e-10);
 @test norm((Asw*Yt+Yt*Asw'+Csw-derivative(Yt)).(ts)) < 1.e-6 
 
-@time Yt = prclyap(Asw, Cdsw; K, reltol = 1.e-10, abstol = 1.e-10)
+@time Yt = prclyap(Asw, Cdsw; reltol = 1.e-10, abstol = 1.e-10)
 @test norm((Asw'*Yt+Yt*Asw+Cdsw+derivative(Yt)).(ts)) < 1.e-6  
 
-# error
+
 A4(t) = [0  1; -cos(t)-1 -2-sin(t)]
 C4(t) = [ -sin(t)  -1-sin(t)-(-1-10cos(t))*(1+cos(t));
 -1-sin(t)-(-1-10cos(t))*(1+cos(t))   cos(t)- 2(-24 - 19sin(t))*(1 + sin(t)) ]  
@@ -312,25 +347,29 @@ tsa = [0., pi/4, pi/2, 3pi/2]; Ats =  [A4(t) for t in tsa]
 tsc = [0., 3pi/4, pi]; Cts =  [C4(t) for t in tsc]
 Asw = PeriodicSwitchingMatrix(Ats,tsa,2pi)
 Csw = PeriodicSwitchingMatrix(Cts,tsc,2pi)
-At = convert(PeriodicFunctionMatrix,Asw)
-Ct = convert(PeriodicFunctionMatrix,Csw)
+Ast = convert(PeriodicFunctionMatrix,Asw)
+Cst = convert(PeriodicFunctionMatrix,Csw)
+ts = [0.4459591888577492, 1.2072325802972004, 1.9910835248218244, 2.1998199838900527, 2.4360161318589695, 
+     2.9004720268745463, 2.934294124172935, 4.149208861412936, 4.260935465730602, 5.956614157549958]
+
 
 
 K = 500
-W0 = pgclyap(At, Ct, K; adj = false, solver = "", reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001);
+W0 = pgclyap(Ast, Cst, K; adj = false, solver = "", reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001);
 Ts = 2pi/K
 success = true
 for i = 1:K
-    Y  = PeriodicSystems.tvclyap(At, Ct, i*Ts, (i-1)*Ts, W0.values[mod(i+K-1,K)+1]; solver = "", adj = false, reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001) 
+    Y  = PeriodicSystems.tvclyap(Ast, Cst, i*Ts, (i-1)*Ts, W0.values[mod(i+K-1,K)+1]; solver = "", adj = false, reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001) 
     iw = i+1; iw > K && (iw = 1)
     success = success && norm(Y-W0.values[iw]) < 1.e-7
 end
 @test success
-Xt = PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W0, At, Ct; solver = "", adj = false, reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001),2*pi)
-@test norm((At*Xt+Xt*At'+Ct-derivative(Xt)).(ts)) < 1.e-6
+Xst = PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W0, Ast, Cst; solver = "", adj = false, reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001),2*pi)
+@test norm((Ast*Xst+Xst*Ast'+Cst-derivative(Xst)).(ts)) < 1.e-6
 
 
 K = 100;
+K = 1
 W1 = pgclyap(Asw, Csw, K; adj = false, solver = "", reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001);
 success = true
 Ks = length(W1.ts)
@@ -343,8 +382,8 @@ end
 @test success
 
 XXt = PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W1, Asw, Csw; solver = "", adj = false, reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001),2*pi)
-@test norm((At*XXt+XXt*At'+Ct-derivative(XXt)).(rand(10)*2*pi)) < 1.e-6
-@test norm((Xt-XXt).(ts)) < 1.e-6
+@test norm((Ast*XXt+XXt*Ast'+Cst-derivative(XXt)).(rand(10)*2*pi)) < 1.e-6
+@test norm((Xst-XXt).(ts)) < 1.e-6
 
 # using Plots
 # t = [0;sort(rand(200)*2*pi);2*pi]; n = length(t)
@@ -364,11 +403,12 @@ XXt = PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W1, Asw, Csw; so
 # plot!(t2,[x2[i][1,1] for i in 1:ns2])
 
 K = 500
-W0 = pgclyap(At, Ct, K; adj = true, solver = "", reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001);
-Xt = PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W0, At, Ct; solver = "", adj = true, reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001),2*pi)
-@test norm((At'*Xt+Xt*At+Ct+derivative(Xt)).(ts)) < 1.e-6
+W0 = pgclyap(Ast, Cst, K; adj = true, solver = "", reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001);
+Xst = PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W0, Ast, Cst; solver = "", adj = true, reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001),2*pi)
+@test norm((Ast'*Xst+Xst*Ast+Cst+derivative(Xst)).(ts)) < 1.e-6
 
-K = 100
+K = 100;
+K = 1
 W1 = pgclyap(Asw, Csw, K; adj = true, solver = "", reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001);
 Ks = length(W1.ts)
 success = true
@@ -381,8 +421,8 @@ end
 @test success
 
 XXt = PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W1, Asw, Csw; solver = "", adj = true, reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001),2*pi)
-@test norm((At'*XXt+XXt*At+Ct+derivative(XXt)).(ts)) < 1.e-6
-@test norm(Xt-XXt) < 1.e-6
+@test norm((Ast'*XXt+XXt*Ast+Cst+derivative(XXt)).(ts)) < 1.e-6
+@test norm(Xst-XXt) < 1.e-6
 
 
 
@@ -396,13 +436,13 @@ XXt = PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W1, Asw, Csw; so
 
 
 # generate periodic function matrices
-A(t) = [0  1; -10*cos(t)-1 -24-19*sin(t)]
-X(t) = [1+cos(t) 0; 0 1+sin(t)]  # desired solution
-Xdot(t) = [-sin(t) 0; 0 cos(t)]  # derivative of the desired solution
-C(t) = [ -sin(t)  -1-sin(t)-(-1-10cos(t))*(1+cos(t));
--1-sin(t)-(-1-10cos(t))*(1+cos(t))   cos(t)- 2(-24 - 19sin(t))*(1 + sin(t)) ]  # corresponding C
-Cd(t) = [ sin(t)  -1-cos(t)-(-1-10cos(t))*(1+sin(t));
--1-cos(t)-(-1-10cos(t))*(1+sin(t))    -cos(t)-2(-24-19sin(t))*(1 + sin(t)) ] # corresponding Cd
+# A(t) = [0  1; -10*cos(t)-1 -24-19*sin(t)]
+# X(t) = [1+cos(t) 0; 0 1+sin(t)]  # desired solution
+# Xdot(t) = [-sin(t) 0; 0 cos(t)]  # derivative of the desired solution
+# C(t) = [ -sin(t)  -1-sin(t)-(-1-10cos(t))*(1+cos(t));
+# -1-sin(t)-(-1-10cos(t))*(1+cos(t))   cos(t)- 2(-24 - 19sin(t))*(1 + sin(t)) ]  # corresponding C
+# Cd(t) = [ sin(t)  -1-cos(t)-(-1-10cos(t))*(1+sin(t));
+# -1-cos(t)-(-1-10cos(t))*(1+sin(t))    -cos(t)-2(-24-19sin(t))*(1 + sin(t)) ] # corresponding Cd
 At = PeriodicFunctionMatrix(A,2*pi)
 Ct = PeriodicFunctionMatrix(C,2*pi)
 Cdt = PeriodicFunctionMatrix(Cd,2*pi)
@@ -535,42 +575,42 @@ psysc = ps(a-β*I,PeriodicFunctionMatrix(b,period),c,d);
 
 
 
-# A0(t) = [-cos(t)-1]
-# C0(t) = [ 1-sin(t)]  # corresponding C
-# At = PeriodicFunctionMatrix(A0,2*pi)
-# Ct = PeriodicFunctionMatrix(C0,2*pi)
+A0(t) = [-cos(t)-1]
+C0(t) = [ 1-sin(t)]  # corresponding C
+At = PeriodicFunctionMatrix(A0,2*pi)
+Ct = PeriodicFunctionMatrix(C0,2*pi)
 
-# # @time Yt = pclyap(At,Ct*Ct'; adj = false, K = 500, reltol = 1.e-12, abstol = 1.e-12);
-# @time Yt = pclyap(At,Ct*Ct'; adj = false, K = 100, intpol=false, reltol = 1.e-10, abstol = 1.e-10);
+# @time Yt = pclyap(At,Ct*Ct'; adj = false, K = 500, reltol = 1.e-12, abstol = 1.e-12);
+@time Yt = pclyap(At,Ct*Ct'; adj = false, K = 100, intpol=false, reltol = 1.e-10, abstol = 1.e-10);
 
-# @time Ut = pcplyap(At,Ct; adj = false, K = 100, reltol = 1.e-10, abstol = 1.e-10);
-# @test norm(At*Yt+Yt*At'+Ct*Ct' - derivative(Yt)) < 1.e-6
-# @test norm(Yt-Ut*Ut') < 1.e-6
+@time Ut = pcplyap(At,Ct; adj = false, K = 100, reltol = 1.e-10, abstol = 1.e-10);
+@test norm(At*Yt+Yt*At'+Ct*Ct' - derivative(Yt)) < 1.e-6
+@test norm(Yt-Ut*Ut') < 1.e-6
 
-# @time Yt = pclyap(At,Ct'*Ct; adj = true, K = 500, reltol = 1.e-12, abstol = 1.e-12);
-# @time Ut = pcplyap(At,Ct; adj = true, K = 100, reltol = 1.e-10, abstol = 1.e-10);
-# @test norm(At'*Yt+Yt*At+Ct'*Ct + derivative(Yt)) < 1.e-6
-# @test norm(Yt-Ut'*Ut) < 1.e-6
+@time Yt = pclyap(At,Ct'*Ct; adj = true, K = 500, reltol = 1.e-12, abstol = 1.e-12);
+@time Ut = pcplyap(At,Ct; adj = true, K = 100, reltol = 1.e-10, abstol = 1.e-10);
+@test norm(At'*Yt+Yt*At+Ct'*Ct + derivative(Yt)) < 1.e-6
+@test norm(Yt-Ut'*Ut) < 1.e-6
 
 
-# # generate periodic function matrices
-# A3(t) = [0  1; -1 -2-sin(t)]
-# #A(t) = [0  -1; 1 2+sin(t)]
-# # A(t) = [0  1; -1 -2]
-# # A(t) = [0  -1; 1 2]
-# B3(t) = [ 1-0.9*sin(t);  -1]  # corresponding B
-# C3(t) = [ 10-sin(t)  -1-sin(t)]  # corresponding C
-# At = PeriodicFunctionMatrix(A3,2*pi)
-# Bt = PeriodicFunctionMatrix(B3,2*pi)
-# Ct = PeriodicFunctionMatrix(C3,2*pi)
+# generate periodic function matrices
+A3(t) = [0  1; -1 -2-sin(t)]
+#A(t) = [0  -1; 1 2+sin(t)]
+# A(t) = [0  1; -1 -2]
+# A(t) = [0  -1; 1 2]
+B3(t) = [ 1-0.9*sin(t);  -1]  # corresponding B
+C3(t) = [ 10-sin(t)  -1-sin(t)]  # corresponding C
+At = PeriodicFunctionMatrix(A3,2*pi)
+Bt = PeriodicFunctionMatrix(B3,2*pi)
+Ct = PeriodicFunctionMatrix(C3,2*pi)
 
-# #@time Yt = pclyap(At,Bt*Bt'; adj = false, K = 500, reltol = 1.e-12, abstol = 1.e-12);
-# @time Yt = pclyap(At,Bt*Bt'; adj = false, K = 100, intpol = false, reltol = 1.e-10, abstol = 1.e-10);
-# @test norm(At*Yt+Yt*At'+Bt*Bt' - derivative(Yt)) < 1.e-6
-# @time Ut = pcplyap(At,Bt; adj = false, K = 100, reltol = 1.e-10, abstol = 1.e-10);
-# Xt = Ut*Ut'; 
-# @test norm(At*Xt+Xt*At'+Bt*Bt' - derivative(Xt)) < 1.e-6
-# @test norm(Yt-Xt) < 1.e-6
+#@time Yt = pclyap(At,Bt*Bt'; adj = false, K = 500, reltol = 1.e-12, abstol = 1.e-12);
+@time Yt = pclyap(At,Bt*Bt'; adj = false, K = 100, intpol = false, reltol = 1.e-10, abstol = 1.e-10);
+@test norm(At*Yt+Yt*At'+Bt*Bt' - derivative(Yt)) < 1.e-6
+@time Ut = pcplyap(At,Bt; adj = false, K = 100, reltol = 1.e-10, abstol = 1.e-10);
+Xt = Ut*Ut'; 
+@test norm(At*Xt+Xt*At'+Bt*Bt' - derivative(Xt)) < 1.e-6
+@test norm(Yt-Xt) < 1.e-6
 # @time Ut = pcplyap(At,Bt; adj = false, K = 100, implicit = true, reltol = 1.e-13, abstol = 1.e-13);
 # Xt = Ut*Ut'; 
 # @test norm(At*Xt+Xt*At'+Bt*Bt' - derivative(Xt)) < 1.e-6
@@ -581,13 +621,13 @@ psysc = ps(a-β*I,PeriodicFunctionMatrix(b,period),c,d);
 # @test norm(Yt-Xt) < 1.e-6
 
 
-# # @time Yt = pclyap(At,Ct'*Ct; adj = true, K = 500, reltol = 1.e-12, abstol = 1.e-12);
-# @time Yt = pclyap(At,Ct'*Ct; adj = true, K = 100, intpol = false, reltol = 1.e-10, abstol = 1.e-10);
-# @test norm(At'*Yt+Yt*At+Ct'*Ct + derivative(Yt)) < 1.e-6
-# @time Ut = pcplyap(At,Ct; adj = true, K = 100, reltol = 1.e-10, abstol = 1.e-10);
-# Xt = Ut'*Ut; 
-# @test norm(At'*Xt+Xt*At+Ct'*Ct + derivative(Xt)) < 1.e-5
-# @test norm(Yt-Xt) < 1.e-6
+# @time Yt = pclyap(At,Ct'*Ct; adj = true, K = 500, reltol = 1.e-12, abstol = 1.e-12);
+@time Yt = pclyap(At,Ct'*Ct; adj = true, K = 100, intpol = false, reltol = 1.e-10, abstol = 1.e-10);
+@test norm(At'*Yt+Yt*At+Ct'*Ct + derivative(Yt)) < 1.e-6
+@time Ut = pcplyap(At,Ct; adj = true, K = 100, reltol = 1.e-10, abstol = 1.e-10);
+Xt = Ut'*Ut; 
+@test norm(At'*Xt+Xt*At+Ct'*Ct + derivative(Xt)) < 1.e-5
+@test norm(Yt-Xt) < 1.e-6
 # @time Ut = pcplyap(At,Ct; adj = true, K = 100, implicit = true, reltol = 1.e-13, abstol = 1.e-13);
 # Xt = Ut'*Ut; 
 # @test norm(At'*Xt+Xt*At+Ct'*Ct + derivative(Xt)) < 1.e-5

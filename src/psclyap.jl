@@ -23,7 +23,7 @@ The multiple-shooting method of [1] is employed to convert the (continuous-time)
 into a discrete-time periodic Lyapunov equation satisfied by a multiple point generator of the solution. 
 The keyword argument `K` specifies the number of grid points to be used
 for the discretization of the continuous-time problem (default: `K = 10`). 
-If  `A` and `C` are of type `PeriodicSwitchingMatrix`, then `K` specifies the number of grid points used between two consecutive switching time values (default: `K = 1`).  
+If  `A` and `C` are of types `PeriodicTimeSeriesMatrix` or `PeriodicSwitchingMatrix`, then `K` specifies the number of grid points used between two consecutive switching time values (default: `K = 1`).  
 The multiple point periodic generator is computed  by solving the appropriate discrete-time periodic Lyapunov 
 equation using the periodic Schur method of [2]. 
 The resulting periodic generator is finally converted into a periodic function matrix which determines for a given `t` 
@@ -108,13 +108,13 @@ end
 for PM in (:PeriodicFunctionMatrix, :PeriodicSymbolicMatrix, :HarmonicArray, :FourierFunctionMatrix, :PeriodicTimeSeriesMatrix)
    @eval begin
       function prclyap(A::$PM, C::$PM; K::Int = 10, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7, intpol = false, intpolmeth = "cubic") 
-         pclyap(A, C; K, adj = true, solver, reltol, abstol)
+         pclyap(A, C; K, adj = true, solver, reltol, abstol, intpol, intpolmeth)
       end
       function prclyap(A::$PM, C::AbstractMatrix; kwargs...)
          prclyap(A, $PM(C, A.period; nperiod = A.nperiod); kwargs...)
       end
       function pfclyap(A::$PM, C::$PM; K::Int = 10, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7, intpol = false, intpolmeth = "cubic") 
-         pclyap(A, C; K, adj = false, solver, reltol, abstol)
+         pclyap(A, C; K, adj = false, solver, reltol, abstol, intpol, intpolmeth)
       end
       function pfclyap(A::$PM, C::AbstractMatrix; kwargs...)
          pfclyap(A, $PM(C, A.period; nperiod = A.nperiod); kwargs...)
@@ -202,7 +202,7 @@ equation using the periodic Schur method of [2].
 
 The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
 together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt' (default: `dt = 0`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
 
 Parallel computation of the matrices of the discrete-time problem can be alternatively performed 
 by starting Julia with several execution threads. 
@@ -387,28 +387,29 @@ function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", 
    end
    return PeriodicTimeSeriesMatrix([X[:,:,i] for i in 1:size(X,3)], period; nperiod)
 end
+"""
+      tvclyap_eval(t, W, A, C; adj = false, solver, reltol, abstol, dt) -> Xval
+
+Compute the time value `Xval := X(t)` of the solution of the periodic Lyapunov differential equation
+
+       .
+       X(t) = A(t)X(t) + X(t)A(t)' + C(t) ,  X(t0) = W(t0), t > t0, if adj = false
+
+or 
+
+       .
+      -X(t) = A(t)'X(t) + X(t)A(t) + C(t) ,  X(t0) = W(t0), t < t0, if adj = true,  
+
+using the periodic generator `W` determined with the function [`pgclyap`](@ref) for the same periodic matrices `A` and `C`
+and the same value of the keyword argument `adj`. 
+The initial time `t0` is the nearest time grid value to `t`, from below, if `adj = false`, or from above, if `adj = true`. 
+
+The above ODE is solved by employing the integration method specified via the keyword argument `solver`, 
+together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+"""
 function tvclyap_eval(t::Real,X::PeriodicTimeSeriesMatrix,A::PM1, C::PM2; adj = false, solver = "non-stiff", reltol = 1e-4, abstol = 1e-7, dt = 0) where
    {PM1 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicTimeSeriesMatrix}, PM2 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicTimeSeriesMatrix}} 
-   """
-       tvclyap_eval(t, X, A, C; adj = false, solver, reltol, abstol, dt) -> Xval
-
-   Compute the time value `Xval := X(t)` of the solution of the periodic Lyapunov differential equation
-
-      .
-      W(t) = A(t)W(t) + W(t)A(t)' + C(t) ,  W(t0) = X(t0), t > t0, if adj = false
-
-   or 
-
-      .
-     -W(t) = A(t)'W(t) + W(t)A(t) + C(t) ,  W(t0) = X(t0), t < t0, if adj = true,  
-
-   using the periodic generator `X` determined with the function [`pgclyap`](@ref)). 
-   The initial time `t0` is the nearest time grid value to `t`, from below, if `adj = false`, or from above, if `adj = true`. 
-  
-   The above ODE is solved by employing the integration method specified via the keyword argument `solver`, 
-   together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-   absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt' (default: `dt = 0`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
-   """
    tsub = X.period/X.nperiod
    ns = length(X.values)
    Δ = tsub/ns
@@ -461,7 +462,7 @@ function tvclyap(A::PM1, C::PM2, tf, t0, W0::Union{AbstractMatrix,Missing} = mis
 
    The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
    together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-   absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt' (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+   absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
    """
    n = size(A,1)
    n == size(A,2) || error("the periodic matrix A must be square")
@@ -531,3 +532,284 @@ function muladdcsym!(y::AbstractVector, x::AbstractVector, isig, A::AbstractMatr
    end
    return y
 end
+"""
+    pcplyap(A, C; K = 10, adj = false, solver, reltol, abstol) -> U
+
+Compute the upper triangular periodic factor `U(t)` of the solution `X(t) = U(t)U(t)'` of the 
+periodic Lyapunov differential equation
+
+    .
+    X(t) = A(t)X(t) + X(t)A(t)' + C(t)C(t)' , if adj = false,
+
+or of the solution `X(t) = U(t)'U(t)` of the periodic Lyapunov differential equation
+
+     .
+    -X(t) = A(t)'X(t) + X(t)A(t) + C(t)'C(t) , if adj = true.
+    
+The periodic matrices `A` and `C` must have the same type, commensurate periods and `A` must be stable.
+The resulting upper triangular periodic factor `U` has the type `PeriodicFunctionMatrix` and 
+`U(t)` can be used to evaluate the value of `U` at time `t`. 
+`U` has the period set to the least common commensurate period of `A` and `C` and 
+the number of subperiods is adjusted accordingly. 
+
+An extension of the multiple-shooting method of [1] is employed to convert the (continuous-time) periodic differential Lyapunov equation 
+into a discrete-time periodic Lyapunov equation satisfied by a multiple point generator of the solution. 
+The keyword argument `K` specifies the number of grid points to be used
+for the discretization of the continuous-time problem (default: `K = 10`). 
+If  `A` and `C` are of types `PeriodicTimeSeriesMatrix` or `PeriodicSwitchingMatrix`, 
+then `K` specifies the number of grid points used between two consecutive switching time values (default: `K = 1`).  
+The upper triangular factor of the multiple point generator is computed  by solving the appropriate discrete-time periodic Lyapunov 
+equation using the iterative method (Algorithm 5) of [2]. 
+The resulting periodic generator is finally converted into 
+a periodic function matrix which determines for a given `t` 
+the function value `U(t)` by integrating the appropriate ODE from the nearest grid point value.    
+
+The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
+together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`) and  
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) (see [`tvstm`](@ref)). 
+
+To speedup function evaluations, interpolation based function evaluations can be used 
+by setting the keyword argument `intpol = true` (default: `intpol = false`). 
+In this case the interpolation method to be used can be specified via the keyword argument
+`intpolmeth = meth`. The allowable values for `meth` are: `"constant"`, `"linear"`, `"quadratic"` and `"cubic"` (default) (see also [`ts2pfm`](@ref)).
+Interpolation is not possible if `A` and `C` are of type `PeriodicSwitchingMatrix`. 
+
+Parallel computation of the matrices of the discrete-time problem can be alternatively performed 
+by starting Julia with several execution threads. 
+The number of execution threads is controlled either by using the `-t/--threads` command line argument 
+or by using the `JULIA_NUM_THREADS` environment variable.  
+
+_References_
+
+[1] A. Varga. On solving periodic differential matrix equations with applications to periodic system norms computation. 
+    Proc. IEEE CDC/ECC, Seville, 2005. 
+
+[2] A. Varga. Periodic Lyapunov equations: some applications and new algorithms. 
+    Int. J. Control, vol, 67, pp, 69-87, 1997.
+    
+"""
+function pcplyap(A::PeriodicFunctionMatrix, C::PeriodicFunctionMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-7, abstol = 1.e-7, intpol = false, intpolmeth = "cubic")
+   if intpol
+      return convert(PeriodicFunctionMatrix,pgcplyap(A, C, K;  adj, solver, reltol, abstol), method = intpolmeth)
+   else
+      U0 = pgcplyap(A, C, K;  adj, solver, reltol, abstol)
+      return PeriodicFunctionMatrix(t->PeriodicSystems.tvcplyap_eval(t, U0, A, C; adj, solver, reltol, abstol),A.period)
+   end
+end
+pcplyap(A::PeriodicFunctionMatrix, C::AbstractMatrix; kwargs...) = pcplyap(A, PeriodicFunctionMatrix(C, A.period; nperiod = A.nperiod); kwargs...)
+function pcplyap(A::PeriodicSymbolicMatrix, C::PeriodicSymbolicMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-7, abstol = 1.e-7)
+   convert(PeriodicSymbolicMatrix, pgcplyap(convert(PeriodicFunctionMatrix,A), convert(PeriodicFunctionMatrix,C), K;  adj, solver, reltol, abstol))
+end
+function pcplyap(A::HarmonicArray, C::HarmonicArray; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-7, abstol = 1.e-7)
+   convert(HarmonicArray, pgcplyap(A,  C, K;  adj, solver, reltol, abstol))
+end
+function pcplyap(A::FourierFunctionMatrix, C::FourierFunctionMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-7, abstol = 1.e-7)
+   convert(FourierFunctionMatrix, pgcplyap(A,  C, K;  adj, solver, reltol, abstol))
+end
+function pcplyap(A::PeriodicTimeSeriesMatrix, C::PeriodicTimeSeriesMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-7, abstol = 1.e-7)
+   pgcplyap(convert(HarmonicArray,A), convert(HarmonicArray,C), K;  adj, solver, reltol, abstol)
+end
+for PM in (:PeriodicFunctionMatrix, :PeriodicSymbolicMatrix, :HarmonicArray, :FourierFunctionMatrix, :PeriodicTimeSeriesMatrix)
+   @eval begin
+      function prcplyap(A::$PM, C::$PM; K::Int = 10, solver = "non-stiff", reltol = 1.e-7, abstol = 1.e-7) 
+         pcplyap(A, C; K, adj = true, solver, reltol, abstol)
+      end
+      function prcplyap(A::$PM, C::AbstractMatrix; kwargs...)
+               prcplyap(A, $PM(C, A.period; nperiod = A.nperiod); kwargs...)
+      end
+      function pfcplyap(A::$PM, C::$PM; K::Int = 10, solver = "non-stiff", reltol = 1.e-7, abstol = 1.e-7) 
+         pcplyap(A, C; K, adj = false, solver, reltol, abstol)
+      end
+      function pfcplyap(A::$PM, C::AbstractMatrix; kwargs...)
+         pfcpyap(A, $PM(C, A.period; nperiod = A.nperiod); kwargs...)
+      end
+   end
+end
+"""
+    pfcplyap(A, B; K = 10, solver, reltol, abstol) -> U
+
+Compute the upper triangular periodic factor `U(t)` of the solution `X(t) = U(t)U(t)'`
+
+    .
+    X(t) = A(t)X(t) + X(t)A(t)' + B(t)B(t)' .               
+
+The periodic matrices `A` and `B` must have the same type, the same row dimensions and commensurate periods. 
+The resulting periodic factor `U` has the period 
+set to the least common commensurate period of `A` and `B` and the number of subperiods
+is adjusted accordingly. 
+
+This function is merely an interface to [`pcplyap`](@ref) (see this function for the description of keyword parameters). 
+"""
+pfcplyap(A::PeriodicFunctionMatrix, C::PeriodicFunctionMatrix; K::Int = 10, reltol = 1.e-4, abstol = 1.e-7)
+"""
+    prcplyap(A, C; K = 10, solver, reltol, abstol) -> U
+
+Compute the upper triangular periodic factor `U(t)` of the solution `X(t) = U(t)'U(t)`
+
+     .
+    -X(t) = A(t)'X(t) + X(t)A(t) + C(t)'C(t).               
+
+The periodic matrices `A` and `C` must have the same type, the same column dimensions and commensurate periods. 
+The resulting periodic factor `U` has the period 
+set to the least common commensurate period of `A` and `C` and the number of subperiods
+is adjusted accordingly. 
+
+This function is merely an interface to [`pcplyap`](@ref) (see this function for the description of keyword parameters). 
+"""
+prcplyap(A::PeriodicFunctionMatrix, C::PeriodicFunctionMatrix; K::Int = 10, reltol = 1.e-4, abstol = 1.e-7)
+
+"""
+    pgcplyap(A, C[, K = 1]; adj = false, solver, reltol, abstol, dt) -> U
+
+Compute upper triangular periodic generators `U(t)` of the solution `X(t) = U(t)U(t)'` of the 
+periodic Lyapunov differential equation
+
+    .
+    X(t) = A(t)X(t) + X(t)A(t)' + C(t)C(t)' , if adj = false,
+
+or of the solution `X(t) = U(t)'U(t)` of the periodic Lyapunov differential equation
+
+     .
+    -X(t) = A(t)'X(t) + X(t)A(t) + C(t)'C(t) , if adj = true.
+    
+The periodic matrices `A` and `C` must have the same type, commensurate periods and `A` must be stable.
+The resulting `U` is a collection of periodic generator matrices determined 
+as a periodic time-series matrix with `N` components, where `N = 1` if `A` and `C` are constant matrices
+and `N = K` otherwise. 
+The period of `U` is set to the least common commensurate period of `A` and `C` and the number of subperiods
+is adjusted accordingly. Any component matrix of `U` is a valid initial value to be used to generate the  
+solution over a full period by integrating the appropriate differential equation. 
+An extension of the multiple-shooting method of [1] is employed, first, to convert the continuous-time periodic Lyapunov 
+into a discrete-time periodic Lyapunov equation satisfied by 
+the generator solution in `K` time grid points and then to compute the solution by solving an appropriate discrete-time periodic Lyapunov 
+equation using the iterative method (Algorithm 5) of [2]. 
+
+The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
+together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+
+For large values of `K`, parallel computation of the matrices of the discrete-time problem can be alternatively performed 
+by starting Julia with several execution threads. 
+The number of execution threads is controlled either by using the `-t/--threads` command line argument 
+or by using the `JULIA_NUM_THREADS` environment variable.  
+
+_References_
+
+[1] A. Varga. On solving periodic differential matrix equations with applications to periodic system norms computation. 
+    Proc. IEEE CDC/ECC, Seville, 2005. 
+
+[2] A. Varga. Periodic Lyapunov equations: some applications and new algorithms. 
+    Int. J. Control, vol, 67, pp, 69-87, 1997.
+    
+"""
+function pgcplyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "", reltol = 1e-7, abstol = 1e-7, dt = 0) where
+      {PM1 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix}, PM2 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix}} 
+   period = promote_period(A, C)
+   na = Int(round(period/A.period))
+   nc = Int(round(period/C.period))
+   nperiod = gcd(na*A.nperiod, nc*C.nperiod)
+   n = size(A,1)
+   Ts = period/K/nperiod
+   
+   if isconstant(A) && isconstant(C)
+      U = adj ? plyapc(tpmeval(A,0)', tpmeval(C,0)') :  plyapc(tpmeval(A,0), tpmeval(C,0))
+   else
+      T = promote_type(eltype(A),eltype(C),Float64)
+      T == Num && (T = Float64)
+      Ka = isconstant(A) ? 1 : max(1,Int(round(A.period/A.nperiod/Ts)))
+      Ad = Array{T,3}(undef, n, n, Ka) 
+      Cd = Array{T,3}(undef, n, n, K) 
+      Threads.@threads for i = 1:Ka
+         @inbounds Ad[:,:,i] = tvstm(A, i*Ts, (i-1)*Ts; solver, reltol, abstol) 
+      end
+      if adj
+         #Threads.@threads for i = K:-1:1
+         for i = K:-1:1
+             Xd = tvclyap(A, C'*C, (i-1)*Ts, i*Ts; adj, solver, reltol, abstol, dt) 
+             Fd = cholesky(Xd, RowMaximum(), check = false)
+             Cd[:,:,i] = [Fd.U[1:Fd.rank, invperm(Fd.p)]; zeros(T,n-Fd.rank,n)]
+         end
+         U = psplyapd(Ad, Cd; adj)
+      else
+         #Threads.@threads for i = 1:K
+         for i = 1:K
+             Xd = tvclyap(A, C*C', i*Ts, (i-1)*Ts; adj, reltol, abstol, dt) 
+             Fd = cholesky(Xd, RowMaximum(), check = false)
+             Cd[:,:,i] = [Fd.L[invperm(Fd.p), 1:Fd.rank] zeros(T,n,n-Fd.rank)]
+         end
+         U = psplyapd(Ad, Cd; adj)
+      end
+   end
+   return PeriodicTimeSeriesMatrix([U[:,:,i] for i in 1:size(U,3)], period; nperiod)
+end
+"""
+     tvcplyap_eval(t, U, A, C; adj = false, solver, reltol, abstol, dt) -> Uval
+
+
+Compute the time value `Uval := U(t)` of the upper triangular periodic generators 
+`U(t)` of the solution `X(t) = U(t)U(t)'` of the periodic Lyapunov differential equation
+
+      .
+      X(t) = A(t)X(t) + X(t)A(t)' + C(t)C(t)' , X(t0) = U(t0)U(t0)', t > t0, if adj = false,
+
+or of the solution `X(t) = U(t)'U(t)` of the periodic Lyapunov differential equation
+
+      .
+     -X(t) = A(t)'X(t) + X(t)A(t) + C(t)'C(t) , X(t0) = U(t0)'U(t0), t < t0, if adj = true,
+
+using the periodic generator `U` determined with the function [`pgcplyap`](@ref) for the same periodic matrices `A` and `C`
+and the same value of the keyword argument `adj`. 
+The initial time `t0` is the nearest time grid value to `t`, from below, if `adj = false`, or from above, if `adj = true`. 
+
+The above ODE is solved by employing the integration method specified via the keyword argument `solver`, 
+together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+"""
+function tvcplyap_eval(t::Real,U::PeriodicTimeSeriesMatrix,A::PM1, C::PM2; adj = false, solver = "non-stiff", reltol = 1e-4, abstol = 1e-7, dt = 0) where
+   {PM1 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicTimeSeriesMatrix}, PM2 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicTimeSeriesMatrix}} 
+   tsub = U.period/U.nperiod
+   ns = length(U.values)
+   Δ = tsub/ns
+   tf = mod(t,tsub)
+   tf == 0 && (return U.values[1])
+   if adj 
+      ind = round(Int,tf/Δ)
+      if ind == ns
+         t0 = ind*Δ; ind = 1
+      else
+         t0 = (ind+1)*Δ; ind = ind+2; 
+         ind > ns && (ind = 1) 
+     end 
+   else
+      ind = round(Int,tf/Δ)
+      ind == 0 && (ind = 1) 
+      t0 = (ind-1)*Δ
+   end
+   n = size(A,1)
+   T = eltype(U)
+   # use fallback method
+   Q = adj ? C'*C : C*C'
+   X0 = adj ? U.values[ind]'*U.values[ind] : U.values[ind]*U.values[ind]' 
+   Xd = tvclyap(A, Q, tf, t0, X0; adj, solver, reltol, abstol, dt) 
+   if adj
+      Fd = cholesky(Xd, RowMaximum(), check = false)
+      return makesp!([qr(Fd.U[1:Fd.rank, invperm(Fd.p)]).R; zeros(T,n-Fd.rank,n)];adj)
+   else
+      Fd = cholesky(Xd, RowMaximum(), check = false)
+      return makesp!(triu(LAPACK.gerqf!([Fd.L[invperm(Fd.p), 1:Fd.rank] zeros(T,n,n-Fd.rank)], similar(Xd,n))[1]);adj)
+   end
+end
+function makesp!(r; adj = true)
+   # make upper triangular matrix with positive diagonal elements
+   if adj
+      for i = 1:size(r,1)
+          r[i,i] < 0 && (r[i,i:end] = -r[i,i:end])
+      end
+   else
+      for i = 1:size(r,1)
+          r[i,i] < 0 && (r[1:i,i] = -r[1:i,i])
+      end
+   end
+   return r
+end
+    

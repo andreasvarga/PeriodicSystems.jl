@@ -53,6 +53,10 @@ for PM in (PeriodicFunctionMatrix, HarmonicArray, PeriodicSymbolicMatrix, Fourie
     Rp = PM(R, Ap.period)
     Xp = inv(P)'*Xref*inv(P)
     Fp = Bp'*Xp
+    # if PM == PeriodicTimeSeriesMatrix 
+    #     Xp = inv(P1)'*Xref*inv(P1)
+    #     Fp = (P1*B)'*Xp
+    # end
     if PM == PeriodicTimeSeriesMatrix 
        @test norm(Ap'*Xp+Xp*Ap+Qp-Xp*Bp*Bp'*Xp + derivative(Xp)) < 1.e-5*norm(Xp)
     else
@@ -61,14 +65,16 @@ for PM in (PeriodicFunctionMatrix, HarmonicArray, PeriodicSymbolicMatrix, Fourie
     @test norm(sort(real(psceig(Ap-Bp*Fp))) - sort(EVALSref)) < 1.e-2
     
     solver = "symplectic"
+    #N = length(Xp.values)
+    ti = collect((0:N-1)*Xp.period/N)*(1+eps(10.))
     for solver in ("non-stiff", "stiff", "symplectic", "linear", "noidea")
         println("solver = $solver")
         @time X, EVALS, F = prcric(Ap, Bp, Rp, Qp; K = N, solver, reltol = 1.e-10, abstol = 1.e-10, fast = true) #error
-        Errx = norm(X-Xp)/norm(Xp); Errf = norm(F-Fp)/norm(Fp)
+        Errx = norm(X.(ti)-Xp.(ti))/norm(Xp); Errf = norm(F.(ti)-Fp.(ti))/norm(Fp)
         println("Errx = $Errx Errf = $Errf")
         @test Errx < 1.e-7 && Errf < 1.e-6 && norm(sort(real(EVALS)) - sort(EVALSref)) < 1.e-2
         @time X, EVALS, F = prcric(Ap, Bp, Rp, Qp; K = N, solver, reltol = 1.e-10, abstol = 1.e-10, fast = false) 
-        Errx = norm(X-Xp)/norm(Xp); Errf = norm(F-Fp)/norm(Fp)
+        Errx = norm(X.(ti)-Xp.(ti))/norm(Xp); Errf = norm(F.(ti)-Fp.(ti))/norm(Fp)
         println("Errx = $Errx Errf = $Errf")
         @test Errx < 1.e-7 && Errf < 1.e-6 && norm(sort(real(EVALS)) - sort(EVALSref)) < 1.e-2
     end
@@ -93,6 +99,7 @@ P1dot = PeriodicFunctionMatrix(t->[-ω*sin(t*ω)   ω*cos(t*ω); -ω*cos(t*ω)  
 # PM = HarmonicArray
 # PM = PeriodicTimeSeriesMatrix
 # PM = PeriodicSymbolicMatrix
+
 for PM in (PeriodicFunctionMatrix, HarmonicArray, PeriodicSymbolicMatrix, FourierFunctionMatrix, PeriodicTimeSeriesMatrix)
     println("type = $PM")
     N = PM == PeriodicTimeSeriesMatrix ? 128 : 200
@@ -117,15 +124,16 @@ for PM in (PeriodicFunctionMatrix, HarmonicArray, PeriodicSymbolicMatrix, Fourie
     
     solver = "symplectic" 
     solver = "stiff"
+    ti = collect((0:N-1)*Xp.period/N)*(1+eps(10.))
     for solver in ("non-stiff", "stiff", "symplectic", "linear", "noidea")
         println("solver = $solver")
         @time X, EVALS, F = pfcric(Ap, Cp, Rp, Qp; K = N, solver, reltol = 1.e-10, abstol = 1.e-10, fast = true) 
-        Errx = norm(X-Xp)/norm(Xp); Errf = norm(F-Fp)/norm(Fp)
+        Errx = norm(X.(ti)-Xp.(ti))/norm(Xp); Errf = norm(F.(ti)-Fp.(ti))/norm(Fp)
         println("Errx = $Errx Errf = $Errf")
         @test Errx < 1.e-7 && Errf < 1.e-6 && norm(sort(real(EVALS)) - sort(EVALSref)) < 1.e-2
         @time X, EVALS, F = pfcric(Ap, Cp, Rp, Qp; K = N, solver, reltol = 1.e-10, abstol = 1.e-10, fast = false) 
         #@test norm(Ap*X+X*Ap'+Qp-X*Gp*X -derivative(X)) < 1.e-6 ##&& norm(sort(real(psceig(Ap-F*Cp))) - sort(EVALSref)) < 1.e-2
-        Errx = norm(X-Xp)/norm(Xp); Errf = norm(F-Fp)/norm(Fp)
+        Errx = norm(X.(ti)-Xp.(ti))/norm(Xp); Errf = norm(F.(ti)-Fp.(ti))/norm(Fp)
         println("Errx = $Errx Errf = $Errf")
         @test Errx < 1.e-7 && Errf < 1.e-6 && norm(sort(real(EVALS)) - sort(EVALSref)) < 1.e-2
     end
@@ -172,24 +180,41 @@ for PM in (PeriodicFunctionMatrix, HarmonicArray)
     println("PM = $PM")
     psysc = ps(a,convert(PM,PeriodicFunctionMatrix(b,period)),c,d);
 
-    @time X, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 100, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true); 
+    @time X, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 100, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true,intpol = true); 
+    #@time X, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 100, solver = "non-stiff", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true); 
     clev = psceig(psysc.A-psysc.B*F,500)
     @test norm(sort(real(clev)) - sort(real(EVALS))) < 1.e-7 && norm(sort(imag(clev)) - sort(imag(EVALS))) < 1.e-7 
     @test norm(psysc.A'*X+X*psysc.A+q-X*psysc.B*inv(r)*psysc.B'*X +derivative(X))/norm(X) < 1.e-7 
 
     # this test covers the experimental code provided in PeriodicSchurDecompositions package and occasionally fails
-    @time X, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 100, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = false ); 
+    @time X, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 100, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = false,intpol = true ); 
+    #@time X, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 100, solver = "non-stiff", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = false ); 
     clev = psceig(psysc.A-psysc.B*F,500)
     println("EVALS = $EVALS, clev = $clev")
     @test norm(sort(real(clev)) - sort(real(EVALS))) < 1.e-7 && norm(sort(imag(clev)) - sort(imag(EVALS))) < 1.e-7 
     @test norm(psysc.A'*X+X*psysc.A+q-X*psysc.B*inv(r)*psysc.B'*X +derivative(X))/norm(X) < 1.e-7 
 
 
-    @time X, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 100, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = true); 
+    @time X, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 100, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = true,intpol = true); 
     clev = psceig(psysc.A-psysc.B*F,500)
     @test norm(sort(real(clev)) - sort(real(EVALS))) < 1.e-1 && norm(sort(imag(clev)) - sort(imag(EVALS))) < 1.e-1 
     @test norm(psysc.A'*X+X*psysc.A+q-X*psysc.B*inv(r)*psysc.B'*X +derivative(X))/norm(X) < 1.e-7 
 end 
+
+psysc = ps(a,convert(PM,PeriodicFunctionMatrix(b,period)),c,d);
+
+X1, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 100, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true);
+Xts, ev = pgcric(psysc.A, psysc.B*inv(r)*psysc.B', HarmonicArray(q,2pi), 100; adj = true);
+@test X1(0) ≈ Xts(0) && EVALS ≈ ev 
+
+T = psysc.period/100
+@test X1(T) ≈ Xts(T)
+t = T*100*rand();
+@test convert(HarmonicArray,Xts)(t) ≈ X1(t)
+Xt = PeriodicFunctionMatrix(t->PeriodicSystems.tvcric_eval(t,Xts,psysc.A, psysc.B*inv(r)*psysc.B', HarmonicArray(q,2pi); adj = true, solver = "symplectic", reltol = 1e-10, abstol = 1e-10),Xts.period)
+@test Xt(t) ≈ X1(t)
+
+
 end  # test
 
 end # module

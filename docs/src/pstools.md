@@ -14,6 +14,7 @@
 * **[`pmaverage`](@ref)**  Evaluation of the time averaged matrix of a continuous-time periodic matrix. 
 * **[`pslyapd`](@ref)**  Solution of periodic discrete-time Lyapunov equations using periodic Schur decomposition. 
 * **[`pslyapdkr`](@ref)**  Solution of periodic discrete-time Lyapunov equations using Kronecker product expansions. 
+* **[`psplyapd`](@ref)** Solution of positve periodic discrete-time Lyapunov equations. 
 
 
 ```@docs
@@ -31,4 +32,5 @@ hrtrunc
 pmaverage
 pslyapd
 pslyapdkr
+psplyapd
 ```

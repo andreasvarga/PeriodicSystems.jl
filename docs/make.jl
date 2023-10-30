@@ -1,7 +1,7 @@
 using Documenter, PeriodicSystems
 DocMeta.setdocmeta!(PeriodicSystems, :DocTestSetup, :(using PeriodicSystems); recursive=true)
 
-makedocs(
+makedocs(warnonly = true, 
   modules  = [PeriodicSystems],
   sitename = "PeriodicSystems.jl",
   authors  = "Andreas Varga",
