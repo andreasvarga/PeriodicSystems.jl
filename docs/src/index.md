@@ -34,13 +34,20 @@ The targeted functionality of this package is described in [1] and will cover bo
 * **[`ps`](@ref)**  Construction of periodic state-space models.
 * **[`psmrc2d`](@ref)**  Discretization/resampling of a multirate LTI system. 
 
-**Basic operations on periodic system models**
+**Basic connections and operations**
+
+* **[`psparallel`](@ref)** Parallel connection of periodic systems.
+* **[`psseries`](@ref)**   Series connection of periodic systems.
+* **[`psappend`](@ref)**   Appending of periodic systems.
+* **[`pshorzcat`](@ref)**  Horizontal concatenation of periodic systems.
+* **[`psvertcat`](@ref)**  Vertical concatenation of periodic systems.
+* **[`psfeedback`](@ref)**  Periodic output feedback connection.
 
 **Discretization of continuous-time periodic systems**
 
 * **[`psc2d`](@ref)**  Discretization of a continuous-time periodic system. 
 
-# Conversions to LTI representations
+**Conversions to LTI representations**
 
 * **[`psaverage`](@ref)**  Computation of the averaged LTI system of a continuous-time periodic system.
 * **[`psteval`](@ref)**  Computation of the time evaluated LTI system of a continuous-time periodic system.

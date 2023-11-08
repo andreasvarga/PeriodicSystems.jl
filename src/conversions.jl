@@ -8,13 +8,25 @@ function psaverage(psysc::PeriodicStateSpace{PM}) where {T,PM <: AbstractPeriodi
     return dss(pmaverage(psysc.A), pmaverage(psysc.B), pmaverage(psysc.C), pmaverage(psysc.D))
 end
 """
-    psteval(psysc,tval) -> sys::DescriptorStateSpace
+    psteval(psys,tval) -> sys::DescriptorStateSpace
 
-Compute for the continuous-time periodic system `psysc = (A(t),B(t),C(t),D(t))` and a time value `tval`, 
-the LTI system `sys = (A(tval),B(tval),C(tval),D(tval))`.  
+Compute for the periodic system `psys = (A(t),B(t),C(t),D(t))` and a time value `tval`, 
+the LTI system `sys = (A(tval),B(tval),C(tval),D(tval))`. If `A(tval)` is not square, then 
+`A(tval)` is padded with zeros to form a square matrix and appropriate numbers of zero rows and zero columns are added to 
+`B(tval)` and `C(tval)`, respectively. 
 """
-function psteval(psysc::PeriodicStateSpace{PM}, tval::Real = 0) where {T,PM <: AbstractPeriodicArray{:c,T}}
-    return dss(tvmeval(psysc.A, tval)[1], tvmeval(psysc.B, tval)[1], tvmeval(psysc.C, tval)[1], tvmeval(psysc.D, tval)[1])
+function psteval(psys::PeriodicStateSpace{PM}, tval::Real = 0) where {PM <: AbstractPeriodicArray}
+    A = tpmeval(psys.A, tval)
+    B = tpmeval(psys.B, tval)
+    C = tpmeval(psys.C, tval)
+    n1, n2 = size(A)
+    if n1 == n2
+       return dss(A, B, C, tpmeval(psys.D, tval); Ts = psys.Ts )
+    else
+       n = max(n1,n2) 
+       T = eltype(A)
+       return dss([A zeros(T,n1,n-n2);zeros(T,n-n1,n)], [B; zeros(T,n-n1,size(B,2))], [C zeros(T,size(C,1),n-n2)], tpmeval(psys.D, tval); Ts = psys.Ts )
+    end
 end
 """
      psmrc2d(sys, Ts; ki, ko) -> psys::PeriodicStateSpace{PeriodicMatrix}

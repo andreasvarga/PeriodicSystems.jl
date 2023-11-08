@@ -48,6 +48,7 @@ Xdert = PeriodicFunctionMatrix(Xder,16*pi,nperiod=8)
 t = rand(); 
 @test [At Ct](t) ≈ [At(t) Ct(t)]
 @test [At; Ct](t) ≈ [At(t); Ct(t)]
+@test blockdiag(At,Ct)(t) ≈ DescriptorSystems.blockdiag(At(t),Ct(t))
 
 
 D = rand(2,2)
@@ -88,6 +89,8 @@ Ah1i = inv(Ah1)
 @test hrchop(Ah1i; tol = 1.e-10) ≈ hrchop(Ah1i; tol = eps()) ≈ hrchop(Ah1i; tol = 1.e-10) 
 @test hrtrunc(Ah1i,19) ≈ hrtrunc(Ah1i,20)
 
+@test blockdiag(Ah,Ch)(t) ≈ DescriptorSystems.blockdiag(Ah(t),Ch(t))
+
 Ah = convert(HarmonicArray,PeriodicFunctionMatrix(A,4*pi));
 Ch = convert(HarmonicArray,PeriodicFunctionMatrix(C,2*pi));
 Cdh = convert(HarmonicArray,PeriodicFunctionMatrix(Cd,2*pi));
@@ -103,6 +106,7 @@ Xderh = convert(HarmonicArray,PeriodicFunctionMatrix(Xder,16*pi));
 t = rand(); 
 @test [Ah Ch](t) ≈ [Ah(t) Ch(t)]
 @test [Ah; Ch](t) ≈ [Ah(t); Ch(t)]
+@test blockdiag(Ah,Ch)(t) ≈ DescriptorSystems.blockdiag(Ah(t),Ch(t))
 
 
 # PeriodicSymbolicMatrix
@@ -147,6 +151,9 @@ Xders = PeriodicSymbolicMatrix(X1der,16*pi,nperiod = 8)
 t = rand(); 
 @test [As Cs](t) ≈ [As(t) Cs(t)]
 @test [As; Cs](t) ≈ [As(t); Cs(t)]
+@test blockdiag(As,Cs)(t) ≈ DescriptorSystems.blockdiag(As(t),Cs(t))
+
+
 
 
 
@@ -173,6 +180,8 @@ D = rand(2,2)
       iszero(opnorm(Af-Af)) 
 @test trace(Af-Af) == 0 && iszero(tr(Af-Af))
 
+@test blockdiag(Af,Cf)(t) ≈ DescriptorSystems.blockdiag(Af(t),Cf(t))
+
 
 Af = convert(FourierFunctionMatrix,PeriodicFunctionMatrix(A,4*pi,nperiod=2));
 Cf = convert(FourierFunctionMatrix,PeriodicFunctionMatrix(C,2*pi));
@@ -187,8 +196,10 @@ Xderf = convert(FourierFunctionMatrix,PeriodicFunctionMatrix(Xder,16*pi,nperiod=
 @test tpmeval(Af,1)[1:2,1:1] == tpmeval(Af[1:2,1],1) && lastindex(Af,1) == 2 && lastindex(Af,2) == 2
 
 t = rand(); 
+println([Af Cf])
 @test [Af Cf](t) ≈ [Af(t) Cf(t)]
 @test [Af; Cf](t) ≈ [Af(t); Cf(t)]
+@test blockdiag(Af,Cf)(t) ≈ DescriptorSystems.blockdiag(Af(t),Cf(t))
 
 # PeriodicTimeSeriesMatrix
 Ats = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(A,2*pi));
@@ -211,6 +222,9 @@ D = rand(2,2)
 @test iszero(opnorm(Ats-Ats,1)) && iszero(opnorm(Ats-Ats,2)) && iszero(opnorm(Ats-Ats,Inf)) && 
       iszero(opnorm(Ats-Ats)) 
 @test trace(Ats-Ats) == 0 && iszero(tr(Ats-Ats))
+
+t = rand(); 
+@test blockdiag(Ats,Cts)(t) ≈ DescriptorSystems.blockdiag(Ats(t),Cts(t))
 
 # same tsub
 # TA = PeriodicTimeSeriesMatrix([[i;;] for i in 1:4],30,nperiod=6)
@@ -251,6 +265,7 @@ Xderts = convert(PeriodicTimeSeriesMatrix,PeriodicFunctionMatrix(Xder,16*pi,nper
 t = rand(); 
 @test [Ats Cts](t) ≈ [Ats(t) Cts(t)]
 @test [Ats; Cts](t) ≈ [Ats(t); Cts(t)]
+@test blockdiag(Ats,Cts)(t) ≈ DescriptorSystems.blockdiag(Ats(t),Cts(t))
 
 
 # PeriodicSwitchingMatrix
@@ -276,6 +291,9 @@ D = rand(2,2)
 @test iszero(opnorm(Asw-Asw,1)) && iszero(opnorm(Asw-Asw,2)) && iszero(opnorm(Asw-Asw,Inf)) && 
       iszero(opnorm(Asw-Asw)) 
 @test trace(Asw-Asw) == 0 && iszero(tr(Asw-Asw))
+t = rand(); 
+@test blockdiag(Asw,Csw)(t) ≈ DescriptorSystems.blockdiag(Asw(t),Csw(t))
+
 
 
 
@@ -307,6 +325,8 @@ D = rand(n,n)
 @test PeriodicArray(D,2*pi) == PeriodicArray(D,4*pi) && 
       PeriodicArray(D,2*pi) ≈ PeriodicArray(D,4*pi)
 
+@test blockdiag(Ad,Xd)[10] ≈ DescriptorSystems.blockdiag(Ad[10],Xd[10])      
+
 
 Ad1 = PeriodicArray(Ad.M,2*pa;nperiod=2);
 Xd1 = PeriodicArray(x,3*px; nperiod = 3);
@@ -320,6 +340,8 @@ Xr1 = prdlyap(Ad1, Qdr1);
 @test Ad'*pmshift(Xr1)*Ad + Qdr ≈ Xr1 && Xd ≈ Xr1
 
 @test Ad[1:2,1:1].M == Ad.M[1:2,1:1,:]  && lastindex(Ad,1) == n && lastindex(Ad,2) == n
+
+@test blockdiag(Ad1,Xd1)[10] ≈ DescriptorSystems.blockdiag(Ad1[10],Xd1[10])  
 
 
 # PeriodicMatrix
@@ -349,6 +371,9 @@ D = rand(n,n)
 @test Ad*5 == 5*Ad  && Ad*D ≈ -Ad*(-D) && iszero(Ad-Ad) && !iszero(Ad)
 @test PeriodicMatrix(D,2*pi) == PeriodicMatrix(D,4*pi) && 
       PeriodicMatrix(D,2*pi) ≈ PeriodicMatrix(D,4*pi)
+     
+@test blockdiag(Ad,Xd)[10] ≈ DescriptorSystems.blockdiag(Ad[10],Xd[10])      
+      
 
 
 Ad1 = PeriodicMatrix(Ad.M,2*pa;nperiod=2);
@@ -366,6 +391,7 @@ Xr1 = prdlyap(Ad1, Qdr1);
 
 
 @test [[Ad Ad]; [Ad Ad]] == [[Ad;Ad] [Ad;Ad]]
+@test blockdiag(Ad1,Xd1)[10] ≈ DescriptorSystems.blockdiag(Ad1[10],Xd1[10]) 
 
 
 # time-varying dimensions
@@ -389,6 +415,9 @@ Qds = pmshift(Qdf);
 @test Ad*5 == 5*Ad &&  iszero(Ad-Ad) && !iszero(Ad) && Qdf + I == I+Qdf
 @test_throws DimensionMismatch Ad ≈ I && Ad-I 
 
+@test blockdiag(Ad,Xd)[10] ≈ DescriptorSystems.blockdiag(Ad[10],Xd[10])      
+
+
 
 Ad1 = PeriodicMatrix(Ad.M,2*pa;nperiod=2);
 Xd1 = PeriodicMatrix(Xd.M,3*px; nperiod = 3);
@@ -402,6 +431,8 @@ Xr1 = prdlyap(Ad1, Qdr1);
 @test Ad'*pmshift(Xr1)*Ad + Qdr ≈ Xr1 && Xd ≈ Xr1
 
 @test Ad[1:1,1:1].M == [Ad.M[i][1:1,1:1] for i in 1:length(Ad)] && lastindex(Ad,1) == 1 && lastindex(Ad,2) == 1
+
+@test blockdiag(Ad1,Xd1)[10] ≈ DescriptorSystems.blockdiag(Ad1[10],Xd1[10]) 
 
 
 # SwitchingPeriodicMatrix
@@ -447,7 +478,7 @@ D = rand(n,n)
 
 @test [[Ad Xd]; [Xd Ad]] == [[Ad;Xd] [Xd;Ad]]
 
-
+@test blockdiag(Ad,Xd)[10] ≈ DescriptorSystems.blockdiag(Ad[10],Xd[10])   
 
 end # pmops
 

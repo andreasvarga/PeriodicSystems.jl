@@ -1,12 +1,17 @@
 # Release Notes
 
-## Version 0.6.2 (planned)
+## Version 0.6.3 (planned)
 
 The following new functions have been implemented:
 - memoryless output feedback connection of periodic systems (WIP)
 - output feedback stabilization of constant systems using periodic switching and periodic harmonic gains (WIP)
 - output feedback based stabilization of periodic systems using periodic harmonic gains 
 - state feedack based stabilization via linear-quadratic optimization
+
+## Version 0.6.2 
+
+New functions have been implemented to perform several connections of periodic systems (i.e., parallel, series, concatenations, appending, feedback) and the inversion operation. 
+These functions are based on enhancements of basic concatenation functions on periodic matrices and a new set of functions which implement the block-diagonal stacking of periodic matrices.   
 
 ## Version 0.6.1 
 

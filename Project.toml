@@ -1,7 +1,7 @@
 name = "PeriodicSystems"
 uuid = "5decd0d0-8a5f-11ec-2edd-87b25cbcd17e"
 authors = ["Andreas Varga <varga.andreas@gmail.com>"]
-version = "0.6.1"
+version = "0.6.2"
 
 [deps]
 ApproxFun = "28f2ccd6-bb30-5033-b560-165f7b14dc2f"
@@ -34,7 +34,7 @@ MatrixPencils = "1.7"
 Optim = "1.7"
 OrdinaryDiffEq = "v5.72.2, 6"
 PeriodicSchurDecompositions = "0.1.1"
-Polynomials = "3.2"
+Polynomials = "3.2, 4"
 Primes = "0.5"
 Random = "1"
 SLICOT_jll = "5.8"

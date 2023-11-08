@@ -13,10 +13,10 @@ makedocs(warnonly = true,
           "pstypes.md",
           "ps.md"
           ],
+          "Basic connections and operations" => "psconnect.md",
           "Basic conversions" => 
           ["psconversions.md",
-           "pslifting.md"],
-   #      "operations.md",
+           "pslifting.md"],          
    #      "order_reduction.md",
           "psanalysis.md",
           "pslyap.md",

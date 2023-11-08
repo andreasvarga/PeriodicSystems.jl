@@ -1,4 +1,10 @@
 # Operations with periodic arrays
+function pmzeros(::Type{T},m::Vector{Int},n::Vector{Int}) where {T}
+    lm = length(m)
+    ln = length(n)
+    return [zeros(T,m[mod(i-1,lm)+1], n[mod(i-1,ln)+1]) for i in 1:lcm(lm,ln)]
+end
+pmzeros(m::Vector{Int},n::Vector{Int}) = pmzeros(Float64,m,n)
 function pmshift(A::PeriodicArray, k::Int = 1)
     return PeriodicArray(A.M[:,:,mod.(k:A.dperiod+k-1,A.dperiod).+1], A.period; nperiod = A.nperiod)
 end
@@ -170,6 +176,25 @@ function vertcat(A::PeriodicArray, B::PeriodicArray)
 end
 Base.vcat(A::PeriodicArray, B::PeriodicArray) = vertcat(A,B)
 
+function blockdiag(A::PeriodicArray, B::PeriodicArray)
+    A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
+    period = promote_period(A, B)
+    ma, na, pa = size(A.M)
+    mb, nb, pb = size(B.M)
+    p = lcm(pa,pb)
+    nta = numerator(rationalize(period/A.period))
+    K = nta*A.nperiod*pa
+    T = promote_type(eltype(A),eltype(B))
+    X = Array{T,3}(undef, ma+mb, na+nb, p)
+    for i = 1:p
+        ia = mod(i-1,pa)+1
+        ib = mod(i-1,pb)+1
+        X[:,:,i] = DescriptorSystems.blockdiag(view(A.M,:,:,ia), view(B.M,:,:,ib))
+    end
+    return PeriodicArray(X, period; nperiod = div(K,p))
+end
+
+
 
 # Operations with periodic matrices
 function pmshift(A::PeriodicMatrix, k::Int = 1)
@@ -323,6 +348,25 @@ function vertcat(A::PeriodicMatrix, B::PeriodicMatrix)
 end
 Base.vcat(A::PeriodicMatrix, B::PeriodicMatrix) = vertcat(A,B)
 
+function blockdiag(A::PeriodicMatrix, B::PeriodicMatrix)
+    A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
+    period = promote_period(A, B)
+    pa = length(A) 
+    pb = length(B)
+    p = lcm(pa,pb)
+    nta = numerator(rationalize(period/A.period))
+    K = nta*A.nperiod*pa
+    T = promote_type(eltype(A),eltype(B))
+    X = Vector{Matrix{T}}(undef, p)
+    for i = 1:p
+        ia = mod(i-1,pa)+1
+        ib = mod(i-1,pb)+1
+        X[i] = DescriptorSystems.blockdiag(A.M[ia], B.M[ib])
+    end
+    return PeriodicMatrix(X, period; nperiod = div(K,p))
+end
+
+
 #  SwitchingPeriodicMatrix
 function pmshift(A::SwitchingPeriodicMatrix, k::Int = 1)
     return convert(SwitchingPeriodicMatrix,pmshift(convert(PeriodicMatrix,A),k))
@@ -473,7 +517,7 @@ function horzcat(A::SwitchingPeriodicMatrix, B::SwitchingPeriodicMatrix)
     A.period == B.period && A.nperiod == B.nperiod && A.ns == B.ns &&
         (return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([[A.M[i] B.M[i]] for i in 1:length(A.M)], A.ns, A.period, A.nperiod))
     isconstant(A) && 
-       (return SwitchingPeriodicMatrix{:dct,promote_type(eltype(A),eltype(B))}([[A.M[1] B.M[i]] for i in 1:length(B.M)], B.ns, B.period, B.nperiod))
+       (return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([[A.M[1] B.M[i]] for i in 1:length(B.M)], B.ns, B.period, B.nperiod))
     isconstant(B) && 
        (return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([[A.M[i] B.M[1]] for i in 1:length(Av)], A.ns, A.period, A.nperiod))
     A.period == B.period || error("periods must be equal for horizontal concatenation")
@@ -510,6 +554,28 @@ function vertcat(A::SwitchingPeriodicMatrix, B::SwitchingPeriodicMatrix)
     return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([[kpmeval(A,ns[i]); kpmeval(B,ns[i])] for i in 1:N], ns, A.period, nperiod)   
 end
 Base.vcat(A::SwitchingPeriodicMatrix, B::SwitchingPeriodicMatrix) = vertcat(A,B)
+
+function blockdiag(A::SwitchingPeriodicMatrix, B::SwitchingPeriodicMatrix)
+    A.period == B.period && A.nperiod == B.nperiod && A.ns == B.ns &&
+        (return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([DescriptorSystems.blockdiag(A.M[i], B.M[i]) for i in 1:length(A.M)], A.ns, A.period, A.nperiod))
+    isconstant(A) && 
+       (return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([DescriptorSystems.blockdiag(A.M[1], B.M[i]) for i in 1:length(B.M)], B.ns, B.period, B.nperiod))
+    isconstant(B) && 
+       (return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([DescriptorSystems.blockdiag(A.M[i], B.M[1]) for i in 1:length(A.M)], A.ns, A.period, A.nperiod))
+
+    A.period == B.period || error("periods must be equal for block-diagonal appending")
+    nperiod = A.nperiod
+    if  nperiod == B.nperiod
+        ns = unique(sort([A.ns;B.ns]))
+    else
+        nperiod = gcd(A.nperiod,B.nperiod)
+        ns = unique(sort([vcat([(i-1)*A.dperiod .+ A.ns for i in 1:div(A.nperiod,nperiod)]...);
+                          vcat([(i-1)*B.dperiod .+ B.ns for i in 1:div(B.nperiod,nperiod)]...)]))
+    end
+    N = length(ns)                  
+    return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([DescriptorSystems.blockdiag(kpmeval(A,ns[i]), kpmeval(B,ns[i])) for i in 1:N], ns, A.period, nperiod)   
+end
+
 
 # Operations with periodic function matrices
 function derivative(A::PeriodicFunctionMatrix{:c,T};  h::Union{Missing,Real} = missing,  method = "cd") where {T}
@@ -656,6 +722,19 @@ function vertcat(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix)
 end
 Base.vcat(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix) = vertcat(A,B)
 
+function blockdiag(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix)
+    period = promote_period(A, B)
+    nperiod = gcd(A.nperiod,B.nperiod)
+    T = promote_type(eltype(A),eltype(B))
+    if isconstant(A) && isconstant(B)
+       return PeriodicFunctionMatrix{:c,T}(t -> DescriptorSystems.blockdiag(A.f(0), B.f(0)), period, (A.dims[1]+B.dims[1],A.dims[2]+B.dims[2]), nperiod, true)
+    else
+       return PeriodicFunctionMatrix{:c,T}(t -> DescriptorSystems.blockdiag(A.f(t),B.f(t)), period, (A.dims[1]+B.dims[1],A.dims[2]+B.dims[2]), nperiod, false)
+    end
+end
+
+
+
 
 Base.iszero(A::PeriodicFunctionMatrix) = iszero(A.f(rand()*A.period))
 LinearAlgebra.issymmetric(A::PeriodicFunctionMatrix) = issymmetric(A.f(rand()*A.period))
@@ -790,14 +869,31 @@ function horzcat(A::PeriodicSymbolicMatrix, B::PeriodicSymbolicMatrix)
     nperiod = gcd(A.nperiod,B.nperiod)
     return PeriodicSymbolicMatrix{:c,Num}([A.F B.F], period; nperiod)
 end
-Base.hcat(A::PeriodicSymbolicMatrix, B::PeriodicSymbolicMatrix) = horzcat(A,B)
+hcat(A::PeriodicSymbolicMatrix, B::PeriodicSymbolicMatrix) = horzcat(A,B)
+hcat(A::PeriodicSymbolicMatrix, C::AbstractMatrix) = horzcat(A, PeriodicSymbolicMatrix(C, A.period))
+hcat(A::AbstractMatrix, C::PeriodicSymbolicMatrix) = horzcat(PeriodicSymbolicMatrix(A, C.period), C)
+horzcat(A::PeriodicSymbolicMatrix, C::AbstractMatrix) = horzcat(A, PeriodicSymbolicMatrix(C, A.period))
+horzcat(A::AbstractMatrix, C::PeriodicSymbolicMatrix) = horzcat(PeriodicSymbolicMatrix(A, C.period), C)
+
 
 function vertcat(A::PeriodicSymbolicMatrix, B::PeriodicSymbolicMatrix)
     period = promote_period(A, B)
     nperiod = gcd(A.nperiod,B.nperiod)
     return PeriodicSymbolicMatrix{:c,Num}([A.F; B.F], period; nperiod)
 end
-Base.vcat(A::PeriodicSymbolicMatrix, B::PeriodicSymbolicMatrix) = vertcat(A,B)
+vcat(A::PeriodicSymbolicMatrix, B::PeriodicSymbolicMatrix) = vertcat(A,B)
+vcat(A::PeriodicSymbolicMatrix, C::AbstractMatrix) = vertcat(A, PeriodicSymbolicMatrix(C, A.period))
+vcat(A::AbstractMatrix, C::PeriodicSymbolicMatrix) = vertcat(PeriodicSymbolicMatrix(A, C.period), C)
+vertcat(A::PeriodicSymbolicMatrix, C::AbstractMatrix) = vertcat(A, PeriodicSymbolicMatrix(C, A.period))
+vertcat(A::AbstractMatrix, C::PeriodicSymbolicMatrix) = vertcat(PeriodicSymbolicMatrix(A, C.period), C)
+
+
+function blockdiag(A::PeriodicSymbolicMatrix, B::PeriodicSymbolicMatrix)
+    period = promote_period(A, B)
+    nperiod = gcd(A.nperiod,B.nperiod)
+    return PeriodicSymbolicMatrix{:c,Num}(DescriptorSystems.blockdiag(A.F, B.F), period; nperiod)
+end
+
 
 
 Base.iszero(A::PeriodicSymbolicMatrix) = iszero(A.F)
@@ -1018,14 +1114,19 @@ function horzcat(A::HarmonicArray, B::HarmonicArray)
        lmax = max(la,lb)
        Ahr = zeros(Complex{T},m,n+nb,lmax)
        copyto!(view(Ahr,1:m,1:n,1:la), view(A.values,1:m,1:n,1:la))
-       copyto!(view(Ahr,1:m,n+1:n+nb,1:la), view(B.values,1:m,1:nb,1:lb))
+       copyto!(view(Ahr,1:m,n+1:n+nb,1:lb), view(B.values,1:m,1:nb,1:lb))
        return HarmonicArray{:c,T}(Ahr, A.period, nperiod = A.nperiod) 
     else
        #TODO: fix different numbers of subperiods 
        convert(HarmonicArray,[convert(PeriodicFunctionMatrix,A) convert(PeriodicFunctionMatrix,B)])
     end
 end
-Base.hcat(A::HarmonicArray, B::HarmonicArray) = horzcat(A,B)
+hcat(A::HarmonicArray, B::HarmonicArray) = horzcat(A,B)
+hcat(A::HarmonicArray, C::AbstractMatrix) = horzcat(A, HarmonicArray(C, A.period))
+hcat(A::AbstractMatrix, C::HarmonicArray) = horzcat(HarmonicArray(A, C.period), C)
+horzcat(A::HarmonicArray, C::AbstractMatrix) = horzcat(A, HarmonicArray(C, A.period))
+horzcat(A::AbstractMatrix, C::HarmonicArray) = horzcat(HarmonicArray(A, C.period), C)
+
 
 function vertcat(A::HarmonicArray, B::HarmonicArray)
     if A.period == B.period && A.nperiod == B.nperiod
@@ -1043,7 +1144,29 @@ function vertcat(A::HarmonicArray, B::HarmonicArray)
        convert(HarmonicArray,[convert(PeriodicFunctionMatrix,A); convert(PeriodicFunctionMatrix,B)])
     end
 end
-Base.vcat(A::HarmonicArray, B::HarmonicArray) = vertcat(A,B)
+vcat(A::HarmonicArray, B::HarmonicArray) = vertcat(A,B)
+vcat(A::HarmonicArray, C::AbstractMatrix) = vertcat(A, HarmonicArray(C, A.period))
+vcat(A::AbstractMatrix, C::HarmonicArray) = vertcat(HarmonicArray(A, C.period), C)
+vertcat(A::HarmonicArray, C::AbstractMatrix) = vertcat(A, HarmonicArray(C, A.period))
+vertcat(A::AbstractMatrix, C::HarmonicArray) = vertcat(HarmonicArray(A, C.period), C)
+
+
+function blockdiag(A::HarmonicArray, B::HarmonicArray)
+    if A.period == B.period && A.nperiod == B.nperiod
+        ma, na, la = size(A.values)
+        mb, nb, lb = size(B.values)
+        T = promote_type(eltype(A),eltype(B))
+        lmax = max(la,lb)
+        Ahr = zeros(Complex{T},ma+mb,na+nb,lmax)
+        copyto!(view(Ahr,1:ma,1:na,1:la),A.values) 
+        copyto!(view(Ahr,ma+1:ma+mb,na+1:na+nb,1:lb),B.values) 
+        return HarmonicArray{:c,real(T)}(Ahr, A.period, nperiod = A.nperiod) 
+      else
+        #TODO: fix different numbers of subperiods 
+        convert(HarmonicArray,blockdiag(convert(PeriodicFunctionMatrix,A),convert(PeriodicFunctionMatrix,B)))
+     end
+ end
+
 
 
 #FourierFunctionMatrices
@@ -1151,16 +1274,32 @@ end
 
 
 function horzcat(A::FourierFunctionMatrix, B::FourierFunctionMatrix)
-    A.period == B.period && A.nperiod == B.nperiod && (return FourierFunctionMatrix([A.M B.M], A.period; nperiod = A.nperiod))
+    A.period == B.period && A.nperiod == B.nperiod && (return FourierFunctionMatrix(Fun(t->[A.M(t) B.M(t)]), A.period; nperiod = A.nperiod))
     convert(FourierFunctionMatrix,[convert(PeriodicFunctionMatrix,A) convert(PeriodicFunctionMatrix,B)])
 end
-Base.hcat(A::FourierFunctionMatrix, B::FourierFunctionMatrix) = horzcat(A,B)
+hcat(A::FourierFunctionMatrix, B::FourierFunctionMatrix) = horzcat(A,B)
+hcat(A::FourierFunctionMatrix, C::AbstractMatrix) = horzcat(A, FourierFunctionMatrix(C, A.period))
+hcat(A::AbstractMatrix, C::FourierFunctionMatrix) = horzcat(FourierFunctionMatrix(A, C.period), C)
+horzcat(A::FourierFunctionMatrix, C::AbstractMatrix) = horzcat(A, FourierFunctionMatrix(C, A.period))
+horzcat(A::AbstractMatrix, C::FourierFunctionMatrix) = horzcat(FourierFunctionMatrix(A, C.period), C)
+
 
 function vertcat(A::FourierFunctionMatrix, B::FourierFunctionMatrix)
-    A.period == B.period && A.nperiod == B.nperiod && (return FourierFunctionMatrix([A.M; B.M], A.period; nperiod = A.nperiod))
+    A.period == B.period && A.nperiod == B.nperiod && (return FourierFunctionMatrix(Fun(t->[A.M(t); B.M(t)]), A.period; nperiod = A.nperiod))
     convert(FourierFunctionMatrix,[convert(PeriodicFunctionMatrix,A); convert(PeriodicFunctionMatrix,B)])
 end
-Base.vcat(A::FourierFunctionMatrix, B::FourierFunctionMatrix) = vertcat(A,B)
+vcat(A::FourierFunctionMatrix, B::FourierFunctionMatrix) = vertcat(A,B)
+vcat(A::FourierFunctionMatrix, C::AbstractMatrix) = vertcat(A, FourierFunctionMatrix(C, A.period))
+vcat(A::AbstractMatrix, C::FourierFunctionMatrix) = vertcat(FourierFunctionMatrix(A, C.period), C)
+vertcat(A::FourierFunctionMatrix, C::AbstractMatrix) = vertcat(A, FourierFunctionMatrix(C, A.period))
+vertcat(A::AbstractMatrix, C::FourierFunctionMatrix) = vertcat(FourierFunctionMatrix(A, C.period), C)
+
+
+function blockdiag(A::FourierFunctionMatrix, B::FourierFunctionMatrix)
+    A.period == B.period && A.nperiod == B.nperiod && (return FourierFunctionMatrix(Fun(t->DescriptorSystems.blockdiag(A.M(t), B.M(t))), A.period; nperiod = A.nperiod))
+    convert(FourierFunctionMatrix,DescriptorSystems.blockdiag(convert(PeriodicFunctionMatrix,A), convert(PeriodicFunctionMatrix,B)))
+end
+
 
 
 Base.iszero(A::FourierFunctionMatrix) = iszero(A.M)
@@ -1355,7 +1494,12 @@ function horzcat(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix)
         return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[tpmeval(A,(i-1)*Δ+δ) tpmeval(B,(i-1)*Δ+δ)] for i in 1:ns], period, nperiod)   
     end     
 end
-Base.hcat(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix) = horzcat(A,B)
+hcat(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix) = horzcat(A,B)
+hcat(A::PeriodicTimeSeriesMatrix, C::AbstractMatrix) = horzcat(A, PeriodicTimeSeriesMatrix(C, A.period))
+hcat(A::AbstractMatrix, C::PeriodicTimeSeriesMatrix) = horzcat(PeriodicTimeSeriesMatrix(A, C.period), C)
+horzcat(A::PeriodicTimeSeriesMatrix, C::AbstractMatrix) = horzcat(A, PeriodicTimeSeriesMatrix(C, A.period))
+horzcat(A::AbstractMatrix, C::PeriodicTimeSeriesMatrix) = horzcat(PeriodicTimeSeriesMatrix(A, C.period), C)
+
 
 function vertcat(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix)
     A.period == B.period && A.nperiod == B.nperiod && length(A) == length(B) && 
@@ -1381,7 +1525,37 @@ function vertcat(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix)
         return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([[tpmeval(A,(i-1)*Δ+δ); tpmeval(B,(i-1)*Δ+δ)] for i in 1:ns], period, nperiod)   
     end     
 end
-Base.vcat(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix) = vertcat(A,B)
+vcat(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix) = vertcat(A,B)
+vcat(A::PeriodicTimeSeriesMatrix, C::AbstractMatrix) = vertcat(A, PeriodicTimeSeriesMatrix(C, A.period))
+vcat(A::AbstractMatrix, C::PeriodicTimeSeriesMatrix) = vertcat(PeriodicTimeSeriesMatrix(A, C.period), C)
+vertcat(A::PeriodicTimeSeriesMatrix, C::AbstractMatrix) = vertcat(A, PeriodicTimeSeriesMatrix(C, A.period))
+vertcat(A::AbstractMatrix, C::PeriodicTimeSeriesMatrix) = vertcat(PeriodicTimeSeriesMatrix(A, C.period), C)
+
+function blockdiag(A::PeriodicTimeSeriesMatrix, B::PeriodicTimeSeriesMatrix)
+    A.period == B.period && A.nperiod == B.nperiod && length(A) == length(B) && 
+        (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([DescriptorSystems.blockdiag(A.values[i],B.values[i]) for i in 1:length(A)], A.period, A.nperiod))
+    isconstant(A) && 
+       (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([DescriptorSystems.blockdiag(A.values[1],B.values[i]) for i in 1:length(B)], B.period, B.nperiod))
+    isconstant(B) && 
+       (return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([DescriptorSystems.blockdiag(A.values[i],B.values[1]) for i in 1:length(A)], A.period, A.nperiod))
+    if A.period == B.period 
+        nperiod = gcd(A.nperiod,B.nperiod)
+        ns = div(lcm(A.nperiod*length(A),B.nperiod*length(B)),nperiod)
+        Δ = A.period/nperiod/ns
+        δ = Δ/2
+        return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([DescriptorSystems.blockdiag(tpmeval(A,(i-1)*Δ+δ), tpmeval(B,(i-1)*Δ+δ)) for i in 1:ns], A.period, nperiod) 
+    else          
+        Tsub = A.period/A.nperiod
+        Tsub ≈ B.period/B.nperiod || error("periods or subperiods must be equal for block-diagonal appending")
+        nperiod = lcm(A.nperiod,B.nperiod)
+        period = Tsub*nperiod
+        ns = lcm(length(A),length(B))
+        Δ = Tsub/ns
+        δ = Δ/2
+        return PeriodicTimeSeriesMatrix{:c,promote_type(eltype(A),eltype(B))}([DescriptorSystems.blockdiag(tpmeval(A,(i-1)*Δ+δ),tpmeval(B,(i-1)*Δ+δ)) for i in 1:ns], period, nperiod)   
+    end     
+end
+
 
 
 # Operations with periodic switching matrices
@@ -1540,7 +1714,11 @@ function horzcat(A::PeriodicSwitchingMatrix, B::PeriodicSwitchingMatrix)
     end
     return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([[tpmeval(A,ts[i]) tpmeval(B,ts[i])] for i in 1:length(ts)], ts, A.period, gcd(A.nperiod,B.nperiod))
 end
-Base.hcat(A::PeriodicSwitchingMatrix, B::PeriodicSwitchingMatrix) = horzcat(A,B)
+hcat(A::PeriodicSwitchingMatrix, B::PeriodicSwitchingMatrix) = horzcat(A,B)
+hcat(A::PeriodicSwitchingMatrix, C::AbstractMatrix) = horzcat(A, PeriodicSwitchingMatrix(C, A.period))
+hcat(A::AbstractMatrix, C::PeriodicSwitchingMatrix) = horzcat(PeriodicSwitchingMatrix(A, C.period), C)
+horzcat(A::PeriodicSwitchingMatrix, C::AbstractMatrix) = horzcat(A, PeriodicSwitchingMatrix(C, A.period))
+horzcat(A::AbstractMatrix, C::PeriodicSwitchingMatrix) = horzcat(PeriodicSwitchingMatrix(A, C.period), C)
 
 function vertcat(A::PeriodicSwitchingMatrix, B::PeriodicSwitchingMatrix)
     A.period == B.period && A.nperiod == B.nperiod && length(A) == length(B) && A.ts == B.ts &&
@@ -1558,4 +1736,27 @@ function vertcat(A::PeriodicSwitchingMatrix, B::PeriodicSwitchingMatrix)
     end
     return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([[tpmeval(A,ts[i]); tpmeval(B,ts[i])] for i in 1:length(ts)], ts, A.period, gcd(A.nperiod,B.nperiod))
 end
-Base.vcat(A::PeriodicSwitchingMatrix, B::PeriodicSwitchingMatrix) = vertcat(A,B)
+vcat(A::PeriodicSwitchingMatrix, B::PeriodicSwitchingMatrix) = vertcat(A,B)
+vcat(A::PeriodicSwitchingMatrix, C::AbstractMatrix) = vertcat(A, PeriodicSwitchingMatrix(C, A.period))
+vcat(A::AbstractMatrix, C::PeriodicSwitchingMatrix) = vertcat(PeriodicSwitchingMatrix(A, C.period), C)
+vertcat(A::PeriodicSwitchingMatrix, C::AbstractMatrix) = vertcat(A, PeriodicSwitchingMatrix(C, A.period))
+vertcat(A::AbstractMatrix, C::PeriodicSwitchingMatrix) = vertcat(PeriodicSwitchingMatrix(A, C.period), C)
+
+
+function blockdiag(A::PeriodicSwitchingMatrix, B::PeriodicSwitchingMatrix)
+    A.period == B.period && A.nperiod == B.nperiod && length(A) == length(B) && A.ts == B.ts &&
+        (return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([DescriptorSystems.blockdiag(A.values[i],B.values[i]) for i in 1:length(A)], A.ts, A.period, A.nperiod))
+    isconstant(A) && 
+       (return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([DescriptorSystems.blockdiag(A.values[1], B.values[i]) for i in 1:length(B)], B.ts, B.period, B.nperiod))
+    isconstant(B) && 
+       (return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([DescriptorSystems.blockdiag(A.values[i], B.values[1]) for i in 1:length(A)], A.ts, A.period, A.nperiod))
+    A.period == B.period || error("periods must be equal for block-diagonal appending")
+    if A.nperiod == B.nperiod
+        ts = unique(sort([A.ts;B.ts]))
+    else
+        ts = unique(sort([vcat([(i-1)*A.period/A.nperiod .+ A.ts for i in 1:A.nperiod]...);
+                          vcat([(i-1)*B.period/B.nperiod .+ B.ts for i in 1:B.nperiod]...)]))
+    end
+    return PeriodicSwitchingMatrix{:c,promote_type(eltype(A),eltype(B))}([DescriptorSystems.blockdiag(tpmeval(A,ts[i]), tpmeval(B,ts[i])) for i in 1:length(ts)], ts, A.period, gcd(A.nperiod,B.nperiod))
+end
+

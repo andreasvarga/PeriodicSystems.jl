@@ -497,6 +497,9 @@ function FourierFunctionMatrix{:c,T}(A::Fun, period::Real) where {T}
 end
 FourierFunctionMatrix(A::Fun, period::Real; nperiod::Int = 1)  = 
        FourierFunctionMatrix{:c,eltype(domain(A))}(A, period, nperiod) 
+# FourierFunctionMatrix(A::Matrix{<:Fun}, period::Real; nperiod::Int = 1)  = 
+#        FourierFunctionMatrix{:c,eltype(domain(A))}(A, period, nperiod) 
+
 FourierFunctionMatrix(A::Fun)  = FourierFunctionMatrix{:c,eltype(domain(A))}(A::Fun, domain(A).b) 
 function FourierFunctionMatrix{:c,T}(A::FourierFunctionMatrix, period::Real) where {T}
    period > 0 || error("period must be positive") 
@@ -1008,7 +1011,6 @@ function Base.convert(::Type{<:PeriodicTimeSeriesMatrix}, A::PM; ns::Int = 1) wh
       end
       den == 1 || (Δ /= den)
    end
-   @show ns
    #K = rationalize(A.period/A.nperiod/Δ).num # minimum number of possible sample times
    K = round(Int,A.period/A.nperiod/Δ) # minimum number of possible sample times
    if ns > 1 

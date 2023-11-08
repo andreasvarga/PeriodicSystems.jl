@@ -342,7 +342,7 @@ isdiscrete(sys::PeriodicStateSpace) = !iscontinuous(sys.A)
 
 function Base.getindex(sys::PSS, inds...) where PSS <: PeriodicStateSpace
    size(inds, 1) != 2 &&
-       error("Must specify 2 indices to index descriptor state-space models")
+       error("Must specify 2 indices to index periodic state-space models")
    rows, cols = index2range(inds...) 
    return PeriodicStateSpace(sys.A, sys.B[:, cols], sys.C[rows, :], sys.D[rows, cols])
 end
