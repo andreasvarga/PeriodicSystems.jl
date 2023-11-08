@@ -43,6 +43,7 @@ DWORK = Array{Float64,1}(undef, LDWORK)
 mb03bd!('T','C','I',QIND,3,3,ihess,1,3,S,A,Q,ALPHAR, ALPHAI, BETA, SCAL, LIWORK, LDWORK)
 
 poles = (ALPHAR+im*ALPHAI) ./ BETA .* (2. .^SCAL)
+println("poles = $poles")
 
 @test sort(real(poles)) ≈ sort(real(ev)) && 
       sort(imag(poles)) ≈ sort(imag(ev))
