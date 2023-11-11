@@ -17,7 +17,7 @@ A = PeriodicMatrix([rand(n,n) for i in 1:p],period);
 B = PeriodicMatrix([rand(n,m) for i in 1:p],period);
 R = PeriodicMatrix(eye(Float64,m),period; nperiod = period);
 C = PeriodicMatrix([rand(m,n) for i in 1:p],period);
-Q = C'*C
+Q = C'*C; Q = (Q+Q')/2
 
 @time X, EVALS, G = prdric(A,B,R,Q);
 
@@ -50,7 +50,7 @@ A = PeriodicMatrix([rand(ma[i],na[i]) for i in 1:p],period);
 B = PeriodicMatrix([rand(ma[i],m) for i in 1:p],period);
 R = PeriodicMatrix(eye(Float64,m),period; nperiod = rationalize(A.period/A.Ts).num);
 C = PeriodicMatrix([rand(m,na[i]) for i in 1:p],period);
-Q = C'*C;
+Q = C'*C;  Q = (Q+Q')/2
 
 @time X, EVALS, G = prdric(A,B,R,Q);
 ev = pseig(A-B*G)
@@ -89,7 +89,7 @@ A = PeriodicMatrix([rand(ma[i],na[i]) for i in 1:p],period);
 B = PeriodicMatrix([rand(ma[i],m) for i in 1:p],period);
 R = PeriodicMatrix(eye(Float64,m),period; nperiod = rationalize(A.period/A.Ts).num);
 C = PeriodicMatrix([rand(m,na[i]) for i in 1:p],period);
-Q = C'*C;
+Q = C'*C;  Q = (Q+Q')/2
 
 @time X, EVALS, G = prdric(A,B,R,Q; fast = true);
 ev = pseig(A-B*G)
@@ -193,7 +193,7 @@ A = PeriodicArray(rand(n,n,p),period)
 B = PeriodicArray(rand(n,m,p),period)
 C = PeriodicArray(rand(m,n,p),period)
 R = PeriodicArray(eye(Float64,m),period; nperiod = period)
-Q = C'*C
+Q = C'*C;  Q = (Q+Q')/2
 @time X, EVALS, G = prdric(A,B,R,Q);
 
 ev = pseig(A-B*G)

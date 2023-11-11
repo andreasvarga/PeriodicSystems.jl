@@ -323,11 +323,13 @@ function psh2norm(psys::PeriodicStateSpace{<: AbstractPeriodicArray{:d,T}}; adj:
        return gh2norm(ps2ls(psys, ss = true))
     else
        if adj 
-          Q = pdlyap(psys.A, psys.C'*psys.C,adj=true)
+        W = psys.C'*psys.C
+        Q = pdlyap(psys.A, (W+W')/2,adj=true)
           return sqrt(trace(psys.B'*pmshift(Q,1)*psys.B+psys.D'*psys.D))
           #return sqrt(sum(tr(psys.B'*pmshift(Q,1)*psys.B+psys.D'*psys.D)))
        else
-          P = pdlyap(psys.A, psys.B*psys.B',adj=false)
+          W = psys.B*psys.B'
+          P = pdlyap(psys.A, (W+W')/2,adj=false)
           return sqrt(trace(psys.C*P*psys.C'+psys.D*psys.D'))
           #return sqrt(sum(tr(psys.C*P*psys.C'+psys.D*psys.D')))
        end
@@ -599,8 +601,10 @@ function pshanorm(psys::PeriodicStateSpace{<: AbstractPeriodicArray{:d,T}}; smar
   if lifting
      return ghanorm(ps2ls(psys, cyclic = true))[1]
   else
-     Q = pdlyap(psys.A, psys.C'*psys.C,adj=true)
-     P = pdlyap(psys.A, psys.B*psys.B',adj=false)
+     Y = psys.C'*psys.C
+     Q = pdlyap(psys.A,(Y+Y')/2,adj=true)
+     Y = psys.B*psys.B'
+     P = pdlyap(psys.A,(Y+Y')/2,adj=false)
      Y = P*Q
      l = length(Y)
      if typeof(psys.A) <: PeriodicArray
