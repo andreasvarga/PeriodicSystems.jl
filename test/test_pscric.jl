@@ -204,7 +204,7 @@ end
 psysc = ps(a,convert(PM,PeriodicFunctionMatrix(b,period)),c,d);
 
 X1, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 100, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true);
-Xts, ev = pgcric(psysc.A, psysc.B*inv(r)*psysc.B', HarmonicArray(q,2pi), 100; adj = true);
+Xts, ev = pgcric(psysc.A, psysc.B*inv(r)*psysc.B', HarmonicArray(q,psysc.period), 100; adj = true);
 @test X1(0) ≈ Xts(0) && EVALS ≈ ev 
 
 T = psysc.period/100

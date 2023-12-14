@@ -93,6 +93,7 @@ end
 (-)(A::PeriodicArray, J::UniformScaling{<:Real}) = +(A,-J)
 (-)(J::UniformScaling{<:Real}, A::PeriodicArray) = +(-A,J)
 function pmsymadd!(A::PeriodicArray, scal = 1)
+    # compute the symmetric matrix scal*(A+transpose(A))
     m, n = size(A) 
     m == n || throw(ArgumentError("matrix A must be square"))
     if scal == 1
@@ -336,6 +337,7 @@ end
 (-)(A::PeriodicMatrix, J::UniformScaling{<:Real}) = +(A,-J)
 (-)(J::UniformScaling{<:Real}, A::PeriodicMatrix) = +(-A,J)
 function pmsymadd!(A::PeriodicMatrix, α = 1)
+    # compute the symmetric matrix scal*(A+transpose(A))
     m, n = size(A) 
     m == n || throw(ArgumentError("matrix A must be square"))
     if α == 1
@@ -399,6 +401,7 @@ end
 for (PMF, MF) in ((:pmmuladdsym, :muladdsym!), (:pmmultraddsym, :multraddsym!), (:pmmuladdtrsym,:muladdtrsym!) )
     @eval begin
         function $PMF(A::PeriodicMatrix,B::PeriodicMatrix,C::PeriodicMatrix, (α,β) = (true, true))
+            # compute the symmetric results αA + βB*C, αA + βB'*C, and αA + βB*C'. 
             if isconstant(A)
                isconstant(B) || isconstant(C) || B.Ts ≈ C.Ts || error("B and C must have the same sampling time")
             elseif isconstant(B)
