@@ -26,14 +26,14 @@ function LinearAlgebra.opnorm(A::PeriodicArray, p::Union{Real,Missing} = missing
     k = size(A.M,3)
     x = Array{eltype(A),3}(undef, 1, 1, k)
     if ismissing(p)
-        [x[1,1,i] = norm(A.M[:,:,i]) for i in 1:k]  # Frobenius noorm
+        [x[1,1,i] = norm(view(A.M,:,:,i)) for i in 1:k]  # Frobenius noorm
     else
-        [x[1,1,i] = opnorm(A.M[:,:,i],p) for i in 1:k] # p-norm
+        [x[1,1,i] = opnorm(view(A.M,:,:,i),p) for i in 1:k] # p-norm
     end
     return PeriodicArray(x,A.period; nperiod = A.nperiod)
 end
 function LinearAlgebra.norm(A::PeriodicArray, p::Real = 2)
-    n = norm([norm(A.M[:,:,i]) for i in 1:size(A.M,3)],p)
+    n = norm([norm(view(A.M,:,:,i)) for i in 1:size(A.M,3)],p)
     if p == 2 
        return n*sqrt(A.nperiod)
     elseif isinf(p) 
@@ -47,18 +47,18 @@ end
 function LinearAlgebra.tr(A::PeriodicArray)
     p = size(A.M,3)
     x = Array{eltype(A),3}(undef, 1, 1, p)
-    [x[1,1,i] = tr(A.M[:,:,i]) for i in 1:p]
+    [x[1,1,i] = tr(view(A.M,:,:,i)) for i in 1:p]
     return PeriodicArray(x,A.period; nperiod = A.nperiod)
 end
 function trace(A::PeriodicArray)
     t = zero(eltype(A.M))
     for i in 1:size(A.M,3)
-        t += tr(A.M[:,:,i])
+        t += tr(view(A.M,:,:,i))
     end
     return t*A.nperiod
 end
 function +(A::PeriodicArray, B::PeriodicArray)
-    A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
+    isconstant(A) || isconstant(B) || A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
     period = promote_period(A, B)
     m, n, pa = size(A.M)
     mb, nb, pb = size(B.M)
@@ -66,7 +66,8 @@ function +(A::PeriodicArray, B::PeriodicArray)
     nta = numerator(rationalize(period/A.period))
     ntb = numerator(rationalize(period/B.period))
     pa == pb && nta == 1 && ntb == 1 && (return PeriodicArray(A.M+B.M, A.period; nperiod = A.nperiod))
-    K = nta*A.nperiod*pa
+    K = max(nta*A.nperiod*pa,ntb*B.nperiod*pb)
+    #K = nta*A.nperiod*pa
     p = lcm(pa,pb)
     T = promote_type(eltype(A),eltype(B))
     X = Array{T,3}(undef, m, n, p)
@@ -91,16 +92,31 @@ end
 (+)(J::UniformScaling{<:Real}, A::PeriodicArray) = +(A,J)
 (-)(A::PeriodicArray, J::UniformScaling{<:Real}) = +(A,-J)
 (-)(J::UniformScaling{<:Real}, A::PeriodicArray) = +(-A,J)
+function pmsymadd!(A::PeriodicArray, scal = 1)
+    m, n = size(A) 
+    m == n || throw(ArgumentError("matrix A must be square"))
+    if scal == 1
+       for i = 1:length(A) 
+           inplace_transpose_add!(view(A.M,:,:,i))
+       end
+    else
+        for i = 1:length(A) 
+            inplace_transpose_add!(view(A.M,:,:,i),scal)
+        end
+    end
+    return A
+end
 
 
 function *(A::PeriodicArray, B::PeriodicArray)
-    A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
+    isconstant(A) || isconstant(B) || A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
     period = promote_period(A, B)
     m, na, pa = size(A.M)
     mb, n, pb = size(B.M)
-    na == mb || throw(DimensionMismatch("A and B have incompatible dimension"))
+    na == mb || throw(DimensionMismatch("A and B have incompatible dimensions"))
     nta = numerator(rationalize(period/A.period))
-    K = nta*A.nperiod*pa
+    ntb = numerator(rationalize(period/B.period))
+    K = max(nta*A.nperiod*pa,ntb*B.nperiod*pb)
     #K == B.nperiod*pb || error("A and B must have the same sampling time")
     #pa == pb && (return PeriodicArray(A.M*B.M, A.period; nperiod = A.nperiod))
     p = lcm(pa,pb)
@@ -120,7 +136,59 @@ end
 /(A::PeriodicArray, C::Real) = *(A, 1/C)
 *(J::UniformScaling{<:Real}, A::PeriodicArray) = J.λ*A
 *(A::PeriodicArray, J::UniformScaling{<:Real}) = A*J.λ
+for (PMF, MF) in ((:pmmuladdsym, :muladdsym!), (:pmmultraddsym, :multraddsym!), (:pmmuladdtrsym,:muladdtrsym!) )
+    @eval begin
+        function $PMF(A::PeriodicArray,B::PeriodicArray,C::PeriodicArray, (α,β) = (true, true))
+            if isconstant(A)
+               isconstant(B) || isconstant(C) || B.Ts ≈ C.Ts || error("B and C must have the same sampling time")
+            elseif isconstant(B)
+               isconstant(C) || A.Ts ≈ C.Ts || error("A and C must have the same sampling time")
+            elseif isconstant(C)
+                A.Ts ≈ B.Ts || error("A and B must have the same sampling time") 
+            else
+                A.Ts ≈ B.Ts ≈ C.Ts || error("A, B and C must have the same sampling time")
+            end
+            period = promote_period(A, B, C)
+            pa = length(A) 
+            pb = length(B)
+            pc = length(C)
+            p = lcm(pa,pb,pc)
+            T = promote_type(eltype(A),eltype(B),eltype(C))
+            n = size(A,1)
+            X = Array{T,3}(undef, n, n, p)
+            nta = numerator(rationalize(period/A.period))
+            K = nta*A.nperiod*pa
+        
+            for i = 1:p
+                ia = mod(i-1,pa)+1
+                ib = mod(i-1,pb)+1
+                ic = mod(i-1,pc)+1
+                copyto!(view(X,:,:,i), view(A.M,:,:,ia))
+                $MF(view(X,:,:,i), view(B.M,:,:,ib), view(C.M,:,:,ic),(α,β))
+            end
+            return PeriodicArray(X, period; nperiod = div(K,p))
+        end
+        $PMF(A::PeriodicArray,B::PeriodicArray,C::PeriodicArray, α, β) = $PMF(A, B, C, (α,β))
+        function $PMF(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix, (α,β) = (true, true)) 
+            T = promote_type(eltype(A),eltype(B),eltype(C))
+            $MF(LinearAlgebra.copy_oftype(A,T),B,C,(α,β))
+        end
+    end
+end
 
+for PMF in (:pmmuladdsym, :pmmultraddsym, :pmmuladdtrsym )
+    for PM in (:PeriodicArray, :PeriodicMatrix)
+        @eval begin
+            $PMF(A::$PM,B::AbstractMatrix,C::$PM, (α,β) = (true, true)) = $PMF(A, $PM(B, A.period), C, (α,β))
+            $PMF(A::$PM,B::$PM,C::AbstractMatrix, (α,β) = (true, true)) = $PMF(A, B, $PM(C, A.period), (α,β))
+            $PMF(A::$PM,B::AbstractMatrix,C::AbstractMatrix, (α,β) = (true, true)) = $PMF(A, $PM(B, A.period), $PM(C, A.period), (α,β))
+            $PMF(A::AbstractMatrix,B::$PM,C::$PM, (α,β) = (true, true)) = $PMF($PM(A, B.period), B, C, (α,β))
+            $PMF(A::AbstractMatrix,B::AbstractMatrix,C::$PM, (α,β) = (true, true)) = $PMF($PM(A, C.period), $PM(B, C.period), C, (α,β))
+            $PMF(A::AbstractMatrix,B::$PM,C::AbstractMatrix, (α,β) = (true, true)) = $PMF($PM(A, B.period), B, $PM(C, B.period), (α,β))
+        end
+    end
+end
+    
 LinearAlgebra.issymmetric(A::PeriodicArray) = all([issymmetric(A.M[:,:,i]) for i in 1:A.dperiod])
 Base.iszero(A::PeriodicArray) = iszero(A.M)
 function ==(A::PeriodicArray, B::PeriodicArray)
@@ -240,7 +308,7 @@ function LinearAlgebra.norm(A::PeriodicMatrix, p::Real = 2)
     end
 end
 function +(A::PeriodicMatrix, B::PeriodicMatrix)
-    A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
+    isconstant(A) || isconstant(B) || A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
     period = promote_period(A, B)
     pa = length(A) 
     pb = length(B)
@@ -267,14 +335,49 @@ end
 (+)(J::UniformScaling{<:Real}, A::PeriodicMatrix) = +(A,J)
 (-)(A::PeriodicMatrix, J::UniformScaling{<:Real}) = +(A,-J)
 (-)(J::UniformScaling{<:Real}, A::PeriodicMatrix) = +(-A,J)
+function pmsymadd!(A::PeriodicMatrix, α = 1)
+    m, n = size(A) 
+    m == n || throw(ArgumentError("matrix A must be square"))
+    if α == 1
+       for i = 1:length(A) 
+           inplace_transpose_add!(view(A.M[i],:,:))
+       end
+    else
+        for i = 1:length(A) 
+            inplace_transpose_add!(view(A.M[i],:,:),α)
+        end
+    end
+    return A
+end
+function inplace_transpose_add!(A, α = 1)
+    # compute (A+transpose(A))*α
+    n = size(A, 1)
+    if α == 1
+        for i in 1:n
+            for j in i:n
+                A[i, j] += A[j, i]
+                A[j, i] = A[i, j]
+            end
+        end
+    else
+        for i in 1:n
+            for j in i:n
+                A[i, j] += A[j, i]
+                A[i,j]  *= α
+                A[j, i] = A[i, j]
+            end
+        end
+    end
+end
 
 function *(A::PeriodicMatrix, B::PeriodicMatrix)
-    A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
+    isconstant(A) || isconstant(B) || A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
     period = promote_period(A, B)
     pa = length(A) 
     pb = length(B)
     nta = numerator(rationalize(period/A.period))
-    K = nta*A.nperiod*pa
+    ntb = numerator(rationalize(period/B.period))
+    K = max(nta*A.nperiod*pa,ntb*B.nperiod*pb)
     p = lcm(pa,pb)
     T = promote_type(eltype(A),eltype(B))
     X = Vector{Matrix{T}}(undef, p)
@@ -293,6 +396,207 @@ end
 /(A::PeriodicMatrix, C::Real) = *(A, 1/C)
 *(J::UniformScaling{<:Real}, A::PeriodicMatrix) = J.λ*A
 *(A::PeriodicMatrix, J::UniformScaling{<:Real}) = A*J.λ
+for (PMF, MF) in ((:pmmuladdsym, :muladdsym!), (:pmmultraddsym, :multraddsym!), (:pmmuladdtrsym,:muladdtrsym!) )
+    @eval begin
+        function $PMF(A::PeriodicMatrix,B::PeriodicMatrix,C::PeriodicMatrix, (α,β) = (true, true))
+            if isconstant(A)
+               isconstant(B) || isconstant(C) || B.Ts ≈ C.Ts || error("B and C must have the same sampling time")
+            elseif isconstant(B)
+               isconstant(C) || A.Ts ≈ C.Ts || error("A and C must have the same sampling time")
+            elseif isconstant(C)
+                A.Ts ≈ B.Ts || error("A and B must have the same sampling time") 
+            else
+                A.Ts ≈ B.Ts ≈ C.Ts || error("A, B and C must have the same sampling time")
+            end
+            period = promote_period(A, B, C)
+            pa = length(A) 
+            pb = length(B)
+            pc = length(C)
+            p = lcm(pa,pb,pc)
+            T = promote_type(eltype(A),eltype(B),eltype(B))
+            X = Vector{Matrix{T}}(undef, p)
+            nta = numerator(rationalize(period/A.period))
+            K = nta*A.nperiod*pa
+        
+            for i = 1:p
+                ia = mod(i-1,pa)+1
+                ib = mod(i-1,pb)+1
+                ic = mod(i-1,pc)+1
+                # size(A.M[ia],2) == size(B.M[ib],1) || throw(DimensionMismatch("A and B have incompatible dimensions"))
+                X[i] = copy(A.M[ia])
+                $MF(view(X[i],:,:), B.M[ib], C.M[ic],(α,β))
+            end
+            return PeriodicMatrix(X, period; nperiod = div(K,p))
+        end
+        $PMF(A::PeriodicMatrix,B::PeriodicMatrix,C::PeriodicMatrix, α, β) = $PMF(A, B, C, (α,β))
+    end
+end
+muladdsym!(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, α, β) = muladdsym!(A,B,C,(α,β))
+function muladdsym!(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, (α,β) = (true, true))
+    # compute in A the symmetrix matrix α*A +  β*B*C
+    n = LinearAlgebra.checksquare(A)
+    n == size(B,1) || throw(ArgumentError("A and B must have the same number of rows"))
+    n == size(C,2) || throw(ArgumentError("A and C must have the same number of columns"))
+    m = size(B,2)
+    m == size(C,1) || throw(ArgumentError("B and C have incompatible dimensions"))
+    ZERO = zero(promote_type(eltype(B),eltype(C)))
+    if α == 0
+        for i = 1:n
+            for j = i:n
+                temp = ZERO
+                for k = 1:m
+                    temp += (B[i,k]*C[k,j])
+                end
+                A[i,j] = β*temp
+                A[j,i] = A[i,j]
+            end
+        end
+    else
+        for i = 1:n
+            for j = i:n
+                temp = ZERO
+                for k = 1:m
+                    temp += (B[i,k]*C[k,j])
+                end
+                A[i,j] = α*A[i,j]+β*temp
+                A[j,i] = A[i,j]
+            end
+        end
+    end
+    return A
+end
+multraddsym!(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, α, β) = multraddsym!(A, B, C, (α,β))
+function multraddsym!(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, (α,β) = (true, true))
+    # compute in A the symmetrix matrix α*A +  β*transpose(B)*C
+    n = LinearAlgebra.checksquare(A)
+    n == size(B,2) || throw(ArgumentError("A and B must have the same number of columns"))
+    n == size(C,2) || throw(ArgumentError("A and C must have the same number of columns"))
+    m = size(B,1)
+    m == size(C,1) || throw(ArgumentError("B and C have incompatible dimensions"))
+    ZERO = zero(promote_type(eltype(B),eltype(C)))
+    if α == 0
+        for i = 1:n
+            for j = i:n
+                temp = ZERO
+                for k = 1:m
+                    temp += (B[k,i]*C[k,j])
+                end
+                A[i,j] = β*temp
+                A[j,i] = A[i,j]
+            end
+        end
+    else
+        for i = 1:n
+            for j = i:n
+                temp = ZERO
+                for k = 1:m
+                    temp += (B[k,i]*C[k,j])
+                end
+                A[i,j] = α*A[i,j]+β*temp
+                A[j,i] = A[i,j]
+            end
+        end
+    end
+    return A
+end
+muladdtrsym!(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, α, β) = muladdtrsym!(A, B, C, (α,β))
+function muladdtrsym!(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, (α,β) = (true, true))
+    # compute in A the symmetrix matrix α*A +  β*transpose(B)*C
+    n = LinearAlgebra.checksquare(A)
+    n == size(B,1) || throw(ArgumentError("A and B must have the same number of rows"))
+    n == size(C,1) || throw(ArgumentError("A and C must have the same number of rows"))
+    m = size(B,2)
+    m == size(C,2) || throw(ArgumentError("B and C have incompatible dimensions"))
+    ZERO = zero(promote_type(eltype(B),eltype(C)))
+    if α == 0
+        for i = 1:n
+            for j = i:n
+                temp = ZERO
+                for k = 1:m
+                    temp += (B[i,k]*C[j,k])
+                end
+                A[i,j] = β*temp
+                A[j,i] = A[i,j]
+            end
+        end
+    else
+        for i = 1:n
+            for j = i:n
+                temp = ZERO
+                for k = 1:m
+                    temp += (B[i,k]*C[j,k])
+                end
+                A[i,j] = α*A[i,j]+β*temp
+                A[j,i] = A[i,j]
+            end
+        end
+    end
+    return A
+end
+for (PMF, MF) in ((:pmata, :mulatasym), (:pmaat, :mulaatsym) )
+    @eval begin
+        function $PMF(A::PeriodicMatrix)
+            p = length(A) 
+            T = eltype(A)
+            X = Vector{Matrix{T}}(undef, p)
+            for i = 1:p
+                X[i] = $MF(view(A.M[i],:,:))
+            end
+            return PeriodicMatrix(X, A.period; nperiod = A.nperiod)
+        end
+    end
+end
+for (PMF, MF) in ((:pmata, :mulatasym), (:pmaat, :mulaatsym) )
+    @eval begin
+        function $PMF(A::PeriodicArray)
+            m, n, p = size(A.M) 
+            T = eltype(A)
+            mn = $PMF == pmata ? n : m
+            X = PeriodicArray(Array{T,3}(undef, mn, mn, p), A.period; nperiod = A.nperiod) 
+            for i = 1:p
+                copyto!(view(X.M,:,:,i), $MF(view(A.M,:,:,i)))
+            end
+            return X
+        end
+    end
+end
+
+        
+function mulatasym(A::AbstractMatrix{T}) where {T}
+    # compute the symmetrix matrix transpose(A)*A
+    m, n = size(A,1), size(A,2) 
+    X = similar(A,n,n)    
+    ZERO = zero(T)
+    for i = 1:n
+        for j = i:n
+            temp = ZERO
+            for k = 1:m
+                temp += (A[k,i]*A[k,j])
+            end
+            X[i,j] = temp
+            X[j,i] = temp
+        end
+    end
+    return X
+end
+function mulaatsym(A::AbstractMatrix{T}) where {T}
+    # compute the symmetrix matrix A*transpose(A)
+    m, n = size(A,1), size(A,2) 
+    X = similar(A,m,m)    
+    ZERO = zero(T)
+    for i = 1:m
+        for j = i:m
+            temp = ZERO
+            for k = 1:n
+                temp += (A[i,k]*A[j,k])
+            end
+            X[i,j] = temp
+            X[j,i] = temp
+        end
+    end
+    return X
+end
+
 
 LinearAlgebra.issymmetric(A::PeriodicMatrix) = all([issymmetric(A.M[i]) for i in 1:A.dperiod])
 Base.iszero(A::PeriodicMatrix) = iszero(A.M)
@@ -576,6 +880,390 @@ function blockdiag(A::SwitchingPeriodicMatrix, B::SwitchingPeriodicMatrix)
     return SwitchingPeriodicMatrix{:d,promote_type(eltype(A),eltype(B))}([DescriptorSystems.blockdiag(kpmeval(A,ns[i]), kpmeval(B,ns[i])) for i in 1:N], ns, A.period, nperiod)   
 end
 
+#  SwitchingPeriodicArray
+function pmshift(A::SwitchingPeriodicArray, k::Int = 1)
+    return convert(SwitchingPeriodicArray,pmshift(convert(PeriodicArray,A),k))
+end
+function LinearAlgebra.inv(A::SwitchingPeriodicArray)
+    x = similar(A.M)
+    [x[:,:,i] = inv(A.M[:,:,i]) for i in 1:size(A.M,3)]
+    SwitchingPeriodicArray(x, A.ns, A.period; nperiod = A.nperiod)
+end
+function LinearAlgebra.transpose(A::SwitchingPeriodicArray)
+    return SwitchingPeriodicArray(permutedims(A.M,(2,1,3)), A.ns, A.period; nperiod = A.nperiod)
+end
+function LinearAlgebra.adjoint(A::SwitchingPeriodicArray)
+    return SwitchingPeriodicArray(permutedims(A.M,(2,1,3)), A.ns, A.period; nperiod = A.nperiod)
+end
+function Base.reverse(A::SwitchingPeriodicArray)
+    n = length(A.ns)
+    return SwitchingPeriodicArray(reverse(A.M,dims=3), n == 1 ? A.ns : [A.ns[n].-reverse(A.ns[1:n-1]); A.ns[n]], A.period; nperiod = A.nperiod)
+end
+function LinearAlgebra.opnorm(A::SwitchingPeriodicArray, p::Union{Real,Missing} = missing)
+    k = size(A.M,3)
+    x = Array{eltype(A),3}(undef, 1, 1, k)
+    if ismissing(p)
+        [x[1,1,i] = norm(view(A.M,:,:,i)) for i in 1:k]  # Frobenius noorm
+    else
+        [x[1,1,i] = opnorm(view(A.M,:,:,i),p) for i in 1:k] # p-norm
+    end
+    return SwitchingPeriodicArray(x, A.ns, A.period; nperiod = A.nperiod)
+end
+function LinearAlgebra.norm(A::SwitchingPeriodicArray, p::Real = 2)
+    k = length(A)
+    k == 0 && (return zero(eltype(A)))
+    tn = [norm(view(A.M,:,:,i)) for i in 1:k]
+    if p == 2
+       tn[1] *= sqrt(A.ns[1]) 
+       for i = 2:k
+           tn[i] *= sqrt(A.ns[i]-A.ns[i-1])
+       end
+       return norm(tn,p)*sqrt(A.nperiod)
+    elseif p == 1
+       tn[1] *= A.ns[1] 
+       for i = 2:k
+           tn[i] *= (A.ns[i]-A.ns[i-1])
+       end
+       return norm(tn,p)*A.nperiod
+    else 
+       isinf(p) || throw(ArgumentError("only p-norms for p = 1, 2, or Inf are supported"))
+       return norm(tn,p) 
+    end
+end
+function LinearAlgebra.tr(A::SwitchingPeriodicArray)
+    p = size(A.M,3)
+    x = Array{eltype(A),3}(undef, 1, 1, p)
+    [x[1,1,i] = tr(view(A.M,:,:,i)) for i in 1:p]
+    return SwitchingPeriodicArray(x, A.ns, A.period; nperiod = A.nperiod)
+end
+function trace(A::SwitchingPeriodicArray) 
+    t = zero(eltype(A))
+    k = length(A)
+    k == 0 && (return t)
+    t += tr(view(A.M,:,:,1))*A.ns[1]
+    for i in 2:k
+        t += tr(view(A.M,:,:,i))*(A.ns[i]-A.ns[i-1])
+    end
+    return t*A.nperiod
+end
+
+LinearAlgebra.issymmetric(A::SwitchingPeriodicArray) = all([issymmetric(view(A.M,:,:,i)) for i in 1:length(A.ns)])
+Base.iszero(A::SwitchingPeriodicArray) = iszero(A.M)
+function ==(A::SwitchingPeriodicArray, B::SwitchingPeriodicArray)
+    isconstant(A) && isconstant(B) && (return isequal(A.M, B.M))
+    na = length(A.ns); nb = length(B.ns)
+    if na == nb
+       (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod) && isequal(A.M, B.M) 
+    else
+       (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod) && all([isequal(A[i],B[i]) for i in 1:max(na,nb)])
+    end
+end
+function Base.isapprox(A::SwitchingPeriodicArray, B::SwitchingPeriodicArray; rtol::Real = sqrt(eps(Float64)), atol::Real = 0)
+    isconstant(A) && isconstant(B) && (return isapprox(A.M, B.M; rtol, atol))
+    na = length(A.ns); nb = length(B.ns)
+    if na == nb
+       (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod) && isapprox(A.M, B.M; rtol, atol) 
+    else
+       (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod) && all([isapprox(A[i],B[i]; rtol, atol) for i in 1:max(na,nb)])
+    end
+end
+function Base.isapprox(A::SwitchingPeriodicArray, J::UniformScaling{<:Real}; kwargs...)
+    all([isapprox(view(A.M,:,:,i), J; kwargs...) for i in 1:length(A.ns)])
+end
+Base.isapprox(J::UniformScaling{<:Real}, A::SwitchingPeriodicArray; kwargs...) = isapprox(A, J; kwargs...)
+
+function +(A::SwitchingPeriodicArray, B::SwitchingPeriodicArray)
+    isconstant(A) || isconstant(B) || A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
+    period = promote_period(A, B)
+    T = promote_type(eltype(A),eltype(B))
+    m, n, pa = size(A.M)
+    mb, nb, pb = size(B.M)
+    (m, n) == (mb, nb) || throw(DimensionMismatch("A and B must have the same dimensions"))
+
+    A.period == B.period && A.nperiod == B.nperiod && A.ns == B.ns &&
+    (return SwitchingPeriodicArray{:d,T}(A.M+B.M, A.ns, A.period, A.nperiod))
+    if isconstant(A) 
+        N = length(B.ns)
+        X = Array{T,3}(undef, m, n, N)
+        for i = 1:N
+            X[:,:,i] = A.M[:,:,1]+B.M[:,:,i]
+        end
+        return SwitchingPeriodicArray{:d,T}(X, B.ns, B.period, B.nperiod)
+    elseif isconstant(B) 
+        N = length(A.ns)
+        X = Array{T,3}(undef, m, n, N)
+        for i = 1:N
+            X[:,:,i] = A.M[:,:,i]+B.M[:,:,1]
+        end
+        return SwitchingPeriodicArray{:d,T}(X, A.ns, A.period, A.nperiod)
+    else
+        A.period == B.period || error("periods must be equal for addition")
+        nperiod = A.nperiod
+        if nperiod == B.nperiod
+           ns = unique(sort([A.ns;B.ns]))
+        else
+           nperiod = gcd(A.nperiod,B.nperiod)
+           ns = unique(sort([vcat([(i-1)*A.dperiod .+ A.ns for i in 1:div(A.nperiod,nperiod)]...);
+                             vcat([(i-1)*B.dperiod .+ B.ns for i in 1:div(B.nperiod,nperiod)]...)]))
+        end
+        N = length(ns)   
+        X = Array{T,3}(undef, m, n, N)
+        for i = 1:N
+            X[:,:,i] = kpmeval(A,ns[i])+kpmeval(B,ns[i])
+        end
+        return SwitchingPeriodicArray{:d,promote_type(eltype(A),eltype(B))}(X, ns, A.period, nperiod)   
+    end              
+end
++(A::SwitchingPeriodicArray, C::AbstractMatrix) = +(A, SwitchingPeriodicArray(reshape(C,size(A,1),size(A,2),1), [A.dperiod], A.period))
++(A::AbstractMatrix, C::SwitchingPeriodicArray) = +(SwitchingPeriodicArray([A], C.ns, [C.dperiod], C.period), C)
+-(A::SwitchingPeriodicArray) = SwitchingPeriodicArray{:d,eltype(A)}(-A.M, A.ns, A.period, A.nperiod)
+-(A::SwitchingPeriodicArray, B::SwitchingPeriodicArray) = +(A,-B)
+-(A::SwitchingPeriodicArray, C::AbstractMatrix) = +(A,-C)
+-(A::AbstractMatrix, C::SwitchingPeriodicArray) = +(A, -C)
+function (+)(A::SwitchingPeriodicArray, J::UniformScaling{<:Real}) 
+    m, n = size(A)
+    n == m || throw(DimensionMismatch("A must be square"))
+    A+Matrix(J(n))
+end
+(+)(J::UniformScaling{<:Real}, A::SwitchingPeriodicArray) = +(A,J)
+(-)(A::SwitchingPeriodicArray, J::UniformScaling{<:Real}) = +(A,-J)
+(-)(J::UniformScaling{<:Real}, A::SwitchingPeriodicArray) = +(-A,J)
+
+function *(A::SwitchingPeriodicArray, B::SwitchingPeriodicArray)
+    isconstant(A) || isconstant(B) || A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
+    period = promote_period(A, B)
+    T = promote_type(eltype(A),eltype(B))
+    m, n, pa = size(A.M)
+    mb, nb, pb = size(B.M)
+    n == mb || throw(DimensionMismatch("number of columns of A $n not equal to the number of rows of B $mb"))
+
+    if A.period == B.period && A.nperiod == B.nperiod && A.ns == B.ns 
+        N = length(A.ns)
+        X = Array{T,3}(undef, m, nb, N)
+        for i = 1:N
+            mul!(view(X,:,:,i),view(A.M,:,:,i),view(B.M,:,:,i))
+        end
+        return SwitchingPeriodicArray{:d,T}(X, A.ns, A.period, A.nperiod)
+    end
+    if isconstant(A) 
+        N = length(B.ns)
+        X = Array{T,3}(undef, m, nb, N)
+        for i = 1:N
+            mul!(view(X,:,:,i),view(A.M,:,:,1),view(B.M,:,:,i))
+        end
+        return SwitchingPeriodicArray{:d,T}(X, B.ns, B.period, B.nperiod)
+    elseif isconstant(B) 
+        N = length(A.ns)
+        X = Array{T,3}(undef, m, n, N)
+        for i = 1:N
+            mul!(view(X,:,:,i),view(A.M,:,:,i),view(B.M,:,:,1))
+        end
+        return SwitchingPeriodicArray{:d,T}(X, A.ns, A.period, A.nperiod)
+    else
+        A.period == B.period || error("periods must be equal for addition")
+        nperiod = A.nperiod
+        if nperiod == B.nperiod
+           ns = unique(sort([A.ns;B.ns]))
+        else
+           nperiod = gcd(A.nperiod,B.nperiod)
+           ns = unique(sort([vcat([(i-1)*A.dperiod .+ A.ns for i in 1:div(A.nperiod,nperiod)]...);
+                             vcat([(i-1)*B.dperiod .+ B.ns for i in 1:div(B.nperiod,nperiod)]...)]))
+        end
+        N = length(ns)   
+        X = Array{T,3}(undef, m, nb, N)
+        for i = 1:N
+            mul!(view(X,:,:,i),kpmeval(A,ns[i]),kpmeval(B,ns[i]))
+        end
+        return SwitchingPeriodicArray{:d,promote_type(eltype(A),eltype(B))}(X, ns, A.period, nperiod)   
+    end
+end
+*(A::SwitchingPeriodicArray, C::AbstractMatrix) = *(A, SwitchingPeriodicArray(reshape(C,size(A,1),size(A,2),1), [A.dperiod], A.period))
+*(A::AbstractMatrix, C::SwitchingPeriodicArray) = *(SwitchingPeriodicArray([A], C.ns, [C.dperiod], C.period), C)
+# *(A::SwitchingPeriodicArray, C::AbstractMatrix) = SwitchingPeriodicArray{:d,promote_type(eltype(A),eltype(C))}([A.M[i]*C for i in 1:length(A.M)], A.ns, A.period, A.nperiod)
+# *(A::AbstractMatrix, C::SwitchingPeriodicArray) = SwitchingPeriodicArray{:d,promote_type(eltype(A),eltype(C))}([A*C.M[i] for i in 1:length(C.M)], C.ns, C.period, C.nperiod)
+*(A::SwitchingPeriodicArray, C::Real) = SwitchingPeriodicArray{:d,promote_type(eltype(A),eltype(C))}(A.M*C, A.ns, A.period, A.nperiod)
+*(C::Real, A::SwitchingPeriodicArray) = SwitchingPeriodicArray{:d,promote_type(eltype(A),eltype(C))}(C*A.M, A.ns, A.period, A.nperiod)
+/(A::SwitchingPeriodicArray, C::Real) = *(A, 1/C)
+*(J::UniformScaling{<:Real}, A::SwitchingPeriodicArray) = J.λ*A
+*(A::SwitchingPeriodicArray, J::UniformScaling{<:Real}) = A*J.λ
+
+
+function horzcat(A::SwitchingPeriodicArray, B::SwitchingPeriodicArray)
+    isconstant(A) || isconstant(B) || A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
+    period = promote_period(A, B)
+    T = promote_type(eltype(A),eltype(B))
+    ma, na, pa = size(A.M)
+    mb, nb, pb = size(B.M)
+    ma == mb || throw(DimensionMismatch("number of rows of A $ma not equal to the number of rows of B $mb"))
+
+    if A.period == B.period && A.nperiod == B.nperiod && A.ns == B.ns 
+        N = length(A.ns)
+        X = Array{T,3}(undef, ma, na+nb, N)
+        j1 = 1:na; j2 = na+1:na+nb
+        for i = 1:N
+            copyto!(view(X,:,j1,i),view(A.M,:,:,i))
+            copyto!(view(X,:,j2,i),view(B.M,:,:,i))
+        end
+        return SwitchingPeriodicArray{:d,T}(X, A.ns, A.period, A.nperiod)
+    end
+    if isconstant(A) 
+        N = length(B.ns)
+        X = Array{T,3}(undef, ma, na+nb, N)
+        j1 = 1:na; j2 = na+1:na+nb
+        for i = 1:N
+            copyto!(view(X,:,j1,i),view(A.M,:,:,1))
+            copyto!(view(X,:,j2,i),view(B.M,:,:,i))
+        end
+        return SwitchingPeriodicArray{:d,T}(X, B.ns, B.period, B.nperiod)
+    elseif isconstant(B) 
+        N = length(A.ns)
+        X = Array{T,3}(undef, ma, na+nb, N)
+        j1 = 1:na; j2 = na+1:na+nb
+        for i = 1:N
+            copyto!(view(X,:,j1,i),view(A.M,:,:,i))
+            copyto!(view(X,:,j2,i),view(B.M,:,:,1))
+        end
+        return SwitchingPeriodicArray{:d,T}(X, A.ns, A.period, A.nperiod)
+    else
+        A.period == B.period || error("periods must be equal for addition")
+        nperiod = A.nperiod
+        if nperiod == B.nperiod
+           ns = unique(sort([A.ns;B.ns]))
+        else
+           nperiod = gcd(A.nperiod,B.nperiod)
+           ns = unique(sort([vcat([(i-1)*A.dperiod .+ A.ns for i in 1:div(A.nperiod,nperiod)]...);
+                             vcat([(i-1)*B.dperiod .+ B.ns for i in 1:div(B.nperiod,nperiod)]...)]))
+        end
+        N = length(ns)   
+        X = Array{T,3}(undef, ma, na+nb, N)
+        j1 = 1:na; j2 = na+1:na+nb
+        for i = 1:N
+            copyto!(view(X,:,j1,i),kpmeval(A,ns[i]))
+            copyto!(view(X,:,j2,i),kpmeval(B,ns[i]))
+        end
+        return SwitchingPeriodicArray{:d,promote_type(eltype(A),eltype(B))}(X, ns, A.period, nperiod)   
+    end
+end
+Base.hcat(A::SwitchingPeriodicArray, B::SwitchingPeriodicArray) = horzcat(A,B)
+
+function vertcat(A::SwitchingPeriodicArray, B::SwitchingPeriodicArray)
+    isconstant(A) || isconstant(B) || A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
+    period = promote_period(A, B)
+    T = promote_type(eltype(A),eltype(B))
+    ma, na, pa = size(A.M)
+    mb, nb, pb = size(B.M)
+    na == nb || throw(DimensionMismatch("number of columnss of A $na not equal to the number of columns of B $nb"))
+
+    if A.period == B.period && A.nperiod == B.nperiod && A.ns == B.ns 
+        N = length(A.ns)
+        X = Array{T,3}(undef, ma+mb, na, N)
+        i1 = 1:ma; i2 = ma+1:ma+mb
+        for i = 1:N
+            copyto!(view(X,i1,:,i),view(A.M,:,:,i))
+            copyto!(view(X,i2,:,i),view(B.M,:,:,i))
+        end
+        return SwitchingPeriodicArray{:d,T}(X, A.ns, A.period, A.nperiod)
+    end
+    if isconstant(A) 
+        N = length(B.ns)
+        X = Array{T,3}(undef, ma+mb, na, N)
+        i1 = 1:ma; i2 = ma+1:ma+mb
+        for i = 1:N
+            copyto!(view(X,i1,:,i),view(A.M,:,:,1))
+            copyto!(view(X,i2,:,i),view(B.M,:,:,i))
+        end
+        return SwitchingPeriodicArray{:d,T}(X, B.ns, B.period, B.nperiod)
+    elseif isconstant(B) 
+        N = length(A.ns)
+        X = Array{T,3}(undef, ma+mb, na, N)
+        i1 = 1:ma; i2 = ma+1:ma+mb
+        for i = 1:N
+            copyto!(view(X,i1,:,i),view(A.M,:,:,i))
+            copyto!(view(X,i2,:,i),view(B.M,:,:,1))
+        end
+        return SwitchingPeriodicArray{:d,T}(X, A.ns, A.period, A.nperiod)
+    else
+        A.period == B.period || error("periods must be equal for addition")
+        nperiod = A.nperiod
+        if nperiod == B.nperiod
+           ns = unique(sort([A.ns;B.ns]))
+        else
+           nperiod = gcd(A.nperiod,B.nperiod)
+           ns = unique(sort([vcat([(i-1)*A.dperiod .+ A.ns for i in 1:div(A.nperiod,nperiod)]...);
+                             vcat([(i-1)*B.dperiod .+ B.ns for i in 1:div(B.nperiod,nperiod)]...)]))
+        end
+        N = length(ns)   
+        X = Array{T,3}(undef, ma+mb, na, N)
+        i1 = 1:ma; i2 = ma+1:ma+mb
+        for i = 1:N
+            copyto!(view(X,i1,:,i),kpmeval(A,ns[i]))
+            copyto!(view(X,i2,:,i),kpmeval(B,ns[i]))
+        end
+        return SwitchingPeriodicArray{:d,promote_type(eltype(A),eltype(B))}(X, ns, A.period, nperiod)   
+    end
+end
+Base.vcat(A::SwitchingPeriodicArray, B::SwitchingPeriodicArray) = vertcat(A,B)
+
+function blockdiag(A::SwitchingPeriodicArray, B::SwitchingPeriodicArray)
+    isconstant(A) || isconstant(B) || A.Ts ≈ B.Ts || error("A and B must have the same sampling time")
+    period = promote_period(A, B)
+    T = promote_type(eltype(A),eltype(B))
+    ma, na, pa = size(A.M)
+    mb, nb, pb = size(B.M)
+
+    if A.period == B.period && A.nperiod == B.nperiod && A.ns == B.ns 
+        N = length(A.ns)
+        X = zeros(T, ma+mb, na+nb, N)
+        i1 = 1:ma; i2 = ma+1:ma+mb
+        j1 = 1:na; j2 = na+1:na+nb
+        for i = 1:N
+            copyto!(view(X,i1,j1,i),view(A.M,:,:,i))
+            copyto!(view(X,i2,j2,i),view(B.M,:,:,i))
+        end
+        return SwitchingPeriodicArray{:d,T}(X, A.ns, A.period, A.nperiod)
+    end
+    if isconstant(A) 
+        N = length(B.ns)
+        X = zeros(T, ma+mb, na+nb, N)
+        i1 = 1:ma; i2 = ma+1:ma+mb
+        j1 = 1:na; j2 = na+1:na+nb
+        for i = 1:N
+            copyto!(view(X,i1,j1,i),view(A.M,:,:,1))
+            copyto!(view(X,i2,j2,i),view(B.M,:,:,i))
+        end
+        return SwitchingPeriodicArray{:d,T}(X, B.ns, B.period, B.nperiod)
+    elseif isconstant(B) 
+        N = length(A.ns)
+        X = zeros(T, ma+mb, na+nb, N)
+        i1 = 1:ma; i2 = ma+1:ma+mb
+        j1 = 1:na; j2 = na+1:na+nb
+        for i = 1:N
+            copyto!(view(X,i1,j1,i),view(A.M,:,:,i))
+            copyto!(view(X,i2,j2,i),view(B.M,:,:,1))
+        end
+        return SwitchingPeriodicArray{:d,T}(X, A.ns, A.period, A.nperiod)
+    else
+        A.period == B.period || error("periods must be equal for addition")
+        nperiod = A.nperiod
+        if nperiod == B.nperiod
+           ns = unique(sort([A.ns;B.ns]))
+        else
+           nperiod = gcd(A.nperiod,B.nperiod)
+           ns = unique(sort([vcat([(i-1)*A.dperiod .+ A.ns for i in 1:div(A.nperiod,nperiod)]...);
+                             vcat([(i-1)*B.dperiod .+ B.ns for i in 1:div(B.nperiod,nperiod)]...)]))
+        end
+        N = length(ns)   
+        X = zeros(T, ma+mb, na+nb, N)
+        i1 = 1:ma; i2 = ma+1:ma+mb
+        j1 = 1:na; j2 = na+1:na+nb
+        for i = 1:N
+            copyto!(view(X,i1,j1,i),kpmeval(A,ns[i]))
+            copyto!(view(X,i2,j2,i),kpmeval(B,ns[i]))
+        end
+        return SwitchingPeriodicArray{:d,promote_type(eltype(A),eltype(B))}(X, ns, A.period, nperiod)   
+    end
+end
+
 
 # Operations with periodic function matrices
 function derivative(A::PeriodicFunctionMatrix{:c,T};  h::Union{Missing,Real} = missing,  method = "cd") where {T}
@@ -683,7 +1371,7 @@ function *(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix)
      else
         return PeriodicFunctionMatrix{:c,T}(t -> A.f(t)*B.f(t), period, (A.dims[1],B.dims[2]), nperiod, false)
      end
- end
+end
 *(A::PeriodicFunctionMatrix, C::AbstractMatrix) = *(A, PeriodicFunctionMatrix(C, A.period))
 *(A::AbstractMatrix, C::PeriodicFunctionMatrix) = *(PeriodicFunctionMatrix(A, C.period), C)
 *(A::PeriodicFunctionMatrix, C::Real) = PeriodicFunctionMatrix{:c,eltype(A)}(t -> C.*A.f(t), A.period, A.dims, A.nperiod,A._isconstant)
@@ -691,6 +1379,44 @@ function *(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix)
 /(A::PeriodicFunctionMatrix, C::Real) = *(A, 1/C)
 *(J::UniformScaling{<:Real}, A::PeriodicFunctionMatrix) = J.λ*A
 *(A::PeriodicFunctionMatrix, J::UniformScaling{<:Real}) = A*J.λ
+for (PMF, MF) in ((:pmmuladdsym, :muladdsym!), (:pmmultraddsym, :multraddsym!), (:pmmuladdtrsym,:muladdtrsym!) )
+    @eval begin
+        function  $PMF(A::PeriodicFunctionMatrix,B::PeriodicFunctionMatrix,C::PeriodicFunctionMatrix, (α,β) = (true, true))
+            period = promote_period(A, B, C)
+            nperiod = gcd(A.nperiod,B.nperiod,C.nperiod)
+            T = promote_type(eltype(A),eltype(B),eltype(B))
+            if isconstant(A) && isconstant(B) && isconstant(C)
+                return PeriodicFunctionMatrix{:c,T}(t -> $MF(A.f(0),B.f(0),C.f(0),(α,β)), period, (A.dims[1],A.dims[2]), nperiod, true)
+             else
+                return PeriodicFunctionMatrix{:c,T}(t -> $MF(A.f(t),B.f(t),C.f(t),(α,β)), period, (A.dims[1],B.dims[2]), nperiod, false)
+             end
+        end
+    end
+end
+for PM in (:PeriodicFunctionMatrix, :PeriodicSymbolicMatrix, :HarmonicArray, :FourierFunctionMatrix, :PeriodicTimeSeriesMatrix)
+    @eval begin
+        pmmuladdsym(A::$PM,B::AbstractMatrix,C::$PM, (α,β) = (true, true)) = pmmuladdsym(A, $PM(B, A.Ts; nperiod = 1), C, (α,β))
+        pmmuladdsym(A::$PM,B::$PM,C::AbstractMatrix, (α,β) = (true, true)) = pmmuladdsym(A, B, $PM(C, A.Ts; nperiod = 1), (α,β))
+        pmmuladdsym(A::$PM,B::AbstractMatrix,C::AbstractMatrix, (α,β) = (true, true)) = pmmuladdsym(A, $PM(B, A.Ts; nperiod = 1), $PM(C, A.Ts; nperiod = 1), (α,β))
+        pmmuladdsym(A::AbstractMatrix,B::$PM,C::$PM, (α,β) = (true, true)) = pmmuladdsym($PM(A, B.Ts; nperiod = 1), B, C, (α,β))
+        pmmuladdsym(A::AbstractMatrix,B::AbstractMatrix,C::$PM, (α,β) = (true, true)) = pmmuladdsym($PM(A, C.Ts; nperiod = 1), $PM(B, C.Ts; nperiod = 1), C, (α,β))
+        pmmuladdsym(A::AbstractMatrix,B::$PM,C::AbstractMatrix, (α,β) = (true, true)) = pmmuladdsym($PM(A, B.Ts; nperiod = 1), B, $PM(C, B.Ts; nperiod = 1), (α,β))
+    end
+end
+
+#pmmuladdsym(A::AbstractMatrix,B::PeriodicFunctionMatrix,C::PeriodicFunctionMatrix, (α,β) = (true, true)) = pmmuladdsym(PeriodicFunctionMatrix(A, B.period), B, C, (α,β))
+# function pmmultraddsym(A::PeriodicFunctionMatrix,B::PeriodicFunctionMatrix,C::PeriodicFunctionMatrix, (α,β) = (true, true))
+#     period = promote_period(A, B, C)
+#     nperiod = gcd(A.nperiod,B.nperiod,C.nperiod)
+#     T = promote_type(eltype(A),eltype(B),eltype(B))
+#     if isconstant(A) && isconstant(B) && isconstant(C)
+#         return PeriodicFunctionMatrix{:c,T}(t ->  multraddsym!(A.f(0),B.f(0),C.f(0),(α,β)), period, (A.dims[1],A.dims[2]), nperiod, true)
+#      else
+#         return PeriodicFunctionMatrix{:c,T}(t -> multraddsym!(A.f(t),B.f(t),C.f(t),(α,β)), period, (A.dims[1],B.dims[2]), nperiod, false)
+#      end
+# end
+#pmmultraddsym(A::AbstractMatrix,B::PeriodicFunctionMatrix,C::PeriodicFunctionMatrix, (α,β) = (true, true)) = pmmultraddsym(PeriodicFunctionMatrix(A, B.period), B, C, (α,β))
+
 
 function horzcat(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix)
     period = promote_period(A, B)
@@ -1073,6 +1799,13 @@ end
 *(A::HarmonicArray, J::UniformScaling{<:Real}) = A*J.λ
 *(A::HarmonicArray, C::PeriodicFunctionMatrix) = *(convert(PeriodicFunctionMatrix,A), C)
 *(A::PeriodicFunctionMatrix, C::HarmonicArray) = *(A, convert(PeriodicFunctionMatrix,C))
+function pmmultraddsym(A::HarmonicArray,B::HarmonicArray,C::HarmonicArray, (α,β) = (true, true))
+    convert(HarmonicArray,pmmultraddsym(convert(PeriodicFunctionMatrix,A), convert(PeriodicFunctionMatrix,B), convert(PeriodicFunctionMatrix,C), (α,β)))
+end
+function pmmultraddsym(A::AbstractMatrix,B::HarmonicArray,C::HarmonicArray, (α,β) = (true, true))
+    convert(HarmonicArray,pmmultraddsym(PeriodicFunctionMatrix(A, B.period), convert(PeriodicFunctionMatrix,B), convert(PeriodicFunctionMatrix,C), (α,β)))
+end
+
 
 
 

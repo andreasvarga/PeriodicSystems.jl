@@ -21,6 +21,7 @@ makedocs(warnonly = true,
           "psanalysis.md",
           "pslyap.md",
           "psric.md",
+          "psstab.md",
    #      "advanced_operations.md",
    #      "model_matching.md"
          ],

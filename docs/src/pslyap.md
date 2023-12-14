@@ -6,6 +6,7 @@
 * **[`pgclyap`](@ref)** Computation of periodic generators for periodic Lyapunov differential equations.
 * **[`tvclyap_eval`](@ref)** Evaluation of time value of solution from the computed periodic generator.
 * **[`pdlyap`](@ref)** Solution of periodic discrete-time Lyapunov equations. 
+* **[`pdlyap2`](@ref)** Solution of a pair of periodic discrete-time Lyapunov equations. 
 * **[`prdlyap`](@ref)** Solution of reverse-time periodic discrete-time Lyapunov equations. 
 * **[`pfdlyap`](@ref)**  Solution of forward-time periodic discrete-time Lyapunov equations.
 * **[`pcplyap`](@ref)** Solution of positve periodic Lyapunov differential equations. 
@@ -24,6 +25,7 @@ pfclyap
 pgclyap
 tvclyap_eval
 pdlyap
+pdlyap2
 prdlyap
 pfdlyap
 pcplyap

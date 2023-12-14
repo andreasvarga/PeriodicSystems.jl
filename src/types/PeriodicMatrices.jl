@@ -295,6 +295,104 @@ end
 iscontinuous(A::AbstractPeriodicArray) = typeof(A).parameters[1] == :c 
 #iscontinuous(A) = typeof(A).parameters[1] == :c 
 iscontinuous(A::Type) = A.parameters[1] == :c 
+
+
+"""
+    SwitchingPeriodicArray(M, ns, T; nperiod = k) -> A::SwitchingPeriodicArray
+
+Discrete-time switching periodic array representation.
+
+The discrete-time switching periodic array object `A` is built from a `m×n×p` real array
+`M`, a `p`-vector `ns` of increasing positive integers representing the
+discrete switching moments, the associated time period `T` and 
+the number of subperiods specified via the keyword argument `nperiod = k`. 
+
+`M` contains the cyclic component matrices `M[:,:,i]`, `i = 1,..., p`, which defines 
+a sequence of `N := ns[p]` of matrices `S[1], ..., S[N]`, 
+such that `S[j] = `M[:,:,i]` for `j ∈ [ns[i-1]+1, ..., ns[i]]` with `ns[0] := 0`.
+`S[j]` is the `j`-th value `A(Δ(j-1))` of a time periodic matrix `A(t)`
+of subperiod `T′ := T/k`, with `Δ := T′/N`, the associated sample time. 
+The component matrices `M`, the integer vector `ns`, the period `T`, 
+the number of subperiods `k`, the discrete period `N` 
+and the sample time `Δ` can be accessed via `A.M`, `A.ns`, `A.period`, `A.nperiod`, `A.dperiod` and `A.Ts`, respectively. 
+
+The j-th time value `A(Δ(j-1))` can be determined as `A[j]`. 
+It is assumed that `A[j] := A[mod(j-1,N)+1]` for arbitrary `j`. 
+"""
+struct SwitchingPeriodicArray{Domain,T} <: AbstractPeriodicArray{Domain,T} 
+   M::Array{T,3}
+   ns::Vector{Int}
+   period::Float64
+   nperiod::Int
+end
+
+# additional constructors
+function  SwitchingPeriodicArray{:d,T}(M::Array{T,3}, ns::Vector{Int}, period::Real; nperiod::Int = 1) where {T <: Real} 
+   period > 0 || error("period must be positive")       
+   nperiod > 0 || error("number of subperiods must be positive") 
+   p = length(ns)
+   p == size(M,3) || error("number of component matrices must be equal to the dimension of ns") 
+   ns[1] > 0 || error("ns must have only strictly increasing positive values")
+   for i in 1:p-1
+       ns[i+1] > ns[i] || error("ns must have only strictly increasing positive values")
+   end
+   SwitchingPeriodicArray{:d,T}(M, ns, Float64(period), nperiod) 
+end
+function SwitchingPeriodicArray{:d,T}(A::SwitchingPeriodicArray{:d,T1}, period::Real) where {T,T1}
+   period > 0 || error("period must be positive") 
+   #isconstant(A) && (return PeriodicArray{:d,T}(convert(Array{T,3},A.M), period; nperiod = 1))
+   Aperiod = A.period
+   nperiod > 0 || error("number of subperiods must be positive") 
+
+   r = rationalize(Aperiod/period)
+   n, d = numerator(r), denominator(r)
+   min(n,d) == 1 || error("new period is incommensurate with the old period")
+   if period >= Aperiod
+      SwitchingPeriodicArray{:d,T}(convert(Array{T,3},A.M), A.ns, Aperiod*d; nperiod = A.nperiod*d)
+   elseif period < Aperiod
+      nperiod = div(A.nperiod,n)
+      nperiod < 1 && error("new period is incommensurate with the old period")
+      SwitchingPeriodicArray{:d,T}(convert(Array{T,3},A.M), A.ns, Aperiod/n; nperiod)
+   end
+end
+
+SwitchingPeriodicArray(M::Array{T,3}, ns::Vector{Int}, period::Real; nperiod::Int = 1) where {T <: Real} = SwitchingPeriodicArray{:d,T}(M, ns, period, nperiod)
+SwitchingPeriodicArray(M::VecOrMat{T}, period::Real; nperiod::Int = 1) where T = SwitchingPeriodicArray(reshape(M,size(M,1),size(M,2),1), [1], period; nperiod)
+
+function Base.getproperty(A::SwitchingPeriodicArray, d::Symbol)  
+   if d === :dperiod
+      return getfield(A, :ns)[end]
+   elseif d === :Ts
+      return A.period/A.dperiod/A.nperiod
+   else
+      getfield(A, d)
+   end
+end
+Base.propertynames(A::SwitchingPeriodicArray) = (:dperiod, :Ts, fieldnames(typeof(A))...)
+isconstant(A::SwitchingPeriodicArray) = (length(A.ns) == 1)
+Base.size(A::SwitchingPeriodicArray) = (size(A.M,1),size(A.M,2))
+Base.size(A::SwitchingPeriodicArray, d::Integer) = size(A.M,d)
+Base.length(A::SwitchingPeriodicArray) = length(A.ns)
+Base.eltype(A::SwitchingPeriodicArray{:d,T}) where {T} = T
+
+function Base.getindex(A::SPM, ind::Int) where SPM <: SwitchingPeriodicArray
+   A.M[:,:,findfirst(A.ns .>= mod(ind-1,A.dperiod)+1)]
+end
+function Base.lastindex(A::SPM) where SPM <: SwitchingPeriodicArray
+   return A.dperiod
+end
+function Base.getindex(A::PM, inds...) where PM <: SwitchingPeriodicArray
+   size(inds, 1) != 2 &&
+       error("Must specify 2 indices to index a periodic array")
+   rows, cols = index2range(inds...) 
+   SwitchingPeriodicArray{:d,eltype(A)}(A.M[rows,cols,:], A.ns, A.period, A.nperiod)
+end
+function Base.lastindex(A::PM, dim::Int) where PM <: SwitchingPeriodicArray
+   return lastindex(A.M,dim) 
+end
+
+
+
 """
     PeriodicFunctionMatrix(f, T; nperiod = k) -> A::PeriodicFunctionMatrix
 
@@ -819,10 +917,19 @@ end
 
 
 # conversions to discrete-time PeriodicMatrix
-Base.convert(::Type{PeriodicMatrix}, A::PeriodicArray{:d,T}) where T = 
+Base.convert(::Type{<:PeriodicMatrix}, A::PeriodicArray{:d,T}) where T = 
              PeriodicMatrix{:d,T}([A.M[:,:,i] for i in 1:size(A.M,3)],A.period; nperiod = A.nperiod)
-Base.convert(::Type{PeriodicMatrix}, A::SwitchingPeriodicMatrix{:d,T}) where {T} = 
+Base.convert(::Type{<:PeriodicMatrix}, A::SwitchingPeriodicMatrix{:d,T}) where {T} = 
              PeriodicMatrix{:d,T}([A[i] for i in 1:A.dperiod],A.period; nperiod = A.nperiod)
+Base.convert(::Type{<:PeriodicMatrix}, A::SwitchingPeriodicArray{:d,T}) where {T} = 
+             PeriodicMatrix{:d,T}([A[i] for i in 1:A.dperiod],A.period; nperiod = A.nperiod)
+function Base.convert(::Type{<:PeriodicArray}, A::SwitchingPeriodicArray{:d,T}) where {T} 
+   X = Array{T,3}(undef, size(A.M,1), size(A.M,2), A.dperiod)
+   for i in 1:A.dperiod
+       copyto!(view(X,:,:,i), A[i])
+   end 
+   PeriodicArray{:d,T}(X, A.period; nperiod = A.nperiod)
+end
 function Base.convert(::Type{SwitchingPeriodicMatrix}, A::PeriodicMatrix{:d,T}) where {T}
    ns = Int[]
    na = length(A.M)
@@ -855,6 +962,30 @@ function Base.convert(::Type{SwitchingPeriodicMatrix}, A::PeriodicArray{:d,T}) w
    SwitchingPeriodicMatrix{:d,T}([A.M[:,:,ns[i]] for i in 1:length(ns)],ns, A.period; nperiod = A.nperiod)
 end
 Base.convert(::Type{PeriodicArray}, A::SwitchingPeriodicMatrix) = convert(PeriodicArray,convert(PeriodicMatrix,A))
+#Base.convert(::Type{PeriodicArray}, A::SwitchingPeriodicArray) = convert(PeriodicArray,convert(PeriodicMatrix,A))
+function Base.convert(::Type{SwitchingPeriodicMatrix}, A::SwitchingPeriodicArray{:d,T}) where {T}
+   SwitchingPeriodicMatrix{:d,T}([A.M[:,:,A.ns[i]] for i in 1:length(A.ns)], A.ns, A.period; nperiod = A.nperiod)
+end
+function Base.convert(::Type{SwitchingPeriodicArray}, A::PeriodicArray{:d,T}) where {T}
+   ns = Int[]
+   na = size(A.M,3)
+   k = 0
+   i = 1
+   while i <= na
+       i == na && (push!(ns,na); break)
+       for j = i+1:na
+           k += 1
+           !isequal(A.M[:,:,i],A.M[:,:,j]) && (push!(ns,k); break)
+       end
+       i = k+1
+   end
+   nx = length(ns)
+   X = Array{T,3}(undef, size(A.M,1), size(A.M,2), nx)
+   for i = 1:nx
+       copyto!(view(X,:,:,i), view(A.M,:,:,ns[i]))
+   end
+   SwitchingPeriodicArray{:d,T}(X, ns, A.period; nperiod = A.nperiod)
+end
 
 
 

@@ -6,6 +6,7 @@ using Symbolics
 using Test
 using LinearAlgebra
 using ApproxFun
+using FastLapackInterface
 
 println("Test_pslyap")
 
@@ -143,13 +144,16 @@ WUD3 = Array{Float64,3}(undef,4,4,p)
 WUL3 = Matrix{Float64}(undef,4*p,4)
 WY1 = Vector{Float64}(undef,4*p)
 W1 = Matrix{Float64}(undef,8,8)
+qr_ws = QRWs(zeros(8), zeros(4))
+ormqr_ws = QROrmWs(zeros(4), qr_ws.τ)   
 
 
-X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+
+X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez1 = al[i1,i1,1]'*X3[i1,i2,2]*ar[i2,i2,1]-X3[i1,i2,1]+q[i1,i2,1]   
 rez2 = al[i1,i1,2]'*X3[i1,i2,1]*ar[i2,i2,2]-X3[i1,i2,2]+q[i1,i2,2]   
 @test norm(rez1) < 1.e-7  && norm(rez2) < 1.e-7  
-X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez1 = al[i1,i1,1]*X3[i1,i2,1]*ar[i2,i2,1]'-X3[i1,i2,2]+q[i1,i2,1]   
 rez2 = al[i1,i1,2]*X3[i1,i2,2]*ar[i2,i2,2]'-X3[i1,i2,1]+q[i1,i2,2]   
 @test norm(rez1) < 1.e-7  && norm(rez2) < 1.e-7  
@@ -176,11 +180,11 @@ rez2 = al[i1,i1,2]*X1[i1,i2,2]*ar[i2,i2,2]'-X1[i1,i2,1]+q[i1,i2,2]
 @test norm(rez1) < 1.e-7  && norm(rez2) < 1.e-7  
 
 
-X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez1 = al[i1,i1,1]'*X3[i1,i2,2]*ar[i2,i2,1]-X3[i1,i2,1]+q[i1,i2,1]   
 rez2 = al[i1,i1,2]'*X3[i1,i2,1]*ar[i2,i2,2]-X3[i1,i2,2]+q[i1,i2,2]   
 @test norm(rez1) < 1.e-7  && norm(rez2) < 1.e-7  
-X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez1 = al[i1,i1,1]*X3[i1,i2,1]*ar[i2,i2,1]'-X3[i1,i2,2]+q[i1,i2,1]   
 rez2 = al[i1,i1,2]*X3[i1,i2,2]*ar[i2,i2,2]'-X3[i1,i2,1]+q[i1,i2,2]   
 @test norm(rez1) < 1.e-7  && norm(rez2) < 1.e-7  
@@ -207,11 +211,11 @@ rez2 = al[i1,i1,2]*X1[i1,i2,2]*ar[i2,i2,2]'-X1[i1,i2,1]+q[i1,i2,2]
 @test norm(rez1) < 1.e-7  && norm(rez2) < 1.e-7  
 
 
-X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez1 = al[i1,i1,1]'*X3[i1,i2,2]*ar[i2,i2,1]-X3[i1,i2,1]+q[i1,i2,1]   
 rez2 = al[i1,i1,2]'*X3[i1,i2,1]*ar[i2,i2,2]-X3[i1,i2,2]+q[i1,i2,2]   
 @test norm(rez1) < 1.e-7  && norm(rez2) < 1.e-7  
-X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez1 = al[i1,i1,1]*X3[i1,i2,1]*ar[i2,i2,1]'-X3[i1,i2,2]+q[i1,i2,1]   
 rez2 = al[i1,i1,2]*X3[i1,i2,2]*ar[i2,i2,2]'-X3[i1,i2,1]+q[i1,i2,2]   
 @test norm(rez1) < 1.e-7  && norm(rez2) < 1.e-7  
@@ -237,11 +241,11 @@ rez1 = al[i1,i1,1]*X1[i1,i2,1]*ar[i2,i2,1]'-X1[i1,i2,2]+q[i1,i2,1]
 rez2 = al[i1,i1,2]*X1[i1,i2,2]*ar[i2,i2,2]'-X1[i1,i2,1]+q[i1,i2,2]   
 @test norm(rez1) < 1.e-7  && norm(rez2) < 1.e-7  
 
-X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez1 = al[i1,i1,1]'*X3[i1,i2,2]*ar[i2,i2,1]-X3[i1,i2,1]+q[i1,i2,1]   
 rez2 = al[i1,i1,2]'*X3[i1,i2,1]*ar[i2,i2,2]-X3[i1,i2,2]+q[i1,i2,2]   
 @test norm(rez1) < 1.e-7  && norm(rez2) < 1.e-7  
-X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez1 = al[i1,i1,1]*X3[i1,i2,1]*ar[i2,i2,1]'-X3[i1,i2,2]+q[i1,i2,1]   
 rez2 = al[i1,i1,2]*X3[i1,i2,2]*ar[i2,i2,2]'-X3[i1,i2,1]+q[i1,i2,2]   
 @test norm(rez1) < 1.e-7  && norm(rez2) < 1.e-7  
@@ -287,10 +291,10 @@ rez = [ al[i1,i1,ip[i]]*X1[i1,i2,ip[i]]*ar[i2,i2,ip[i]]'-X1[i1,i2,ip1[i]]+q[i1,i
 @test norm(rez) < 1.e-7 
 
 
-X3 = copy(q[i1,i2,1:p]); @time dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1) 
+X3 = copy(q[i1,i2,1:p]); @time dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws) 
 rez = [ al[i1,i1,ip[i]]'*X3[i1,i2,ip1[i]]*ar[i2,i2,ip[i]]-X3[i1,i2,ip[i]]+q[i1,i2,ip[i]] for i in ip]
 @test norm(rez) < 1.e-7  
-X3 = copy(q[i1,i2,1:p]); @time dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:p]); @time dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez = [ al[i1,i1,ip[i]]*X3[i1,i2,ip[i]]*ar[i2,i2,ip[i]]'-X3[i1,i2,ip1[i]]+q[i1,i2,ip[i]] for i in ip]
 @test norm(rez) < 1.e-7 
 
@@ -313,10 +317,10 @@ rez = [ al[i1,i1,ip[i]]*X1[i1,i2,ip[i]]*ar[i2,i2,ip[i]]'-X1[i1,i2,ip1[i]]+q[i1,i
 @test norm(rez) < 1.e-7 
 
 
-X3 = copy(q[i1,i2,1:p]); @time dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:p]); @time dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez = [ al[i1,i1,ip[i]]'*X3[i1,i2,ip1[i]]*ar[i2,i2,ip[i]]-X3[i1,i2,ip[i]]+q[i1,i2,ip[i]] for i in ip]
 @test norm(rez) < 1.e-7  
-X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez = [ al[i1,i1,ip[i]]*X3[i1,i2,ip[i]]*ar[i2,i2,ip[i]]'-X3[i1,i2,ip1[i]]+q[i1,i2,ip[i]] for i in ip]
 @test norm(rez) < 1.e-7 
 
@@ -340,10 +344,10 @@ rez = [ al[i1,i1,ip[i]]*X1[i1,i2,ip[i]]*ar[i2,i2,ip[i]]'-X1[i1,i2,ip1[i]]+q[i1,i
 @test norm(rez) < 1.e-7 
 
 
-X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez = [ al[i1,i1,ip[i]]'*X3[i1,i2,ip1[i]]*ar[i2,i2,ip[i]]-X3[i1,i2,ip[i]]+q[i1,i2,ip[i]] for i in ip]
 @test norm(rez) < 1.e-7  
-X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:p]); dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez = [ al[i1,i1,ip[i]]*X3[i1,i2,ip[i]]*ar[i2,i2,ip[i]]'-X3[i1,i2,ip1[i]]+q[i1,i2,ip[i]] for i in ip]
 @test norm(rez) < 1.e-7 
 
@@ -366,10 +370,10 @@ X1 = copy(q[i1,i2,1:p]); @time dpsylv2!(!REV, n1, n2, KSCHUR, al, ar, X1, WZ, WY
 rez = [ al[i1,i1,ip[i]]*X1[i1,i2,ip[i]]*ar[i2,i2,ip[i]]'-X1[i1,i2,ip1[i]]+q[i1,i2,ip[i]] for i in ip]
 @test norm(rez) < 1.e-7 
 
-X3 = copy(q[i1,i2,1:p]); @time dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:p]); @time dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez = [ al[i1,i1,ip[i]]'*X3[i1,i2,ip1[i]]*ar[i2,i2,ip[i]]-X3[i1,i2,ip[i]]+q[i1,i2,ip[i]] for i in ip]
 @test norm(rez) < 1.e-7  
-X3 = copy(q[i1,i2,1:p]); @time dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:p]); @time dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez = [ al[i1,i1,ip[i]]*X3[i1,i2,ip[i]]*ar[i2,i2,ip[i]]'-X3[i1,i2,ip1[i]]+q[i1,i2,ip[i]] for i in ip]
 @test norm(rez) < 1.e-7 
 
@@ -411,10 +415,10 @@ X1 = copy(q[i1,i2,1:pq]); dpsylv2!(!REV, n1, n2, KSCHUR, al, ar, X1, WZ, WY)
 rez = [ al[i1,i1,ip[i]]*X1[i1,i2,ipq[i]]*ar[i2,i2,ip[i]]'-X1[i1,i2,ipq1[i]]+q[i1,i2,ipq[i]] for i in 1:pq]
 @test norm(rez) < 1.e-7 
 
-X3 = copy(q[i1,i2,1:pq]); @time dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:pq]); @time dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez = [ al[i1,i1,ip[i]]'*X3[i1,i2,ipq1[i]]*ar[i2,i2,ip[i]]-X3[i1,i2,ipq[i]]+q[i1,i2,ipq[i]] for i in 1:pq]
 @test norm(rez) < 1.e-7           
-X3 = copy(q[i1,i2,1:pq]); @time dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:pq]); @time dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez = [ al[i1,i1,ip[i]]*X3[i1,i2,ipq[i]]*ar[i2,i2,ip[i]]'-X3[i1,i2,ipq1[i]]+q[i1,i2,ipq[i]] for i in 1:pq]
 @test norm(rez) < 1.e-7 
 
@@ -437,10 +441,10 @@ X1 = copy(q[i1,i2,1:pq]); dpsylv2!(!REV, n1, n2, KSCHUR, al, ar, X1, WZ, WY)
 rez = [ al[i1,i1,ip[i]]*X1[i1,i2,ipq[i]]*ar[i2,i2,ip[i]]'-X1[i1,i2,ipq1[i]]+q[i1,i2,ipq[i]] for i in 1:pq]
 @test norm(rez) < 1.e-7 
 
-X3 = copy(q[i1,i2,1:pq]); @time dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:pq]); @time dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez = [ al[i1,i1,ip[i]]'*X3[i1,i2,ipq1[i]]*ar[i2,i2,ip[i]]-X3[i1,i2,ipq[i]]+q[i1,i2,ipq[i]] for i in 1:pq]
 @test norm(rez) < 1.e-7           
-X3 = copy(q[i1,i2,1:pq]); @time dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:pq]); @time dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez = [ al[i1,i1,ip[i]]*X3[i1,i2,ipq[i]]*ar[i2,i2,ip[i]]'-X3[i1,i2,ipq1[i]]+q[i1,i2,ipq[i]] for i in 1:pq]
 @test norm(rez) < 1.e-7 
 
@@ -464,10 +468,10 @@ X1 = copy(q[i1,i2,1:pq]); dpsylv2!(!REV, n1, n2, KSCHUR, al, ar, X1, WZ, WY)
 rez = [ al[i1,i1,ip[i]]*X1[i1,i2,ipq[i]]*ar[i2,i2,ip[i]]'-X1[i1,i2,ipq1[i]]+q[i1,i2,ipq[i]] for i in 1:pq]
 @test norm(rez) < 1.e-7 
 
-X3 = copy(q[i1,i2,1:pq]); @time dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:pq]); @time dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez = [ al[i1,i1,ip[i]]'*X3[i1,i2,ipq1[i]]*ar[i2,i2,ip[i]]-X3[i1,i2,ipq[i]]+q[i1,i2,ipq[i]] for i in 1:pq]
 @test norm(rez) < 1.e-7           
-X3 = copy(q[i1,i2,1:pq]); @time dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:pq]); @time dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez = [ al[i1,i1,ip[i]]*X3[i1,i2,ipq[i]]*ar[i2,i2,ip[i]]'-X3[i1,i2,ipq1[i]]+q[i1,i2,ipq[i]] for i in 1:pq]
 @test norm(rez) < 1.e-7 
 
@@ -488,10 +492,10 @@ X1 = copy(q[i1,i2,1:pq]); dpsylv2!(!REV, n1, n2, KSCHUR, al, ar, X1, WZ, WY)
 rez = [ al[i1,i1,ip[i]]*X1[i1,i2,ipq[i]]*ar[i2,i2,ip[i]]'-X1[i1,i2,ipq1[i]]+q[i1,i2,ipq[i]] for i in 1:pq]
 @test norm(rez) < 1.e-7 
 
-X3 = copy(q[i1,i2,1:pq]); @time dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:pq]); @time dpsylv2krsol!(REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez = [ al[i1,i1,ip[i]]'*X3[i1,i2,ipq1[i]]*ar[i2,i2,ip[i]]-X3[i1,i2,ipq[i]]+q[i1,i2,ipq[i]] for i in 1:pq]
 @test norm(rez) < 1.e-7           
-X3 = copy(q[i1,i2,1:pq]); @time dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1)  
+X3 = copy(q[i1,i2,1:pq]); @time dpsylv2krsol!(!REV, n1, n2, KSCHUR, al, ar, X3, WUD3, WUSD3, WUL3, WY1, W1, qr_ws, ormqr_ws)  
 rez = [ al[i1,i1,ip[i]]*X3[i1,i2,ipq[i]]*ar[i2,i2,ip[i]]'-X3[i1,i2,ipq1[i]]+q[i1,i2,ipq[i]] for i in 1:pq]
 @test norm(rez) < 1.e-7 
 

@@ -72,6 +72,7 @@ The targeted functionality of this package is described in [1] and will cover bo
 * **[`pfclyap`](@ref)**  Solution of forward-time periodic Lyapunov differential equations.
 * **[`pgclyap`](@ref)** Computation of periodic generators for periodic Lyapunov differential equations.
 * **[`pdlyap`](@ref)** Solution of periodic discrete-time Lyapunov equations. 
+* **[`pdlyap2`](@ref)** Solution of a pair of periodic discrete-time Lyapunov equations. 
 * **[`prdlyap`](@ref)** Solution of reverse-time periodic discrete-time Lyapunov equations. 
 * **[`pfdlyap`](@ref)**  Solution of forward-time periodic discrete-time Lyapunov equations.
 * **[`pcplyap`](@ref)** Solution of positve periodic Lyapunov differential equations. 
@@ -94,6 +95,9 @@ The targeted functionality of this package is described in [1] and will cover bo
 **Simplification of periodic system models**
 
 **Periodic output and state feedback controller design** 
+
+* **[`plqofc`](@ref)** LQ-optimal stabilization of discrete-time periodic systems using periodic output feedback.
+* **[`plqofc_sw`](@ref)** LQ-optimal stabilization of discrete-time periodic systems using switching periodic output feedback.
 
 **Periodic Schur decompositions**
 

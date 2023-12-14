@@ -1352,6 +1352,10 @@ function kpmeval(A::SwitchingPeriodicMatrix, k::Int)
    ind = findfirst(A.ns .>= mod(k-1,A.dperiod)+1)
    return A.M[ind]
 end
+function kpmeval(A::SwitchingPeriodicArray, k::Int)
+   ind = findfirst(A.ns .>= mod(k-1,A.dperiod)+1)
+   return A.M[:,:,ind]
+end
 (F::PeriodicFunctionMatrix)(t) = (F.f).(t)
 (F::PeriodicSymbolicMatrix)(t) = tpmeval(F, t)
 (F::FourierFunctionMatrix)(t) = (F.M)(t) 

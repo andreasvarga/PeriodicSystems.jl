@@ -3,6 +3,7 @@
 * **[`PeriodicMatrix`](@ref)**   Discrete-time periodic matrix representation.
 * **[`PeriodicArray`](@ref)**    Discrete-time periodic array representation.
 * **[`SwitchingPeriodicMatrix`](@ref)** Discrete-time switching periodic matrix representation.
+* **[`SwitchingPeriodicArray`](@ref)** Discrete-time switching periodic array representation.
 * **[`PeriodicFunctionMatrix`](@ref)**  Continuous-time periodic function matrix representation.
 * **[`PeriodicSymbolicMatrix`](@ref)**   Continuous-time periodic symbolic matrix representation.
 * **[`PeriodicTimeSeriesMatrix`](@ref)**   Continuous-time periodic time series matrix representation.
@@ -14,6 +15,7 @@
 PeriodicMatrix
 PeriodicArray
 SwitchingPeriodicMatrix
+SwitchingPeriodicArray
 PeriodicFunctionMatrix
 PeriodicSymbolicMatrix
 PeriodicTimeSeriesMatrix

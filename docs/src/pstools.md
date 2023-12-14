@@ -13,6 +13,7 @@
 * **[`hrtrunc`](@ref)**  Truncation of a harmonic representation.  
 * **[`pmaverage`](@ref)**  Evaluation of the time averaged matrix of a continuous-time periodic matrix. 
 * **[`pslyapd`](@ref)**  Solution of periodic discrete-time Lyapunov equations using periodic Schur decomposition. 
+* **[`pslyapd2`](@ref)**  Solution of a pair periodic discrete-time Lyapunov equations using a single periodic Schur decomposition. 
 * **[`pslyapdkr`](@ref)**  Solution of periodic discrete-time Lyapunov equations using Kronecker product expansions. 
 * **[`psplyapd`](@ref)** Solution of positve periodic discrete-time Lyapunov equations. 
 
@@ -31,6 +32,7 @@ hrchop
 hrtrunc
 pmaverage
 pslyapd
+pslyapd2
 pslyapdkr
 psplyapd
 ```

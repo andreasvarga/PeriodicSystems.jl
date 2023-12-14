@@ -16,6 +16,7 @@ include("test_pslyap.jl")
 include("test_psclyap.jl")
 include("test_pscric.jl")
 include("test_psdric.jl")
+include("test_stabilization.jl")
 end
 
 end

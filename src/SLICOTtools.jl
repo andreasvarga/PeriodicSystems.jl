@@ -162,6 +162,33 @@ function mb03vw!(compq::AbstractChar, qind::AbstractVector{BlasInt}, atriu::Abst
 
     return info[]
 end
+function mb03vw!(compq::AbstractChar, qind::AbstractVector{BlasInt}, atriu::AbstractChar, 
+    n::Integer, k::Integer, h::Integer, ilo::Integer, ihi::Integer,
+    s::AbstractVector{BlasInt}, a::Array{Float64,3},
+    q::Array{Float64,3}, iwork::AbstractVector{BlasInt}, dwork::AbstractVector{Float64})
+
+    lda1 = max(1,stride(a,2))
+    lda2 = max(1,stride(a,3)÷lda1)
+    ldq1 = max(1,stride(q,2))
+    ldq2 = max(1,stride(q,3)÷ldq1)
+    info = Ref{BlasInt}()
+    liwork = length(iwork)
+    ldwork = length(dwork)
+    hi = (h < 0 || h > k) ? 1 : h
+
+    ccall((:mb03vw_, libslicot), Cvoid, (Ref{UInt8}, Ptr{BlasInt}, 
+            Ref{UInt8}, Ref{BlasInt}, Ref{BlasInt}, Ref{BlasInt}, 
+            Ref{BlasInt}, Ref{BlasInt}, Ptr{BlasInt}, Ptr{Float64}, 
+            Ref{BlasInt}, Ref{BlasInt}, Ptr{Float64}, Ref{BlasInt}, 
+            Ref{BlasInt}, Ptr{BlasInt}, Ref{BlasInt},
+            Ptr{Float64}, Ref{BlasInt}, Ptr{BlasInt}, Clong, Clong), 
+            compq, qind, atriu, n, k, hi,
+            ilo, ihi, s, a, lda1, lda2, q, ldq1, ldq2, 
+            iwork, liwork, dwork, ldwork, info, 1, 1)
+    chkargsok(info[])
+
+    return info[]
+end
 
 """
     mb03bd!(job::AbstractChar, defl::AbstractChar, compq::AbstractChar, qind::AbstractVector{Int64}, k::Integer, n::Integer, h::Integer, 
@@ -218,7 +245,38 @@ function mb03bd!(job::AbstractChar, defl::AbstractChar,
     iwarn = Ref{BlasInt}()
     iwork = Vector{BlasInt}(undef, liwork)
     dwork = Vector{Float64}(undef, ldwork)
+    ccall((:mb03bd_, libslicot), Cvoid, (Ref{UInt8}, Ref{UInt8},
+            Ref{UInt8}, Ptr{BlasInt}, Ref{BlasInt}, Ref{BlasInt},
+            Ref{BlasInt}, Ref{BlasInt}, Ref{BlasInt}, Ptr{BlasInt},
+            Ptr{Float64}, Ref{BlasInt}, Ref{BlasInt}, Ptr{Float64},
+            Ref{BlasInt}, Ref{BlasInt}, Ptr{Float64}, Ptr{Float64},
+            Ptr{Float64}, Ptr{BlasInt}, Ptr{BlasInt}, Ref{BlasInt},
+            Ptr{Float64}, Ref{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt},
+            Clong, Clong, Clong), job, defl, compq, qind, k, n, h,
+            ilo, ihi, s, a, lda1, lda2, q, ldq1, ldq2, alphar,
+            alphai, beta, scal, iwork, liwork, dwork, ldwork, iwarn,
+            info, 1, 1, 1)
+    chkargsok(info[])
 
+    return info[], iwarn[]
+end
+function mb03bd!(job::AbstractChar, defl::AbstractChar,
+    compq::AbstractChar, qind::AbstractVector{BlasInt}, k::Integer,
+    n::Integer, h::Integer, ilo::Integer, ihi::Integer,
+    s::AbstractVector{BlasInt}, a::Array{Float64,3},
+    q::Array{Float64,3},
+    alphar::AbstractVector{Float64}, alphai::AbstractVector{Float64},
+    beta::AbstractVector{Float64}, scal::AbstractVector{BlasInt},
+    iwork::AbstractVector{BlasInt}, dwork::AbstractVector{Float64})
+
+    lda1 = max(1,stride(a,2))
+    lda2 = max(1,stride(a,3)÷lda1)
+    ldq1 = max(1,stride(q,2))
+    ldq2 = max(1,stride(q,3)÷ldq1)
+    info = Ref{BlasInt}()
+    iwarn = Ref{BlasInt}()
+    liwork = length(iwork)
+    ldwork = length(dwork)
     ccall((:mb03bd_, libslicot), Cvoid, (Ref{UInt8}, Ref{UInt8},
             Ref{UInt8}, Ptr{BlasInt}, Ref{BlasInt}, Ref{BlasInt},
             Ref{BlasInt}, Ref{BlasInt}, Ref{BlasInt}, Ptr{BlasInt},

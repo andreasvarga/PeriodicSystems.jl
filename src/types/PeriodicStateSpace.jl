@@ -10,13 +10,29 @@ function promote_period(PM1,args...; ndigits = 4)
       isconst = isconstant(PM1)
    end
    for a in args
-       (typeof(a) <: AbstractVecOrMat || isconstant(a)) && continue
+       typeof(a) <: AbstractVecOrMat && continue
+       if isconstant(a)
+          if isconst
+             if isnothing(period) 
+                period = a.period
+             else
+                #period = max(period,a.period)
+                peri = a.period
+                r = rationalize(period/peri)
+                num = numerator(r)
+                den = denominator(r)
+                num <= nlim || den <= nlim || error("incommensurate periods")
+                period = period*den
+             end
+          end
+          continue
+       end
        isconst && (isconst = false; period = a.period; continue)
        peri = a.period
        r = rationalize(period/peri)
        num = numerator(r)
        den = denominator(r)
-       (num <= nlim && den <= nlim) || error("incommensurate periods")
+       num <= nlim || den <= nlim || error("incommensurate periods")
        period = period*den
    end
    return period

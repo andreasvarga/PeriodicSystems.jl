@@ -22,6 +22,7 @@ using IRKGaussLegendre
 using Primes
 withAPFUN && (using ApproxFun)
 using PeriodicSchurDecompositions
+using FastLapackInterface
 #using JLD
 
 include("SLICOTtools.jl")
@@ -43,7 +44,7 @@ export PeriodicStateSpace, pschur, pschur!, pschur1, pschur2, pgschur, pgschur!,
        tvmeval, tpmeval, hreval, tvstm, psordschur!, psordschur1!, pgordschur!
 export ts2hr, ts2pfm, tsw2pfm, ts2ffm, pfm2hr, hr2psm, psm2hr, pm2pa, ffm2hr, pmaverage, hrtrunc, hrchop
 export monodromy, psceig, psceighr, psceigfr
-export PeriodicArray, PeriodicMatrix, SwitchingPeriodicMatrix
+export PeriodicArray, PeriodicMatrix, SwitchingPeriodicArray, SwitchingPeriodicMatrix
 export PeriodicTimeSeriesMatrix, PeriodicSwitchingMatrix, HarmonicArray, FourierFunctionMatrix, PeriodicFunctionMatrix,  PeriodicSymbolicMatrix
 export isperiodic, isconstant, iscontinuous, islti, set_period
 export mb03vd!, mb03vy!, mb03bd!, mb03wd!, mb03kd! 
@@ -51,15 +52,15 @@ export ps
 export psaverage, psc2d, psmrc2d, psteval, psparallel, psseries, psappend, pshorzcat, psvertcat, psinv, psfeedback
 export ps2fls, hr2bt, hr2btupd, phasemat, ps2frls, DiagDerOp, ps2ls
 export pspole, pszero, isstable, psh2norm, pshanorm, pstimeresp, psstepresp
-export pdlyap, prdlyap, pfdlyap, pslyapd, pdlyaps!, pdlyaps1!, pdlyaps2!, pdlyaps3!, dpsylv2, dpsylv2!, pslyapdkr, dpsylv2krsol!, kronset!
+export pdlyap, pdlyap2, prdlyap, pfdlyap, pslyapd, pslyapd2, pdlyaps!, pdlyaps1!, pdlyaps2!, pdlyaps3!, dpsylv2, dpsylv2!, pslyapdkr, dpsylv2krsol!, kronset!
 export prdplyap, pfdplyap, pdplyap, psplyapd
 export pmshift, trace
 export pclyap, pfclyap, prclyap, pgclyap, tvclyap_eval
 export pcplyap, pfcplyap, prcplyap, pgcplyap, tvcplyap_eval
 export pcric, prcric, pfcric, tvcric, pgcric, prdric, pfdric, tvcric_eval
-export derivative, pmrand, horzcat, vertcat
-#export psfeedback
-#export pspofstab_sw, pspofstab_hr, plqr
+export derivative, pmrand, horzcat, vertcat, pmsymadd!, pmmuladdsym
+export psfeedback
+export pspofstab_sw, pspofstab_hr, plqr, plqofc, plqofc_sw
 
 abstract type AbstractDynamicalSystem end
 abstract type AbstractLTISystem <: AbstractDynamicalSystem end
@@ -80,7 +81,8 @@ include("pslyap.jl")
 include("psclyap.jl")
 include("pscric.jl")
 include("psdric.jl")
-#include("psstab.jl")
+include("psstab.jl")
+#include("psstab_new.jl")
 include("psops.jl")
 include("pmops.jl")
 include("psfutils.jl")

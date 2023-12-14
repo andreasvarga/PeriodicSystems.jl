@@ -196,7 +196,6 @@ Xderf = convert(FourierFunctionMatrix,PeriodicFunctionMatrix(Xder,16*pi,nperiod=
 @test tpmeval(Af,1)[1:2,1:1] == tpmeval(Af[1:2,1],1) && lastindex(Af,1) == 2 && lastindex(Af,2) == 2
 
 t = rand(); 
-println([Af Cf])
 @test [Af Cf](t) ≈ [Af(t) Cf(t)]
 @test [Af; Cf](t) ≈ [Af(t); Cf(t)]
 @test blockdiag(Af,Cf)(t) ≈ DescriptorSystems.blockdiag(Af(t),Cf(t))
@@ -479,6 +478,51 @@ D = rand(n,n)
 @test [[Ad Xd]; [Xd Ad]] == [[Ad;Xd] [Xd;Ad]]
 
 @test blockdiag(Ad,Xd)[10] ≈ DescriptorSystems.blockdiag(Ad[10],Xd[10])   
+
+# SwitchingPeriodicArray
+n = 2; pa = 3; px = 6; T = 10; 
+Ad = 0.5*SwitchingPeriodicArray(rand(Float64,n,n,pa),[10,15,20],T);
+x = pmsymadd!(PeriodicArray(rand(n,n,px),T));
+Xd = SwitchingPeriodicArray(x.M,[2, 3, 5,7, 9, 10],T;nperiod=2);
+@test Ad.Ts == Xd.Ts
+
+@test Ad == pmshift(pmshift(Ad),-1)
+@test Ad == pmshift(pmshift(Ad,10),-10)
+
+Qdf = -Ad*Xd*Ad'+pmshift(Xd); Qdf = (Qdf+transpose(Qdf))/2
+Qdr = -Ad'*pmshift(Xd)*Ad+Xd; Qdr = (Qdr+transpose(Qdr))/2
+
+Xf = pfdlyap(Ad, Qdf);
+@test Ad*Xf*Ad' + Qdf ≈ pmshift(Xf) && Xd ≈ Xf
+Xr = prdlyap(Ad, Qdr);
+@test Ad'*pmshift(Xr)*Ad + Qdr ≈ Xr && Xd ≈ Xr
+
+
+
+@test issymmetric(Xd) && iszero(Xd-Xd')
+@test inv(Ad)*Ad ≈ I ≈ Ad*inv(Ad) && Ad+I == I+Ad
+@test Ad == reverse(reverse(Ad))
+@test Ad == convert(SwitchingPeriodicArray,convert(PeriodicArray,Ad))
+@test Ad ≈ convert(SwitchingPeriodicArray,convert(PeriodicArray,Ad))
+@test norm(Ad,Inf) == norm(convert(PeriodicArray,Ad),Inf)
+@test norm(Ad,1) ≈ norm(convert(PeriodicArray,Ad),1)
+@test norm(Ad,2) ≈ norm(convert(PeriodicArray,Ad),2)
+@test iszero(opnorm(Ad-Ad,Inf)) && iszero(opnorm(Ad-Ad,1)) && iszero(opnorm(Ad-Ad,2))
+@test trace(Ad) ≈ trace(convert(PeriodicArray,Ad)) && tr(Ad) ≈ convert(SwitchingPeriodicArray,tr(convert(PeriodicArray,Ad)))
+
+
+D = rand(n,n)
+@test Ad*5 == 5*Ad  && Ad*D ≈ -Ad*(-D) && iszero(Ad-Ad) && !iszero(Ad)
+@test SwitchingPeriodicArray(D,2*pi) == SwitchingPeriodicArray(D,4*pi) && 
+      SwitchingPeriodicArray(D,2*pi) ≈ SwitchingPeriodicArray(D,4*pi)
+
+
+@test Ad[1:2,1:1].M == Ad.M[1:2,1:1,:] && lastindex(Ad,1) == n && lastindex(Ad,2) == n
+
+@test [[Ad Xd]; [Xd Ad]] == [[Ad;Xd] [Xd;Ad]]
+
+@test blockdiag(Ad,Xd)[10] ≈ DescriptorSystems.blockdiag(Ad[10],Xd[10])   
+
 
 end # pmops
 

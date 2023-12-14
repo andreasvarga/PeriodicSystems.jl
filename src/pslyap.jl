@@ -1,23 +1,45 @@
 for PM in (:PeriodicArray, :PeriodicMatrix)
     @eval begin
-       function pdlyap(A::$PM, C::$PM; adj::Bool = true) 
+       function pdlyap(A::$PM, C::$PM; adj::Bool = true, stability_check = false) 
           A.Ts ≈ C.Ts || error("A and C must have the same sampling time")
           period = promote_period(A, C)
           na = rationalize(period/A.period).num
           K = na*A.nperiod*A.dperiod
-          X = pslyapd(A.M, C.M; adj)
+          X = pslyapd(A.M, C.M; adj, stability_check)
           p = lcm(length(A),length(C))
           return $PM(X, period; nperiod = div(K,p))
        end
+       function pdlyap2(A::$PM, C::$PM, E::$PM; stability_check = false) 
+          A.Ts  ≈ C.Ts ≈ E.Ts || error("A, C and E must have the same sampling time")
+          period = promote_period(A, C, E)
+          na = rationalize(period/A.period).num
+          K = na*A.nperiod*A.dperiod
+          X, Y = pslyapd2(A.M, C.M, E.M; stability_check)
+          p = lcm(length(A),length(C),length(E))
+          return $PM(X, period; nperiod = div(K,p)), $PM(Y, period; nperiod = div(K,p))
+       end
     end
 end
-function pdlyap(A::PM, C::PM; adj::Bool = true) where {PM <: SwitchingPeriodicMatrix}
-   X = pdlyap(convert(PeriodicMatrix,A),convert(PeriodicMatrix,C); adj)
+function pdlyap(A::PM, C::PM; kwargs...) where {PM <: SwitchingPeriodicMatrix}
+   X = pdlyap(convert(PeriodicMatrix,A),convert(PeriodicMatrix,C); kwargs...)
    return convert(SwitchingPeriodicMatrix,X)
 end
+function pdlyap2(A::PM, C::PM, E::PM; kwargs...) where {PM <: SwitchingPeriodicMatrix}
+   X, Y = pdlyap2(convert(PeriodicMatrix,A),convert(PeriodicMatrix,C),convert(PeriodicMatrix,E); kwargs...)
+   return convert(SwitchingPeriodicMatrix,X), convert(SwitchingPeriodicMatrix,Y)
+end
+function pdlyap(A::PM, C::PM; kwargs...) where {PM <: SwitchingPeriodicArray}
+   X = pdlyap(convert(PeriodicArray,A),convert(PeriodicArray,C); kwargs...)
+   return convert(SwitchingPeriodicArray,X)
+end
+function pdlyap2(A::PM, C::PM, E::PM; kwargs...) where {PM <: SwitchingPeriodicArray}
+   X, Y = pdlyap2(convert(PeriodicArray,A),convert(PeriodicArray,C),convert(PeriodicArray,E); kwargs...)
+   return convert(SwitchingPeriodicArray,X), convert(SwitchingPeriodicArray,Y)
+end
+
 
 """
-    pdlyap(A, C; adj = true) -> X
+    pdlyap(A, C; adj = true, stability_check = false) -> X
 
 Solve the periodic discrete-time Lyapunov equation
 
@@ -34,6 +56,9 @@ and additionally `C` must be symmetric. The resulting symmetric periodic solutio
 set to the least common commensurate period of `A` and `C` and the number of subperiods
 is adjusted accordingly. 
 
+If `stability_check = true`, the stability of characteristic multipliers of `A` is checked and an error is issued
+if any characteristic multiplier has modulus equal to or larger than one. 
+
 The periodic discrete analog of the Bartels-Stewart method based on the periodic Schur form
 of the periodic matrix `A` is employed [1].
 
@@ -43,24 +68,52 @@ _Reference:_
               Int. J. Control, vol, 67, pp, 69-87, 1997.
 """
 pdlyap(A::PeriodicArray, C::PeriodicArray; adj::Bool = true) 
-for PM in (:PeriodicArray, :PeriodicMatrix, :SwitchingPeriodicMatrix)
+"""
+    pdlyap2(A, C, E; stability_check = false) -> (X, Y)
+
+Solve the pair of periodic discrete-time Lyapunov equations
+
+    AXA' + C  = σX, 
+    A'σYA + E = Y,
+    
+where `σ` is the forward shift operator `σX(i) = X(i+1)` and `σY(i) = Y(i+1)`. 
+
+The periodic matrices `A`, `C` and `E` must have the same type, the same dimensions and commensurate periods, 
+and additionally `C` and `E` must be symmetric. The resulting symmetric periodic solutions `X` and `Y` have the period 
+set to the least common commensurate period of `A`, `C` and `E` and the number of subperiods
+is adjusted accordingly. 
+
+If `stability_check = true`, the stability of characteristic multipliers of `A` is checked and an error is issued
+if any characteristic multiplier has modulus equal to or larger than one. 
+
+The periodic discrete analog of the Bartels-Stewart method based on the periodic Schur form
+of the periodic matrix `A` is employed [1].
+
+_Reference:_
+
+[1] A. Varga. Periodic Lyapunov equations: some applications and new algorithms. 
+              Int. J. Control, vol, 67, pp, 69-87, 1997.
+"""
+pdlyap2(A::PeriodicArray, C::PeriodicArray, E::PeriodicArray; stability_check = false)
+
+for PM in (:PeriodicArray, :PeriodicMatrix, :SwitchingPeriodicMatrix, :SwitchingPeriodicArray)
    @eval begin
-      function prdlyap(A::$PM, C::$PM) 
-         pdlyap(A, C; adj = true)
+      function prdlyap(A::$PM, C::$PM; stability_check = false) 
+         pdlyap(A, C; adj = true, stability_check)
       end
-      function prdlyap(A::$PM, C::AbstractArray)
-               pdlyap(A, $PM(C, A.Ts; nperiod = 1);  adj = true)
+      function prdlyap(A::$PM, C::AbstractArray; stability_check = false)
+               pdlyap(A, $PM(C, A.Ts; nperiod = 1);  adj = true, stability_check)
       end
-      function pfdlyap(A::$PM, C::$PM) 
-         pdlyap(A, C; adj = false)
+      function pfdlyap(A::$PM, C::$PM; stability_check = false) 
+         pdlyap(A, C; adj = false, stability_check)
       end
-      function pfdlyap(A::$PM, C::AbstractArray) 
-         pdlyap(A, $PM(C, A.Ts; nperiod = 1); adj = false)
+      function pfdlyap(A::$PM, C::AbstractArray; stability_check = false) 
+         pdlyap(A, $PM(C, A.Ts; nperiod = 1); adj = false, stability_check)
       end
    end
 end
 """
-    prdlyap(A, C) -> X
+    prdlyap(A, C; stability_check = false) -> X
 
 Solve the reverse-time periodic discrete-time Lyapunov equation
 
@@ -71,11 +124,14 @@ where `σ` is the forward shift operator `σX(i) = X(i+1)`.
 The periodic matrices `A` and `C` must have the same type, the same dimensions and commensurate periods, 
 and additionally `C` must be symmetric. The resulting symmetric periodic solution `X` has the period 
 set to the least common commensurate period of `A` and `C` and the number of subperiods
-is adjusted accordingly.  
+is adjusted accordingly. 
+
+If `stability_check = true`, the stability of characteristic multipliers of `A` is checked and an error is issued
+if any characteristic multiplier has modulus equal to or larger than one. 
 """
 prdlyap(A::PeriodicArray, C::PeriodicArray) 
 """
-    pfdlyap(A, C) -> X
+    pfdlyap(A, C; stability_check = false) -> X
 
 Solve the forward-time periodic discrete-time Lyapunov equation
 
@@ -87,11 +143,13 @@ The periodic matrices `A` and `C` must have the same type, the same dimensions a
 and additionally `C` must be symmetric. The resulting symmetric periodic solution `X` has the period 
 set to the least common commensurate period of `A` and `C` and the number of subperiods
 is adjusted accordingly.  
+
+If `stability_check = true`, the stability of characteristic multipliers of `A` is checked and an error is issued
+if any characteristic multiplier has modulus equal to or larger than one. 
 """
 pfdlyap(A::PeriodicArray, C::PeriodicArray) 
-
 """
-    pslyapd(A, C; adj = true) -> X
+    pslyapd(A, C; adj = true, stability_check = false) -> X
 
 Solve the periodic discrete-time Lyapunov equation.
 
@@ -110,6 +168,9 @@ arrays `A` and `C`, respectively, and `X` results as a `n×n×p` 3-dimensional a
 Alternatively, the periodic matrices `A` and `C` can be stored in the  `pa`- and `pc`-dimensional
 vectors of matrices `A` and `C`, respectively, and `X` results as a `p`-dimensional vector of matrices.
 
+If `stability_check = true`, the stability of characteristic multipliers of `A` is checked and an error is issued
+if any characteristic multiplier has modulus equal to or larger than one. 
+
 The periodic discrete analog of the Bartels-Stewart method based on the periodic Schur form
 of the periodic matrix `A` is employed [1].
 
@@ -118,7 +179,7 @@ _Reference:_
 [1] A. Varga. Periodic Lyapunov equations: some applications and new algorithms. 
               Int. J. Control, vol, 67, pp, 69-87, 1997.
 """
-function pslyapd(A::AbstractArray{T1, 3}, C::AbstractArray{T2, 3}; adj::Bool = true) where {T1, T2}
+function pslyapd(A::AbstractArray{T1, 3}, C::AbstractArray{T2, 3}; adj::Bool = true, stability_check = false) where {T1, T2}
    n = LinearAlgebra.checksquare(A[:,:,1])
    pa = size(A,3)
    pc = size(C,3)
@@ -132,7 +193,8 @@ function pslyapd(A::AbstractArray{T1, 3}, C::AbstractArray{T2, 3}; adj::Bool = t
    C1 = T2 == T ? C : C1 = convert(Array{T,3},C)
 
    # Reduce A to Schur form and transform C
-   AS, Q, _, KSCHUR = pschur(A1)
+   AS, Q, ev, KSCHUR = pschur(A1)
+   stability_check && maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")
    
    #X = Q'*C*Q
    X = Array{T,3}(undef, n, n, p)
@@ -145,6 +207,7 @@ function pslyapd(A::AbstractArray{T1, 3}, C::AbstractArray{T2, 3}; adj::Bool = t
        X[:,:,i] = adj ? utqu(view(C1,:,:,ic),view(Q,:,:,ia)) : 
                         utqu(view(C1,:,:,ic),view(Q,:,:,ia1)) 
    end
+
    # solve A'σXA + C = X if adj = true or AXA' + C = σX if adj = false
    pdlyaps!(KSCHUR, AS, X; adj)
 
@@ -155,7 +218,7 @@ function pslyapd(A::AbstractArray{T1, 3}, C::AbstractArray{T2, 3}; adj::Bool = t
    end
    return X
 end
-function pslyapd(A::AbstractVector{Matrix{T1}}, C::AbstractVector{Matrix{T2}}; adj::Bool = true) where {T1, T2}
+function pslyapd(A::AbstractVector{Matrix{T1}}, C::AbstractVector{Matrix{T2}}; adj::Bool = true, stability_check = false) where {T1, T2}
    pa = length(A) 
    pc = length(C)
    ma, na = size.(A,1), size.(A,2) 
@@ -184,7 +247,8 @@ function pslyapd(A::AbstractVector{Matrix{T1}}, C::AbstractVector{Matrix{T2}}; a
          [copyto!(view(C1,1:mc[i],1:mc[i],i), T.(C[i])) for i in 1:pc] 
 
    # Reduce A to Schur form and transform C
-   AS, Q, _, KSCHUR = pschur(A1)
+   AS, Q, ev, KSCHUR = pschur(A1)
+   stability_check && maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")
    
    # if adj = true: X = Q'*C*Q; if adj = false: X = σQ'*C*σQ
    X = Array{T,3}(undef, n, n, p)
@@ -197,7 +261,7 @@ function pslyapd(A::AbstractVector{Matrix{T1}}, C::AbstractVector{Matrix{T2}}; a
        X[:,:,i] = adj ? utqu(view(C1,:,:,ic),view(Q,:,:,ia)) : 
                         utqu(view(C1,:,:,ic),view(Q,:,:,ia1)) 
    end
-   # solve A'σXA - X + C = 0
+   # solve A'σXA + C = X if adj = true or AXA' + C = σX if adj = false
    pdlyaps!(KSCHUR, AS, X; adj)
 
    #X <- Q*X*Q'
@@ -208,6 +272,235 @@ function pslyapd(A::AbstractVector{Matrix{T1}}, C::AbstractVector{Matrix{T2}}; a
    return adj ? [X[1:na[mod(i-1,pa)+1],1:na[mod(i-1,pa)+1],i] for i in 1:p] :
                 [X[1:na[mod(i-1,pa)+1],1:na[mod(i-1,pa)+1],i] for i in 1:p]  
 end
+"""
+    pslyapd2(A, C, E; stability_check = false) -> (X, Y)
+
+Solve a pair of periodic discrete-time Lyapunov equations.
+
+For the square `n`-th order periodic matrices `A(i)`, `i = 1, ..., pa`, 
+`C(i)`, `i = 1, ..., pc`, and `E(i)`, `i = 1, ..., pe` of periods `pa`, `pc` and `pe`, respectively, 
+the periodic solutions `X(i)`, `i = 1, ..., p` and `Y(i)`, `i = 1, ..., p` 
+of period `p = lcm(pa,pc,pe)` of the periodic Lyapunov equations are computed:  
+
+    A(i)*X(i)*A(i)' + C(i) = X(i+1), i = 1, ..., p ,  
+     
+    A(i)'*Y(i+1)*A(i) + E(i) = Y(i), i = 1, ..., p . 
+
+The periodic matrices `A`, `C` and `E` are stored in the `n×n×pa`, `n×n×pc` and `n×n×pe` 3-dimensional 
+arrays `A`, `C` and `E`, respectively, and `X` and `Y` result as `n×n×p` 3-dimensional arrays.  
+
+Alternatively, the periodic matrices `A`, `C` and `E` can be stored in the  `pa`-, `pc`- and `pe`-dimensional
+vectors of matrices `A`, `C` and `E`, respectively, and `X` and `Y` result as `p`-dimensional vectors of matrices.
+
+If `stability_check = true`, the stability of characteristic multipliers of `A` is checked and an error is issued
+if any characteristic multiplier has modulus equal to or larger than one. 
+
+The periodic discrete analog of the Bartels-Stewart method based on the periodic Schur form
+of the periodic matrix `A` is employed [1].
+
+_Reference:_
+
+[1] A. Varga. Periodic Lyapunov equations: some applications and new algorithms. 
+              Int. J. Control, vol, 67, pp, 69-87, 1997.
+"""
+function pslyapd2(A::AbstractVector{Matrix{T1}}, C::AbstractVector{Matrix{T2}}, E::AbstractVector{Matrix{T3}}; stability_check = false) where {T1, T2, T3}
+   pa = length(A) 
+   pc = length(C)
+   pe = length(E)
+   ma, na = size.(A,1), size.(A,2) 
+   mc, nc = size.(C,1), size.(C,2) 
+   me, ne = size.(E,1), size.(E,2) 
+   p = lcm(pa,pc,pe)
+   all(ma .== view(na,mod.(1:pa,pa).+1)) || 
+        error("the number of columns of A[i+1] must be equal to the number of rows of A[i]")
+   all([LinearAlgebra.checksquare(C[mod(i-1,pc)+1]) == ma[mod(i-1,pa)+1] for i in 1:p]) ||
+        throw(DimensionMismatch("incompatible dimensions between A and C"))
+   all([LinearAlgebra.checksquare(E[mod(i-1,pe)+1]) == na[mod(i-1,pa)+1] for i in 1:p]) ||
+        throw(DimensionMismatch("incompatible dimensions between A and E"))
+
+
+   all([issymmetric(C[i]) for i in 1:pc]) || error("all C[i] must be symmetric matrices")
+   all([issymmetric(E[i]) for i in 1:pe]) || error("all E[i] must be symmetric matrices")
+
+   n = maximum(na)
+
+   T = promote_type(T1, T2, T2)
+   T <: BlasFloat  || (T = promote_type(Float64,T))
+   A1 = zeros(T, n, n, pa)
+   C1 = zeros(T, n, n, pc)
+   E1 = zeros(T, n, n, pe)
+   [copyto!(view(A1,1:ma[i],1:na[i],i), T.(A[i])) for i in 1:pa]
+   [copyto!(view(E1,1:ne[i],1:ne[i],i), T.(E[i])) for i in 1:pe] 
+   [copyto!(view(C1,1:mc[i],1:mc[i],i), T.(C[i])) for i in 1:pc] 
+
+   # Reduce A to Schur form and transform C
+   AS, Q, ev, KSCHUR = pschur(A1)
+   stability_check && maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")
+   
+   # Y = Q'*E*Q; X = σQ'*C*σQ
+   X = Array{T,3}(undef, n, n, p)
+   Y = Array{T,3}(undef, n, n, p)
+
+   for i = 1:p
+       ia = mod(i-1,pa)+1
+       ic = mod(i-1,pc)+1
+       ie = mod(i-1,pe)+1
+       ia1 = mod(i,pa)+1
+
+       X[:,:,i] = utqu(view(C1,:,:,ic),view(Q,:,:,ia1)) 
+       Y[:,:,i] = utqu(view(E1,:,:,ie),view(Q,:,:,ia)) 
+   end
+   # solve A'σXA + C = X
+   pdlyaps!(KSCHUR, AS, X; adj = false)
+   # solve AXA' + E = σX 
+   pdlyaps!(KSCHUR, AS, Y; adj = true)
+
+   #X <- Q*X*Q', Y <- = Q*Y*Q'
+   for i = 1:p
+       ia = mod(i-1,pa)+1
+       utqu!(view(X,:,:,i),view(Q,:,:,ia)')
+       utqu!(view(Y,:,:,i),view(Q,:,:,ia)')
+   end
+   return [X[1:na[mod(i-1,pa)+1],1:na[mod(i-1,pa)+1],i] for i in 1:p], [Y[1:na[mod(i-1,pa)+1],1:na[mod(i-1,pa)+1],i] for i in 1:p]                
+end
+function pslyapd2(A::AbstractArray{T1, 3}, C::AbstractArray{T2, 3}, E::AbstractArray{T3, 3}; stability_check = false) where {T1, T2, T3}
+   n = LinearAlgebra.checksquare(A[:,:,1])
+   pa = size(A,3)
+   pc = size(C,3)
+   pe = size(E,3)
+   (LinearAlgebra.checksquare(C[:,:,1]) == n && all([issymmetric(C[:,:,i]) for i in 1:pc])) ||
+           throw(DimensionMismatch("all C[:,:,i] must be $n x $n symmetric matrices"))
+   (LinearAlgebra.checksquare(E[:,:,1]) == n && all([issymmetric(E[:,:,i]) for i in 1:pe])) ||
+           throw(DimensionMismatch("all E[:,:,i] must be $n x $n symmetric matrices"))
+   p = lcm(pa,pc,pe)
+
+   T = promote_type(T1, T2, T2)
+   T <: BlasFloat  || (T = promote_type(Float64,T))
+   A1 = T1 == T ? A : A1 = convert(Array{T,3},A)
+   C1 = T2 == T ? C : C1 = convert(Array{T,3},C)
+   E1 = T2 == T ? E : E1 = convert(Array{T,3},E)
+
+   # Reduce A to Schur form and transform C and E
+   AS, Q, ev, KSCHUR = pschur(A1)
+   stability_check && maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")
+   
+   # Y = Q'*E*Q; X = σQ'*C*σQ
+   X = Array{T,3}(undef, n, n, p)
+   Y = Array{T,3}(undef, n, n, p)
+   for i = 1:p
+       ia = mod(i-1,pa)+1
+       ic = mod(i-1,pc)+1
+       ie = mod(i-1,pe)+1
+       ia1 = mod(i,pa)+1
+       X[:,:,i] = utqu(view(C1,:,:,ic),view(Q,:,:,ia1)) 
+       Y[:,:,i] = utqu(view(E1,:,:,ie),view(Q,:,:,ia)) 
+   end
+
+   # solve A'σXA + C = X
+   pdlyaps!(KSCHUR, AS, X; adj = false)
+   # solve AXA' + E = σX 
+   pdlyaps!(KSCHUR, AS, Y; adj = true)
+
+   #X <- Q*X*Q', Y <- = Q*Y*Q'
+   for i = 1:p
+       ia = mod(i-1,pa)+1
+       utqu!(view(X,:,:,i),view(Q,:,:,ia)')
+       utqu!(view(Y,:,:,i),view(Q,:,:,ia)')
+   end
+   return X, Y                
+end
+function pslyapd!(X::AbstractArray{T, 3}, A::AbstractArray{T, 3}, C::AbstractArray{T, 3}, Xt::AbstractMatrix{T}, Q::AbstractArray{T, 3}; adj::Bool = true, stability_check = false) where {T}
+   n = LinearAlgebra.checksquare(A[:,:,1])
+   pa = size(A,3)
+   pc = size(C,3)
+   (LinearAlgebra.checksquare(C[:,:,1]) == n && all([issymmetric(C[:,:,i]) for i in 1:pc])) ||
+           throw(DimensionMismatch("all C[:,:,i] must be $n x $n symmetric matrices"))
+   p = lcm(pa,pc)
+
+   # Reduce A to Schur form and transform C 
+   ev, KSCHUR = pschur!(A,Q)
+   stability_check && maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")
+
+   for i = 1:p
+       ic = mod(i-1,pc)+1
+       if adj
+          #  X[:,:,i] = utqu(view(C,:,:,ic),view(Q,:,:,ia)) 
+          ia = mod(i-1,pa)+1
+          mul!(Xt,view(Q,:,:,ia)',view(C,:,:,ic))
+          muladdsym!(view(X,:,:,i),Xt,view(Q,:,:,ia),(0,1))
+       else
+          #  X[:,:,i] = utqu(view(C,:,:,ic),view(Q,:,:,ia1)) 
+          ia1 = mod(i,pa)+1
+          mul!(Xt,view(Q,:,:,ia1)',view(C,:,:,ic))
+          muladdsym!(view(X,:,:,i),Xt,view(Q,:,:,ia1),(0,1))
+       end
+   end
+
+   # solve A'σXA + C = X for adj = true or  AXA' + C = σX for adj = false 
+   pdlyaps!(KSCHUR, A, X; adj)
+
+   #X <- Q*X*Q'
+   for i = 1:p
+       ia = mod(i-1,pa)+1
+       #  utqu!(view(X,:,:,i),view(Q,:,:,ia)')
+       mul!(Xt,view(X,:,:,i),view(Q,:,:,ia)')
+       muladdsym!(view(X,:,:,i),view(Q,:,:,ia),Xt,(0,1))
+   end
+   return X               
+end
+function pslyapd2!(X::AbstractArray{T, 3}, Y::AbstractArray{T, 3}, A::AbstractArray{T, 3}, C::AbstractArray{T, 3}, E::AbstractArray{T, 3}, Xt::AbstractMatrix{T}, Q::AbstractArray{T, 3}, WORK, pschur_ws; stability_check = false) where {T}
+   n = LinearAlgebra.checksquare(view(A,:,:,1))
+   n == LinearAlgebra.checksquare(view(C,:,:,1)) ||
+          throw(DimensionMismatch("all C[:,:,i] must be $n x $n symmetric matrices"))
+   n == LinearAlgebra.checksquare(view(E,:,:,1)) ||
+          throw(DimensionMismatch("all E[:,:,i] must be $n x $n symmetric matrices"))
+   n == LinearAlgebra.checksquare(view(X,:,:,1)) ||
+          throw(DimensionMismatch("all X[:,:,i] must be $n x $n matrices"))
+   n == LinearAlgebra.checksquare(view(Y,:,:,1)) ||
+          throw(DimensionMismatch("all Y[:,:,i] must be $n x $n matrices"))
+   pa = size(A,3)
+   pc = size(C,3)
+   pe = size(E,3)
+   # (LinearAlgebra.checksquare(C[:,:,1]) == n && all([issymmetric(C[:,:,i]) for i in 1:pc])) ||
+   #         throw(DimensionMismatch("all C[:,:,i] must be $n x $n symmetric matrices"))
+   # (LinearAlgebra.checksquare(E[:,:,1]) == n && all([issymmetric(E[:,:,i]) for i in 1:pe])) ||
+   #         throw(DimensionMismatch("all E[:,:,i] must be $n x $n symmetric matrices"))
+   p = lcm(pa,pc,pe)
+   p == size(X,3) == size(Y,3) || throw(DimensionMismatch("incompatible third dimensions of X and Y with A, C, and E"))
+
+   # Reduce A to Schur form and transform C and E
+   ev, KSCHUR = pschur!(pschur_ws,A,Q)
+   stability_check && maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")
+
+   for i = 1:p
+       ia = mod(i-1,pa)+1
+       ic = mod(i-1,pc)+1
+       ie = mod(i-1,pe)+1
+       ia1 = mod(i,pa)+1
+       #  X[:,:,i] = utqu(view(C,:,:,ic),view(Q,:,:,ia1)) 
+       #  Y[:,:,i] = utqu(view(E,:,:,ie),view(Q,:,:,ia)) 
+       mul!(Xt,view(Q,:,:,ia1)',view(C,:,:,ic))
+       muladdsym!(view(X,:,:,i),Xt,view(Q,:,:,ia1),(0,1))
+       mul!(Xt,view(Q,:,:,ia)',view(E,:,:,ie))
+       muladdsym!(view(Y,:,:,i),Xt,view(Q,:,:,ia),(0,1))
+   end
+
+   # solve A'σXA + C = X and AYA' + E = σY 
+   pdlyaps2!(KSCHUR, A, X, Y, WORK)
+  
+   #X <- Q*X*Q', Y <- = Q*Y*Q'
+   for i = 1:p
+       ia = mod(i-1,pa)+1
+       #  utqu!(view(X,:,:,i),view(Q,:,:,ia)')
+       #  utqu!(view(Y,:,:,i),view(Q,:,:,ia)')
+       mul!(Xt,view(X,:,:,i),view(Q,:,:,ia)')
+       muladdsym!(view(X,:,:,i),view(Q,:,:,ia),Xt,(0,1))
+       mul!(Xt,view(Y,:,:,i),view(Q,:,:,ia)')
+       muladdsym!(view(Y,:,:,i),view(Q,:,:,ia),Xt,(0,1))
+   end
+   return nothing                
+end
+
 """
      pslyapdkr(A, C; adj = true) -> X
 
@@ -368,6 +661,8 @@ function pdlyaps!(KSCHUR::Int, A::AbstractArray{T1,3}, C::AbstractArray{T1,3}; a
    WUL = Matrix{Float64}(undef,4*pc,4)
    WY = Vector{Float64}(undef,4*pc)
    W = Matrix{Float64}(undef,8,8)
+   qr_ws = QRWs(zeros(8), zeros(4))
+   ormqr_ws = QROrmWs(zeros(4), qr_ws.τ)   
 
    # determine the dimensions of the diagonal blocks of real Schur form
    ba, p = MatrixEquations.sfstruct(A[:,:,KSCHUR])
@@ -412,8 +707,7 @@ function pdlyaps!(KSCHUR::Int, A::AbstractArray{T1,3}, C::AbstractArray{T1,3}; a
                      mul!(view(y,:,:,ii),transpose(view(C,ic,k,ii1)),view(A,ic,l,ia),ONE,ONE)
                  end
               end
-              dpsylv2krsol!(adj, dk, dl, KSCHUR, view(A,k,k,1:pa), view(A,l,l,1:pa), y, WUD, WUSD, WUL, WY, W) 
-              #dpsylv2!(adj, dk, dl, KSCHUR, view(A,k,k,1:pa), view(A,l,l,1:pa), y, WZ, WY)
+              dpsylv2krsol!(adj, dk, dl, KSCHUR, view(A,k,k,1:pa), view(A,l,l,1:pa), y, WUD, WUSD, WUL, WY, W, qr_ws, ormqr_ws) 
               copyto!(Ckl,y)
               if ll == kk && dl == 2
                  for ii = 1:pc
@@ -480,7 +774,7 @@ function pdlyaps!(KSCHUR::Int, A::AbstractArray{T1,3}, C::AbstractArray{T1,3}; a
                      mul!(view(y,:,:,ii),transpose(view(C,ic,l,ii)),transpose(view(A,k,ic,ia)),ONE,ONE)
                  end
               end
-              dpsylv2krsol!(adj, dl, dk, KSCHUR, view(A,l,l,1:pa), view(A,k,k,1:pa), y, WUD, WUSD, WUL, WY, W) 
+              dpsylv2krsol!(adj, dl, dk, KSCHUR, view(A,l,l,1:pa), view(A,k,k,1:pa), y, WUD, WUSD, WUL, WY, W, qr_ws, ormqr_ws) 
               #dpsylv2!(adj, dl, dk, KSCHUR, view(A,l,l,1:pa), view(A,k,k,1:pa), y, WZ, WY)
               copyto!(Clk,y)
               if ll == kk && dl == 2
@@ -512,6 +806,175 @@ function pdlyaps!(KSCHUR::Int, A::AbstractArray{T1,3}, C::AbstractArray{T1,3}; a
    end
    return #C[:,:,:]
 end
+function pdlyaps2!(KSCHUR::Int, A::AbstractArray{T1,3}, C::AbstractArray{T1,3}, E::AbstractArray{T1,3}, WORK) where {T1<:BlasReal}
+   # Standard solver for A in a periodic Schur form, with structure exploiting solution of
+   # the underlying 2x2 periodic Sylvester equations. 
+   n = LinearAlgebra.checksquare(view(A,:,:,1))
+   pa = size(A,3)
+   pc = size(C,3)
+   pe = size(E,3)
+   LinearAlgebra.checksquare(view(C,:,:,1)) == n || throw(DimensionMismatch("C[:,:,i] must be $n x $n symmetric matrices"))
+   LinearAlgebra.checksquare(view(E,:,:,1)) == n || throw(DimensionMismatch("E[:,:,i] must be $n x $n symmetric matrices"))
+   # (LinearAlgebra.checksquare(view(C,:,:,1)) == n && all([issymmetric(view(C,:,:,i)) for i in 1:pc])) ||
+   #    throw(DimensionMismatch("all C[:,:,i] must be $n x $n symmetric matrices"))
+   rem(pc,pa) == 0 || error("the period of C must be an integer multiple of A")
+   rem(pe,pa) == 0 || error("the period of E must be an integer multiple of A")
+   (KSCHUR <= 0 || KSCHUR > pa ) && 
+         error("KSCHUR has a value $KSCHUR, which is inconsistent with A ")
+   
+   if pa == 1 && pc == 1 && pe == 1  
+      lyapds!(view(A,:,:,1), view(C,:,:,1); adj = false)
+      lyapds!(view(A,:,:,1), view(E,:,:,1); adj = true)
+      return #C[:,:,:]
+   end
+   ONE = one(T1)
+
+   # use preallocated cache for 2x2 periodic Sylvester solver
+   # G(2×2×pc), WUSD(4×4×pc), WUD(4×4×pc), WUL(4pc×4), WY(4pc), W(8×8), 
+   # qr_ws = QRWs(zeros(8), zeros(4)), ormqr_ws = QROrmWs(zeros(4), qr_ws.τ)   
+   (G, WUSD, WUD, WUL, WY, W, qr_ws, ormqr_ws) = WORK
+ 
+   # determine the dimensions of the diagonal blocks of real Schur form
+   ba, p = MatrixEquations.sfstruct(view(A,:,:,KSCHUR))
+
+
+   # Solve    A(j)*X(j)*A(j)' + C(j) = X(j+1) .
+   #
+   # The (K,L)th block of X(j) is determined starting from
+   # bottom-right corner column by column by
+   #
+   #    A(j)(K,K)*X(j)(K,L)*A(j)(L,L)' - X(j+1)(K,L) = -C(j)(K,L) - R(j)(K,L)
+   #
+   # Where
+   #
+   #                 N               N
+   #    R(j)(K,L) = SUM {A(j)(K,I)* SUM [X(j)(I,J)*A(j)(L,J)']} +
+   #                I=K            J=L+1
+   #              
+   #                N
+   #             { SUM [A(j)(K,J)*X(j)(J,L)]}*A(j)(L,L)'
+   #              J=K+1
+   j = n
+   for ll = p:-1:1
+      dl = ba[ll]
+      l = j-dl+1:j
+      i = n
+      ir = j+1:n
+      for kk = p:-1:ll
+          dk = ba[kk]
+          i1 = i-dk+1
+          k = i1:i
+          Clk = view(C,l,k,1:pc)
+          y = view(G,1:dl,1:dk,1:pc)
+          copyto!(y,Clk)
+          if ll < p
+             ic = i1:n
+             for ii = 1:pc
+                 ia = mod(ii-1,pa)+1
+                 # C(j)[k,l] = C(j)[k,ir]*A(j)[l,ir]'
+                 mul!(view(C,k,l,ii),view(C,k,ir,ii),transpose(view(A,l,ir,ia)))
+                 # y += (A(j)[k,ic]*C(j)[ic,l])'
+                 mul!(view(y,:,:,ii),transpose(view(C,ic,l,ii)),transpose(view(A,k,ic,ia)),ONE,ONE)
+             end
+          end
+          dpsylv2krsol!(false, dl, dk, KSCHUR, view(A,l,l,1:pa), view(A,k,k,1:pa), y, WUD, WUSD, WUL, WY, W, qr_ws, ormqr_ws) 
+          #dpsylv2!(adj, dl, dk, KSCHUR, view(A,l,l,1:pa), view(A,k,k,1:pa), y, WZ, WY)
+          copyto!(Clk,y)
+          if ll == kk && dl == 2
+             for ii = 1:pc
+                 temp = 0.5*(Clk[1,2,ii]+Clk[2,1,ii])
+                 Clk[1,2,ii] = temp; Clk[2,1,ii] = temp
+             end
+          end
+          i -= dk
+          if i >= j
+             for ii = 1:pc
+                 ia = mod(ii-1,pa)+1
+                 # C(j)[k,l] += (A(j)[l,l]*C(j)[l,k])'
+                 mul!(view(C,k,l,ii),transpose(view(C,l,k,ii)),transpose(view(A,l,l,ia)),ONE,ONE)
+             end
+          else
+             break
+          end
+      end
+      if ll < p
+         ir = i+2:n
+         for ii = 1:pc
+             # C(j)[ir,l] = C(j)[l,ir]'
+             transpose!(view(C,ir,l,ii),view(C,l,ir,ii))
+         end
+      end
+      j -= dl
+   end
+   # Solve    A(j)'*X(j+1)*A(j) + E(j) = X(j) .
+   #
+   # The (K,L)th blocks of X(j), j = 1, ..., p are determined
+   # starting from upper-left corner column by column by
+   #
+   #   A(j)(K,K)'*X(j+1)(K,L)*A(j)(L,L) - X(j)(K,L) = -E(j)(K,L) - R(j)(K,L)
+   #
+   # where
+   #                K              L-1
+   #   R(j)(K,L) = SUM {A(j)(I,K)'*SUM [X(j+1)(I,J)*A(j)(J,L)]}
+   #               I=1             J=1
+   #             
+   #                 K-1
+   #             +  {SUM [A(j)(I,K)'*X(j+1)(I,L)]}*A(j)(L,L)
+   #                 I=1
+   i = 1
+   @inbounds  for kk = 1:p
+      dk = ba[kk]
+      k = i:i+dk-1
+      j = 1
+      ir = 1:i-1
+      for ll = 1:kk
+          dl = ba[ll]
+          j1 = j+dl-1
+          l = j:j1
+          Ekl = view(E,k,l,1:pe)
+          y = view(G,1:dk,1:dl,1:pe)
+          copyto!(y,Ekl)
+          if kk > 1
+             # E(j+1)[l,k] = E(j+1)[l,ir]*A(j)[ir,k]
+             ic = 1:j1
+             for ii = 1:pe
+                 ia = mod(ii-1,pa)+1
+                 ii1 = mod(ii,pe)+1
+                 mul!(view(E,l,k,ii1),view(E,l,ir,ii1),view(A,ir,k,ia))
+                 #y += E(j+1)[ic,k]'*A(j)[ic,l]
+                 mul!(view(y,:,:,ii),transpose(view(E,ic,k,ii1)),view(A,ic,l,ia),ONE,ONE)
+             end
+          end
+          dpsylv2krsol!(true, dk, dl, KSCHUR, view(A,k,k,1:pa), view(A,l,l,1:pa), y, WUD, WUSD, WUL, WY, W, qr_ws, ormqr_ws) 
+           #dpsylv2!(adj, dk, dl, KSCHUR, view(A,k,k,1:pa), view(A,l,l,1:pa), y, WZ, WY)
+          copyto!(Ekl,y)
+          if ll == kk && dl == 2
+             for ii = 1:pe
+                 temp = 0.5*(Ekl[1,2,ii]+Ekl[2,1,ii])
+                 Ekl[1,2,ii] = temp; Ekl[2,1,ii] = temp
+             end
+          end
+          j += dl
+          if ll < kk
+             # E(j+1)[l,k] += E(j+1)[k,l]'*A(j)[k,k]
+             for ii = 1:pe
+                 ia = mod(ii-1,pa)+1
+                 ii1 = mod(ii,pe)+1
+                 mul!(view(E,l,k,ii1),transpose(view(E,k,l,ii1)),view(A,k,k,ia),ONE,ONE) 
+             end
+           end
+      end
+      if kk > 1
+         # E(j)[ir,k] = E(j)[k,ir]'
+         for ii = 1:pe
+             transpose!(view(E,ir,k,ii),view(E,k,ir,ii))
+         end
+      end
+      i += dk
+   end
+   return nothing
+end
+
 function pdlyaps3!(KSCHUR::Int, A::AbstractArray{T1,3}, C::AbstractArray{T1,3}; adj = true) where {T1<:BlasReal}
    # Alternative solver for A in a periodic Schur form, with Kronecker product expansion based solution of
    # the underlying 2x2 periodic Sylvester equations, using fine structure exploitation of small matrices.
@@ -1284,9 +1747,11 @@ function kronset!(R::AbstractMatrix{T}, adj::Bool, n1::Int, n2::Int, SCHUR::Bool
          R[1,2] = SCHUR ? AL[2,1]*AR[1,1] : zero(T)
          R[2,1] = AL[1,2]*AR[1,1]; R[2,2] = AL[2,2]*AR[1,1]
       else
+         i12 = 1:n12
          if SCHUR
             ii1 = 1:n1; ii2 = 1:n2
-            transpose!(view(R,1:n12,1:n12),kron(view(AR,ii2,ii2),view(AL,ii1,ii1))) 
+            kron!(view(R,i12,i12),view(AR,ii2,ii2),view(AL,ii1,ii1)) 
+            _transpose!(view(R,i12,i12))  
          else
                # al11*ar11          0          0          0
                # al12*ar11  al22*ar11          0          0
@@ -1297,7 +1762,7 @@ function kronset!(R::AbstractMatrix{T}, adj::Bool, n1::Int, n2::Int, SCHUR::Bool
             R[3,1] = AL[1,1]*AR[1,2]; R[3,2] = zero(T); R[3,3] = AL[1,1]*AR[2,2]; 
             R[4,1] = AL[1,2]*AR[1,2]; R[4,2] = AL[2,2]*AR[1,2]; 
             R[4,3] = AL[1,2]*AR[2,2]; R[4,4] = AL[2,2]*AR[2,2]; 
-            tril!(view(R,1:n12,1:n12))
+            tril!(view(R,i12,i12))
          end
       end      
    else
@@ -1314,26 +1779,39 @@ function kronset!(R::AbstractMatrix{T}, adj::Bool, n1::Int, n2::Int, SCHUR::Bool
          R[2,1] = SCHUR ? AL[2,1]*AR[1,1]  : zero(T)
          R[2,2] = AL[2,2]*AR[1,1]
       else
+         i12 = 1:n12
          if SCHUR
             ii1 = 1:n1; ii2 = 1:n2
-            copyto!(view(R,1:n12,1:n12),kron(view(AR,ii2,ii2),view(AL,ii1,ii1))) 
+            kron!(view(R,i12,i12),view(AR,ii2,ii2),view(AL,ii1,ii1))
          else
             # al11*ar11  al12*ar11  al11*ar12  al12*ar12
-                # 0          al22*ar11          0  al22*ar12
-                # 0          0          al11*ar22  al12*ar22
-                # 0          0          0          al22*ar22
+            # 0          al22*ar11          0  al22*ar12
+            # 0          0          al11*ar22  al12*ar22
+            # 0          0          0          al22*ar22
             R[1,1] = AL[1,1]*AR[1,1]; R[1,2] = AL[1,2]*AR[1,1];
             R[1,3] = AL[1,1]*AR[1,2]; R[1,4] = AL[1,2]*AR[1,2];
             R[2,2] = AL[2,2]*AR[1,1]; R[2,3] = zero(T); R[2,4] = AL[2,2]*AR[1,2]
             R[3,3] = AL[1,1]*AR[2,2]; R[3,4] = AL[1,2]*AR[2,2]; 
             R[4,4] = AL[2,2]*AR[2,2]; 
-            triu!(view(R,1:n12,1:n12))
+            triu!(view(R,i12,i12))
          end
       end
    end
+   return nothing
 end
+function _transpose!(A::AbstractMatrix)
+   n = LinearAlgebra.checksquare(A)
+   for j = 1:n
+       for i = 1:j-1
+           temp = A[i,j]
+           A[i,j] = A[j,i]
+           A[j,i] = temp
+       end
+   end
+end   
+
 function dpsylv2krsol!(adj::Bool, n1::Int, n2::Int, KSCHUR::Int, AL::StridedArray{T,3}, AR::StridedArray{T,3}, 
-                  C::StridedArray{T,3}, WUD::AbstractArray{T,3}, WUSD::AbstractArray{T,3}, WUL::AbstractMatrix{T},  WY::AbstractVector{T}, W::AbstractMatrix{T}) where {T}
+                  C::StridedArray{T,3}, WUD::AbstractArray{T,3}, WUSD::AbstractArray{T,3}, WUL::AbstractMatrix{T},  WY::AbstractVector{T}, W::AbstractMatrix{T}, qr_ws, ormqr_ws) where {T}
 #     To solve for the n1-by-n2 matrices X_j, j = 1, ..., p, 
 #     1 <= n1,n2 <= 2, in the p simultaneous equations: 
 
@@ -1385,14 +1863,15 @@ function dpsylv2krsol!(adj::Bool, n1::Int, n2::Int, KSCHUR::Int, AL::StridedArra
    n22 = 2*n12
    N = p*n12
    i1 = 1:n12; i2 = n12+1:n22
-
    USD = view(WUSD,i1,i1,1:p-1)
    UD = view(WUD,i1,i1,1:p)
    UK = view(WUL,1:N,i1)
    YK = view(WY,1:N)
    zmi = view(W,1:n22,i1)
    uu = view(W,1:n22,i2)
+   length(qr_ws.τ) == n12 || resize!(qr_ws.τ,n12)
 
+   
    ias = mod(KSCHUR+p-1,pa)+1
    ic = mod(KSCHUR+p-1,p)+1
    copyto!(view(YK,i1),view(C,ii1,ii2,ic))
@@ -1400,6 +1879,7 @@ function dpsylv2krsol!(adj::Bool, n1::Int, n2::Int, KSCHUR::Int, AL::StridedArra
    fill!(view(UK,n12+1:N-n12,i1),zero(T))
    copyto!(view(UK,N-n12+1:N,i1),-I)
    copyto!(view(YK,i1),view(C,ii1,ii2,ic))
+
 
    # Build the blocks of the bordered almost block diagonal (BABD) system and the right-hand side 
    if adj
@@ -1437,36 +1917,45 @@ function dpsylv2krsol!(adj::Bool, n1::Int, n2::Int, KSCHUR::Int, AL::StridedArra
           copyto!(view(uu,i1,i1),view(UD,:,:,j))      
        end
        copyto!(view(uu,i2,i1),view(USD,:,:,j))      
-       F = qr!(uu)
-       copy!(view(UD,:,:,j), F.R)
-       lmul!(F.Q',view(UK,j1:j1+n22-1,i1))
-       lmul!(F.Q',view(YK,j1:j1+n22-1))
+       #F = qr!(uu)
+       FastLapackInterface.LAPACK.geqrf!(qr_ws, uu; resize = false)
+       #copy!(view(UD,:,:,j), F.R)
+       set_R!(view(UD,:,:,j), uu)
+       # lmul!(F.Q',view(UK,j1:j1+n22-1,i1))
+       LAPACK.ormqr!(ormqr_ws, 'L', 'T', uu, view(UK,j1:j1+n22-1,i1))
+       #lmul!(F.Q',view(YK,j1:j1+n22-1))
+       LAPACK.ormqr!(ormqr_ws, 'L', 'T', uu, view(YK,j1:j1+n22-1))
        fill!(view(zmi,i1,i1), zero(T))
-       copyto!(view(zmi,i2,i1),-I)      
-       lmul!(F.Q',zmi)
+       copyto!(view(zmi,i2,i1),-I)    
+       #lmul!(F.Q',zmi)
+       LAPACK.ormqr!(ormqr_ws, 'L', 'T', uu, zmi)
        copyto!(view(USD,:,:,j), view(zmi,i1,:))
        copyto!(view(UD,:,:,j+1), view(zmi,i2,:))
        j1 += n12
    end
-   F = qr!(view(UK,il,i1))
-   copyto!(view(UD,:,:,p), F.R)
-   lmul!(F.Q',view(YK,il))
+   # F = qr!(view(UK,il,i1))
+   # copyto!(view(UD,:,:,p), F.R)
+   # lmul!(F.Q',view(YK,il,1:1))
+   LAPACK.geqrf!(qr_ws, view(UK,il,i1))
+   set_R!(view(UD,:,:,p), view(UK,il,i1))
+   LAPACK.ormqr!(ormqr_ws, 'L', 'T',view(UK,il,i1), view(YK,il))
+
 
    # Solve R*y = g by overwritting g
-   ldiv!(UpperTriangular(UD[:,:,p]),view(YK,il))
+   ldiv!(UpperTriangular(view(UD,:,:,p)),view(YK,il))
    il1 = il .- n12
    mul!(view(YK,il1),view(UK,il1,i1),view(YK,il),-1,1)
-   ldiv!(UpperTriangular(UD[:,:,p-1]),view(YK,il1))
+   ldiv!(UpperTriangular(view(UD,:,:,p-1)),view(YK,il1))
    for i = p-2:-1:1
        il2 = il1 .- n12
        mul!(view(YK,il2),view(UK,il2,i1),view(YK,il),-1,1)
-       mul!(view(YK,il2),USD[:,:,i],view(YK,il1),-1,1)
-       ldiv!(UpperTriangular(UD[:,:,i]),view(YK,il2)) 
+       mul!(view(YK,il2),view(USD,:,:,i),view(YK,il1),-1,1)
+       ldiv!(UpperTriangular(view(UD,:,:,i)),view(YK,il2)) 
        il1 = il1 .- n12
    end
 
    any(!isfinite, YK) && throw("PS:SingularException: A has characteristic multipliers α and β such that αβ ≈ 1")
-
+ 
    # Reorder solution blocks
    if adj
       i1 = 1
@@ -1485,8 +1974,31 @@ function dpsylv2krsol!(adj::Bool, n1::Int, n2::Int, KSCHUR::Int, AL::StridedArra
           i1 = i2+1
       end  
    end
-   return
+   return nothing
 end
+function set_R!(R::AbstractMatrix, U::AbstractMatrix)
+   m, n = size(U)
+   if m >= n
+      p = LinearAlgebra.checksquare(R)
+      @assert p == n
+      pm = n
+   else
+      p = m
+      @assert (m, n) == size(R)
+      pm = n
+   end
+   ZERO = zero(eltype(R))
+   for j in 1:p
+       R[j,j] = U[j,j]      
+       for i in 1:j-1
+           R[i,j] = U[i,j]
+           R[j,i] = ZERO
+       end
+   end
+   pm > p && copyto!(view(R,:,p+1:n),view(U,:,p+1:n))
+   return nothing
+end
+
 function _dpsylv2!(adj::Bool, n1::Int, n2::Int, AL::StridedArray{T,3}, AR::StridedArray{T,3}, 
                   C::StridedArray{T,3}, WZ::AbstractMatrix{T}, WY::AbstractVector{T}) where {T}
 #     To solve for the n1-by-n2 matrices X_j, j = 1, ..., p, 

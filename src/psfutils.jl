@@ -266,6 +266,97 @@ function pschur!(A::AbstractArray{Float64,3}, ilh::Tuple{Int,Int} = (1, size(A,1
       return A, withZ ? Z : nothing, ev, sind, α, γ
    end
 end
+function pschur!(A::AbstractArray{Float64,3}, Z::AbstractArray{Float64,3}, ilh::Tuple{Int,Int} = (1, size(A,1)); rev::Bool = true, sind::Int = 1, withZ::Bool = true)
+   n = size(A,1)
+   n == size(A,2) || error("A must have equal first and second dimensions") 
+   p = size(A,3)
+   (sind < 1 || sind > p) && error("sind is out of range $(1:p)") 
+
+   #  use ilo = 1 and ihi = n for the reduction to the periodic Hessenberg form
+   (ilo, ihi) = ilh 
+   
+   compQ = withZ ? 'I' : 'N'
+   
+   hc = rev ? p - sind + 1 : sind
+   rev && (reverse!(A, dims = 3))
+
+   # reduce to periodic Hessenberg form
+   LDWORK = max(2*n,1)
+   LIWORK = max(3*p,1)
+   QIND = Array{BlasInt,1}(undef, 1) 
+   SIND = ones(BlasInt,p)
+
+   SLICOTtools.mb03vw!(compQ, QIND, 'A', n, p, hc, ilo, ihi, SIND, A, Z, LIWORK, LDWORK)
+
+   # reduce to periodic Schur form
+   LDWORK = p + max( 2*n, 8*p )
+   LIWORK = 2*p + n
+   ALPHAR = Array{Float64,1}(undef, n)
+   ALPHAI = Array{Float64,1}(undef, n)
+   BETA = Array{Float64,1}(undef, n)
+   SCAL = Array{BlasInt,1}(undef, n)
+   withZ && (compQ = 'U')
+   SLICOTtools.mb03bd!('T','C',compQ, QIND, p, n, hc, ilo, ihi, SIND, A, Z, ALPHAR, ALPHAI, BETA, SCAL, LIWORK, LDWORK)
+
+   α = complex.(ALPHAR, ALPHAI) ./ BETA
+   γ = 2. .^SCAL
+   ev = α .* γ
+
+   if rev 
+      reverse!(A, dims = 3)
+      withZ && reverse!(view(Z,:,:,2:p),dims=3)
+   end
+   return ev, sind, α, γ
+end
+function pschur!(ws_pschur::Tuple, A::AbstractArray{Float64,3}, Z::AbstractArray{Float64,3}, ilh::Tuple{Int,Int} = (1, size(A,1)); rev::Bool = true, sind::Int = 1, withZ::Bool = true)
+   n = size(A,1)
+   n == size(A,2) || error("A must have equal first and second dimensions") 
+   p = size(A,3)
+   (sind < 1 || sind > p) && error("sind is out of range $(1:p)") 
+
+   #  use ilo = 1 and ihi = n for the reduction to the periodic Hessenberg form
+   (ilo, ihi) = ilh 
+   
+   compQ = withZ ? 'I' : 'N'
+
+   hc = rev ? p - sind + 1 : sind
+   rev && (reverse!(A, dims = 3))
+
+   (QIND, SIND, ALPHAR, ALPHAI, BETA, SCAL, IWORK, DWORK) = ws_pschur
+
+   # reduce to periodic Hessenberg form
+   fill!(SIND, one(BlasInt))
+   SLICOTtools.mb03vw!(compQ, QIND, 'A', n, p, hc, ilo, ihi, SIND, A, Z, IWORK, DWORK)
+
+   # reduce to periodic Schur form
+   withZ && (compQ = 'U')
+   SLICOTtools.mb03bd!('T','C',compQ, QIND, p, n, hc, ilo, ihi, SIND, A, Z, ALPHAR, ALPHAI, BETA, SCAL, IWORK, DWORK)
+
+   # α = complex.(ALPHAR, ALPHAI) ./ BETA
+   # γ = 2. .^SCAL
+   # ev = α .* γ
+   ev = complex.(ALPHAR, ALPHAI)
+   ev .*= (2. .^SCAL ./ BETA)
+
+   if rev 
+      reverse!(A, dims = 3)
+      withZ && reverse!(view(Z,:,:,2:p),dims=3)
+   end
+   return ev, sind
+end
+function ws_pschur(n, p)
+   LIWORK = max(3*p, 2*p + n, 1)
+   IWORK = Array{BlasInt,1}(undef, LIWORK)
+   LDWORK = max(1, p + max( 2*n, 8*p ))
+   DWORK = Array{Float64,1}(undef, LDWORK)
+   ALPHAR = Array{Float64,1}(undef, n)
+   ALPHAI = Array{Float64,1}(undef, n)
+   BETA = Array{Float64,1}(undef, n)
+   SCAL = Array{BlasInt,1}(undef, n)
+   SIND = Array{BlasInt,1}(undef, p)
+   QIND = Array{BlasInt,1}(undef, 1) 
+   return (QIND, SIND, ALPHAR, ALPHAI, BETA, SCAL, IWORK, DWORK)
+end
 function pschur1(A::Array{Float64,3}; rev::Bool = true, sind::Int = 1, withZ::Bool = true)
    n = size(A,1)
    n == size(A,2) || error("A must have equal first and second dimensions") 

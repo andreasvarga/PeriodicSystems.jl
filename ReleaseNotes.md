@@ -1,12 +1,32 @@
 # Release Notes
 
-## Version 0.6.3 (planned)
+## Version 0.7 (planned)
 
 The following new functions have been implemented:
-- memoryless output feedback connection of periodic systems (WIP)
 - output feedback stabilization of constant systems using periodic switching and periodic harmonic gains (WIP)
-- output feedback based stabilization of periodic systems using periodic harmonic gains 
-- state feedack based stabilization via linear-quadratic optimization
+- output feedback based stabilization of periodic systems using periodic harmonic gains (WIP)
+- `plqr`, `plqry` LQ-optimal state feedack based stabilization of periodic systems (WIP)
+- `plqofc` LQ-optimal output feedback stabilization of discrete-time periodic systems
+
+The following new supporting functions have been implemented:
+- `pdlyap2` to solve solve a pair of periodic Lyapunov equations
+- `pslyapd2` to solve solve a pair of periodic Lyapunov equations using preallocated workspace 
+- `pdlyaps2!` to solve solve a pair of reduced periodic Lyapunov equations using preallocated workspace 
+- tools for efficient operations leading to symmetric periodic matrices  compute the symmetric matrix X = Y + transpose(Y) for a periodic matrix Y
+- `pmmuladdsym` to efficiently compute the symmetrix periodic matrix X = α*A +  β*B*C
+- `pmmultraddsym` to efficiently compute the symmetrix periodic matrix X = α*A +  β*transpose(B)*C
+
+New versions of the following functions have been implemented: 
+- `mb03vw!` and `mb03bd!` with explicit allocation of integer and real workspaces
+- `pschur!` with a new interface to use preallocated storage for the transformation matrix
+- `promote_period` with enhanced handling of constant periodic matrices
+- various operations on periodic matrices with enhanced handling of constant periodic matrices 
+- `pdlyap` and `pslyapd` to solve solve periodic Lyapunov equations with optional stability check 
+- allocation free solvers of low order periodic Sylvester equations based on [`FastLapackInterface.jl`](https://github.com/DynareJulia/FastLapackInterface.jl)
+
+The following extensions have been implemented:
+- new periodic matrix type: switching periodic array 
+- solution of periodic Lyapunov equations for discrete-time switching periodic arrays 
 
 ## Version 0.6.2 
 
