@@ -369,7 +369,11 @@ the characteristic exponents `ce` are computed as `ev.^-N`.
 """
 function psceig(at::PM, K::Int = 1; kwargs...) where
    {T, PM <: Union{PeriodicFunctionMatrix{:c,T},HarmonicArray{:c,T},FourierFunctionMatrix{:c,T}}} 
-   ce = log.(complex(pseig(at, K; kwargs...)))/at.period
+   if isconstant(at)
+      ce = eigvals(at(0))
+   else
+      ce = log.(complex(pseig(at, K; kwargs...)))/at.period
+   end
    return isreal(ce) ? real(ce) : ce
 end
 function psceig(at::PeriodicSymbolicMatrix, K::Int = 1; kwargs...) 
@@ -510,7 +514,11 @@ where `nmin` is the minimum row dimensions of matrices `A[i]`, for `i = 1, ..., 
 while the last components of `ce` are zero. 
 """
 function psceig(at::AbstractPeriodicArray{:d,T}, k::Int = 1; kwargs...) where T
-   ce = (complex(pseig(convert(PeriodicMatrix,at), k; kwargs...))).^(1/at.dperiod/at.nperiod) 
+   if isconstant(at)
+      ce = eigvals(at(1))
+   else
+      ce = (complex(pseig(convert(PeriodicMatrix,at), k; kwargs...))).^(1/at.dperiod/at.nperiod) 
+   end
    return isreal(ce) ? real(ce) : ce
 end
 
@@ -566,6 +574,32 @@ function ts2pfm(A::PeriodicTimeSeriesMatrix; method = "linear")
    end
    return PeriodicFunctionMatrix(t -> [intparray[i,j](t) for i in 1:n1, j in 1:n2 ], A.period; nperiod = A.nperiod, isconst = isconstant(A))
 end
+function ts2fm(A::Vector{<:AbstractMatrix}, T; method = "linear")
+   N = length(A)
+   N == 0 && error("empty time array not supported")
+   N == 1 && (return t -> A[1])
+   #ts = (0:N-1)*(A.period/N)
+   d = T/(N-1)
+   ts = (0:N-1)*d
+   n1, n2 = size(A[1])
+   intparray = Array{Any,2}(undef, n1, n2)
+   if method == "constant"     
+      # use simple function evaluation
+      [intparray[i,j] = scale(interpolate(getindex.(A,i,j), BSpline(Constant())), ts) for i in 1:n1, j in 1:n2]
+   elseif method == "linear" || N == 2
+      [intparray[i,j] = scale(interpolate(getindex.(A,i,j), BSpline(Linear())), ts) for i in 1:n1, j in 1:n2]
+   elseif method == "quadratic" || N == 3     
+      [intparray[i,j] = scale(interpolate(getindex.(A,i,j), BSpline(Quadratic())), ts) for i in 1:n1, j in 1:n2]
+   elseif method == "cubic"     
+      #[intparray[i,j] = scale(Interpolations.extrapolate(interpolate(getindex.(A,i,j), BSpline(Cubic(OnGrid()))), Interpolations.Flat()), ts) for i in 1:n1, j in 1:n2]
+      #[intparray[i,j] = scale(interpolate(getindex.(A,i,j), BSpline(Cubic(Interpolations.Line(OnGrid())))), ts) for i in 1:n1, j in 1:n2]
+      [intparray[i,j] = scale(interpolate(getindex.(A,i,j), BSpline(Cubic())), ts) for i in 1:n1, j in 1:n2]
+   else
+      error("no such option method = $method")
+   end
+   return t -> [intparray[i,j](t) for i in 1:n1, j in 1:n2 ]
+end
+
 # function tsw2pfm(A::PeriodicSwitchingMatrix; method = "linear")
 #    N = length(A.values)
 #    N == 0 && error("empty time array not supported")
@@ -1357,6 +1391,7 @@ function kpmeval(A::SwitchingPeriodicArray, k::Int)
    return A.M[:,:,ind]
 end
 (F::PeriodicFunctionMatrix)(t) = (F.f).(t)
+#(F::PeriodicFunctionMatrix)(t) = tpmeval(F, t)
 (F::PeriodicSymbolicMatrix)(t) = tpmeval(F, t)
 (F::FourierFunctionMatrix)(t) = (F.M)(t) 
 (F::HarmonicArray)(t) = hreval(F, t; exact = true) 

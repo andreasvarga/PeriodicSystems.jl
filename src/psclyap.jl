@@ -52,56 +52,60 @@ _References_
     Int. J. Control, vol, 67, pp, 69-87, 1997.
     
 """
-function pclyap(A::PeriodicFunctionMatrix, C::PeriodicFunctionMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7, intpol = false, intpolmeth = "cubic")
+function pclyap(A::PeriodicFunctionMatrix, C::PeriodicFunctionMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7, intpol = false, intpolmeth = "cubic", stability_check = false)
    if intpol
-      return convert(PeriodicFunctionMatrix,pgclyap(A, C, K;  adj, solver, reltol, abstol), method = intpolmeth)
+      return convert(PeriodicFunctionMatrix,pgclyap(A, C, K;  adj, solver, reltol, abstol, stability_check), method = intpolmeth)
    else
-      W0 = pgclyap(A, C, K;  adj, solver, reltol, abstol)
+      W0 = pgclyap(A, C, K;  adj, solver, reltol, abstol, stability_check)
       return PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W0, A, C; solver, adj, reltol, abstol),A.period)
    end
 end
 pclyap(A::PeriodicFunctionMatrix, C::AbstractMatrix; kwargs...) = pclyap(A, PeriodicFunctionMatrix(C, A.period; nperiod = A.nperiod); kwargs...)
-function pclyap(A::PeriodicSymbolicMatrix, C::PeriodicSymbolicMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7, intpol = false, intpolmeth = "cubic")
+function pclyap(A::PeriodicSymbolicMatrix, C::PeriodicSymbolicMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7, intpol = false, intpolmeth = "cubic", stability_check = false)
    At = convert(PeriodicFunctionMatrix,A)
    Ct = convert(PeriodicFunctionMatrix,C)
    if intpol
-      return convert(PeriodicFunctionMatrix,pgclyap(At, Ct, K;  adj, solver, reltol, abstol), method = intpolmeth)
+      return convert(PeriodicFunctionMatrix,pgclyap(At, Ct, K;  adj, solver, reltol, abstol, stability_check), method = intpolmeth)
    else
-      W0 = pgclyap(At, Ct, K;  adj, solver, reltol, abstol)
+      W0 = pgclyap(At, Ct, K;  adj, solver, reltol, abstol, stability_check)
       PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W0, At, Ct; solver, adj, reltol, abstol), W0.period; nperiod = W0.nperiod)
    end
    #convert(PeriodicSymbolicMatrix, pgclyap(convert(PeriodicFunctionMatrix,A), convert(PeriodicFunctionMatrix,C), K;  adj, solver, reltol, abstol))
 end
-function pclyap(A::HarmonicArray, C::HarmonicArray; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7, intpol = false, intpolmeth = "cubic")
+function pclyap(A::HarmonicArray, C::HarmonicArray; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7, intpol = false, intpolmeth = "cubic", stability_check = false)
    if intpol
-      return convert(PeriodicFunctionMatrix,pgclyap(A, C, K;  adj, solver, reltol, abstol), method = intpolmeth)
+      return convert(PeriodicFunctionMatrix,pgclyap(A, C, K;  adj, solver, reltol, abstol, stability_check), method = intpolmeth)
    else
-      W0 = pgclyap(A, C, K;  adj, solver, reltol, abstol)
+      W0 = pgclyap(A, C, K;  adj, solver, reltol, abstol, stability_check)
       PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W0, A, C; solver, adj, reltol, abstol), W0.period; nperiod = W0.nperiod)
    end
    #convert(HarmonicArray, pgclyap(A,  C, K;  adj, solver, reltol, abstol))
 end
-function pclyap(A::FourierFunctionMatrix, C::FourierFunctionMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7, intpol = false, intpolmeth = "cubic")
+function pclyap(A::FourierFunctionMatrix, C::FourierFunctionMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7, intpol = false, intpolmeth = "cubic", stability_check = false)
    if intpol
-      return convert(PeriodicFunctionMatrix,pgclyap(A, C, K;  adj, solver, reltol, abstol), method = intpolmeth)
+      return convert(PeriodicFunctionMatrix,pgclyap(A, C, K;  adj, solver, reltol, abstol, stability_check), method = intpolmeth)
    else
-      W0 = pgclyap(A, C, K;  adj, solver, reltol, abstol)
+      W0 = pgclyap(A, C, K;  adj, solver, reltol, abstol, stability_check)
       PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W0, A, C; solver, adj, reltol, abstol), W0.period; nperiod = W0.nperiod)
    end
    #convert(FourierFunctionMatrix, pgclyap(A,  C, K;  adj, solver, reltol, abstol))
 end
-function pclyap(A::PeriodicTimeSeriesMatrix, C::PeriodicTimeSeriesMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7, intpol = false, intpolmeth = "cubic")
+function pclyap(A::PeriodicTimeSeriesMatrix, C::PeriodicTimeSeriesMatrix; K::Int = 10, adj = false, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7, intpol = false, intpolmeth = "cubic", stability_check = false)
    if intpol
-      return convert(PeriodicFunctionMatrix,pgclyap(A, C, K;  adj, solver, reltol, abstol), method = intpolmeth)
+      return convert(PeriodicFunctionMatrix,pgclyap(A, C, K;  adj, solver, reltol, abstol, stability_check), method = intpolmeth)
+      #return convert(PeriodicFunctionMatrix,pgclyap(convert(HarmonicArray,A), convert(HarmonicArray,C), K;  adj, solver, reltol, abstol, stability_check), method = intpolmeth)
    else
-      W0 = pgclyap(A, C, K;  adj, solver, reltol, abstol)
+      #W0 = pgclyap(A, C, K;  adj, solver, reltol, abstol, stability_check)
+      W0 = pgclyap(convert(HarmonicArray,A), convert(HarmonicArray,C), K;  adj, solver, reltol, abstol, stability_check)
       PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W0, A, C; solver, adj, reltol, abstol), W0.period; nperiod = W0.nperiod)
    end
    # pgclyap(convert(HarmonicArray,A), convert(HarmonicArray,C), K;  adj, solver, reltol, abstol)
 end
-function pclyap(A::PeriodicSwitchingMatrix, C::PeriodicSwitchingMatrix; K::Int = 1, adj = false, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7)
-   W0 = pgclyap(A, C, K;  adj, solver, reltol, abstol)
-   PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W0, A, C; solver, adj, reltol, abstol), W0.period; nperiod = W0.nperiod)
+function pclyap(A::PeriodicSwitchingMatrix, C::PeriodicSwitchingMatrix; K::Int = 1, adj = false, solver = "non-stiff", reltol = 1.e-4, abstol = 1.e-7, stability_check = false)
+   At = convert(PeriodicFunctionMatrix,A)
+   Ct = convert(PeriodicFunctionMatrix,C)
+   W0 = pgclyap(At, Ct, K;  adj, solver, reltol, abstol, stability_check)
+   PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W0, At, Ct; solver, adj, reltol, abstol), W0.period; nperiod = W0.nperiod)
 end
 
 
@@ -196,7 +200,8 @@ switching times in the union.
 The period of `X` is set to the least common commensurate period of `A` and `C` and the number of subperiods
 is adjusted accordingly. Any component matrix of `X` is a valid initial value to be used to generate the  
 solution over a full period by integrating the appropriate differential equation. 
-The multiple-shooting method of [1] is employed, first, to convert the continuous-time periodic Lyapunov into a discrete-time periodic Lyapunov equation satisfied by 
+The multiple-shooting method of [1] is employed, first, to convert the continuous-time periodic Lyapunov differential equation 
+into a discrete-time periodic Lyapunov equation satisfied by 
 the generator solution in the grid points and then to compute the solution by solving an appropriate discrete-time periodic Lyapunov 
 equation using the periodic Schur method of [2]. 
 
@@ -218,7 +223,7 @@ _References_
     Int. J. Control, vol, 67, pp, 69-87, 1997.
     
 """
-function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", reltol = 1e-4, abstol = 1e-7, dt = 0) where
+function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", reltol = 1e-4, abstol = 1e-7, dt = 0, stability_check = false) where
       {PM1 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix}, PM2 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix}} 
    K > 0 || throw(ArgumentError("number of grid ponts K must be greater than 0, got K = $K"))    
    period = promote_period(A, C)
@@ -229,17 +234,25 @@ function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", 
    Ts = period/K/nperiod
    solver == "symplectic" && dt == 0 && (dt = K >= 100 ? Ts : Ts*K/100/nperiod)
    
+   T = promote_type(eltype(A),eltype(C),Float64)
+   T == Num && (T = Float64)
    if isconstant(A) && isconstant(C)
+      if stability_check
+         ev = eigvals(tpmeval(A,0))
+         maximum(real.(ev)) >= - sqrt(eps(T)) && error("system stability check failed")  
+      end 
       X = adj ? lyapc(tpmeval(A,0)', tpmeval(C,0)) :  lyapc(tpmeval(A,0), tpmeval(C,0))
    else
-      T = promote_type(eltype(A),eltype(C),Float64)
-      T == Num && (T = Float64)
       Ka = isconstant(A) ? 1 : max(1,Int(round(A.period/A.nperiod/Ts)))
       Ad = Array{T,3}(undef, n, n, Ka) 
       Cd = Array{T,3}(undef, n, n, K) 
       Threads.@threads for i = 1:Ka
          @inbounds Ad[:,:,i] = tvstm(A, i*Ts, (i-1)*Ts; solver, reltol, abstol) 
       end
+      if stability_check
+         ev = pseig(Ad)
+         maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")  
+      end 
       if adj
          Threads.@threads for i = K:-1:1
             @inbounds Cd[:,:,i]  = tvclyap(A, C, (i-1)*Ts, i*Ts; adj, solver, reltol, abstol, dt) 
@@ -254,7 +267,181 @@ function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", 
    end
    return PeriodicTimeSeriesMatrix([X[:,:,i] for i in 1:size(X,3)], period; nperiod)
 end
-function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", reltol = 1e-4, abstol = 1e-7, dt = 0) where
+"""
+    pgclyap2(A, C, E, [, K = 1]; solver, reltol, abstol, dt) -> (X,Y)
+
+Compute the solutions of the periodic differential Lyapunov equations
+
+     -
+     X(t) = A(t)*X(t) + X(t)*A'(t) + C(t)
+
+and 
+
+     .
+    -Y(t) = A(t)'Y(t) + Y(t)A(t) + E(t).
+    
+The periodic matrices `A`, `C` and `E` must have the same dimensions, the same type and 
+commensurate periods. Additionally `C` and `E` must be symmetric.  
+If `A`, `C` and `E` have the types `PeriodicFunctionMatrix`, `HarmonicArray`, `FourierFunctionMatrix` or `PeriodicTimeSeriesMatrix`, 
+then the resulting `X` and `Y` are collections of periodic generator matrices determined 
+as periodic time-series matrices with `N` components, where `N = 1` if `A`, `C` and `E` are constant matrices
+and `N = K` otherwise.     
+The period `T` of `X` and `Y` is set to the least common commensurate period of `A`, `C` and `E` and the number of subperiods
+is adjusted accordingly. Any component matrix of `X` or `Y` is a valid initial value to be used to generate the  
+solution over a full period by integrating the appropriate differential equation. 
+The multiple-shooting method of [1] is employed, first, to convert the continuous-time periodic Lyapunov equations 
+into discrete-time periodic Lyapunov equations satisfied by 
+the generator solutions in the grid points and then to compute the solutions by solving appropriate discrete-time periodic Lyapunov 
+equations using the periodic Schur method of [2]. 
+
+The ODE solver to be employed to convert the continuous-time problems into discrete-time problems can be specified using the keyword argument `solver`, 
+together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+
+Parallel computation of the matrices of the discrete-time problem can be alternatively performed 
+by starting Julia with several execution threads. 
+The number of execution threads is controlled either by using the `-t/--threads` command line argument 
+or by using the `JULIA_NUM_THREADS` environment variable.  
+
+_References_
+
+[1] A. Varga. On solving periodic differential matrix equations with applications to periodic system norms computation. 
+    Proc. IEEE CDC/ECC, Seville, 2005. 
+
+[2] A. Varga. Periodic Lyapunov equations: some applications and new algorithms. 
+    Int. J. Control, vol, 67, pp, 69-87, 1997.  
+"""
+function pgclyap2(A::PM1, C::PM2, E::PM3, K::Int = 1; solver = "non-stiff", reltol = 1e-4, abstol = 1e-7, dt = 0, stability_check = false) where
+      {PM1 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix}, PM2 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix}, PM3 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix}}
+   K > 0 || throw(ArgumentError("number of grid ponts K must be greater than 0, got K = $K"))    
+   period = promote_period(A, C, E)
+   na = Int(round(period/A.period))
+   nc = Int(round(period/C.period))
+   ne = Int(round(period/E.period))
+   nperiod = gcd(na*A.nperiod, nc*C.nperiod, ne*E.nperiod)
+   n = size(A,1)
+   Ts = period/K/nperiod
+   solver == "symplectic" && dt == 0 && (dt = K >= 100 ? Ts : Ts*K/100/nperiod)
+   
+   if isconstant(A) && isconstant(C) && isconstant(E)
+      if stability_check
+         ev = eigvals(tpmeval(A,0))
+         maximum(real.(ev)) >= - sqrt(eps(T)) && error("system stability check failed")  
+      end 
+      X, Y = lyapc(tpmeval(A,0), tpmeval(C,0)),  lyapc(tpmeval(A,0)', tpmeval(E,0))
+      #X, Y = MatrixEquations.lyapc2(tpmeval(A,0), tpmeval(C,0), tpmeval(E,0))
+   else
+      T = promote_type(eltype(A),eltype(C),eltype(E),Float64)
+      T == Num && (T = Float64)
+      if stability_check
+         ev = K < 100 ? pseig(A,100) : pseig(A,K)
+         maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")  
+      end 
+      Ka = isconstant(A) ? 1 : max(1,Int(round(A.period/A.nperiod/Ts)))
+      Ad = Array{T,3}(undef, n, n, Ka) 
+      Cd = Array{T,3}(undef, n, n, K) 
+      Ed = Array{T,3}(undef, n, n, K) 
+      Threads.@threads for i = 1:Ka
+         @inbounds Ad[:,:,i] = tvstm(A, i*Ts, (i-1)*Ts; solver, reltol, abstol) 
+      end
+      Threads.@threads for i = K:-1:1
+         @inbounds Cd[:,:,i]  = tvclyap(A, C, (i-1)*Ts, i*Ts; adj = false, solver, reltol, abstol, dt) 
+      end
+      Threads.@threads for i = 1:K
+         @inbounds Ed[:,:,i]  = tvclyap(A, E, i*Ts, (i-1)*Ts; adj = true, solver, reltol, abstol, dt) 
+      end
+      X, Y = pslyapd2(Ad, Cd, Ed)
+   end
+   return PeriodicTimeSeriesMatrix([X[:,:,i] for i in 1:size(X,3)], period; nperiod), PeriodicTimeSeriesMatrix([Y[:,:,i] for i in 1:size(Y,3)], period; nperiod)
+end
+"""
+    pgclyap2(A, C, E, [, K = 1]; solver, reltol, abstol, dt) -> (X,Y)
+
+Compute the solution of the discrete-time periodic Lyapunov equation
+
+    X(i+1) = Φ(i)*X(i)*Φ'(i) + W(i), i = 1, ..., K, X(K+1) := X(1)
+
+and a periodic generator for the periodic Lyapunov differential equations
+
+     .
+    -Y(t) = A(t)'Y(t) + Y(t)A(t) + E(t).
+    
+The periodic matrices `A` and `E` and the constant matrix `C` must have the same dimensions, and `A` and `E` 
+must have the same type and commensurate periods. Additionally `C` and `E` must be symmetric.  
+`Φ(i)` denotes the transition matrix on the time interval `[Δ*(i-1), Δ*i]` corresponding to `A`, 
+where `Δ = T/K` with `T` the common period of `A` and `E`. `W(i) = 0` for `i = 1, ..., K-1` and `W(K) = C`.  
+If `A` and `E` have the types `PeriodicFunctionMatrix`, `HarmonicArray`, `FourierFunctionMatrix` or `PeriodicTimeSeriesMatrix`, 
+then the resulting `Y` is a collection of periodic generator matrices determined 
+as a periodic time-series matrix with `N` components, where `N = 1` if `A` and `E` are constant matrices
+and `N = K` otherwise.     
+The period `T` of `Y` is set to the least common commensurate period of `A` and `E` and the number of subperiods
+is adjusted accordingly. Any component matrix of `Y` is a valid initial value to be used to generate the  
+solution over a full period by integrating the appropriate differential equation. 
+The multiple-shooting method of [1] is employed, first, to convert the continuous-time periodic Lyapunov into a discrete-time periodic Lyapunov equation satisfied by 
+the generator solution in the grid points and then to compute the solution by solving an appropriate discrete-time periodic Lyapunov 
+equation using the periodic Schur method of [2]. 
+
+The ODE solver to be employed to convert the continuous-time problems into discrete-time problems can be specified using the keyword argument `solver`, 
+together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+
+Parallel computation of the matrices of the discrete-time problem can be alternatively performed 
+by starting Julia with several execution threads. 
+The number of execution threads is controlled either by using the `-t/--threads` command line argument 
+or by using the `JULIA_NUM_THREADS` environment variable.  
+
+_References_
+
+[1] A. Varga. On solving periodic differential matrix equations with applications to periodic system norms computation. 
+    Proc. IEEE CDC/ECC, Seville, 2005. 
+
+[2] A. Varga. Periodic Lyapunov equations: some applications and new algorithms. 
+    Int. J. Control, vol, 67, pp, 69-87, 1997.  
+"""
+function pgclyap2(A::PM1, C::AbstractMatrix, E::PM3, K::Int = 1; solver = "non-stiff", reltol = 1e-4, abstol = 1e-7, dt = 0, stability_check = false) where
+      {PM1 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix}, PM3 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix}}
+   K > 0 || throw(ArgumentError("number of grid ponts K must be greater than 0, got K = $K"))    
+   period = promote_period(A, E)
+   na = Int(round(period/A.period))
+   ne = Int(round(period/E.period))
+   nperiod = gcd(na*A.nperiod, ne*E.nperiod)
+   n = size(A,1)
+   Ts = period/K/nperiod
+   solver == "symplectic" && dt == 0 && (dt = K >= 100 ? Ts : Ts*K/100/nperiod)
+   
+   if isconstant(A) && isconstant(E)
+      A0 = tpmeval(A,0)
+      if stability_check
+         ev = eigvals(A0)
+         maximum(real.(ev)) >= - sqrt(eps(eltype(A))) && error("system stability check failed")  
+      end 
+      Ad = exp(A0*period)
+      X = lyapd(Ad,C)
+      Y = lyapc(A0', tpmeval(E,0))
+   else
+      T = promote_type(eltype(A),eltype(C),eltype(E),Float64)
+      T == Num && (T = Float64)
+      if stability_check
+         ev = K < 100 ? pseig(A,100) : pseig(A,K)
+         maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")  
+      end 
+      Ka = isconstant(A) ? 1 : max(1,Int(round(A.period/A.nperiod/Ts)))
+      Ad = Array{T,3}(undef, n, n, Ka) 
+      Cd = zeros(T, n, n, K)
+      Ed = Array{T,3}(undef, n, n, K) 
+      Threads.@threads for i = 1:Ka
+         @inbounds Ad[:,:,i] = tvstm(A, i*Ts, (i-1)*Ts; solver, reltol, abstol) 
+      end
+      copyto!(view(Cd,:,:,K),C)
+      Threads.@threads for i = K:-1:1
+         @inbounds Ed[:,:,i]  = tvclyap(A, E, (i-1)*Ts, i*Ts; adj = true, solver, reltol, abstol, dt) 
+      end
+      X, Y = pslyapd2(Ad, Cd, Ed)
+   end
+   return PeriodicTimeSeriesMatrix([X[:,:,i] for i in 1:size(X,3)], period; nperiod), PeriodicTimeSeriesMatrix([Y[:,:,i] for i in 1:size(Y,3)], period; nperiod)
+end
+
+function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", reltol = 1e-4, abstol = 1e-7, dt = 0, stability_check = false) where
       {PM1 <: PeriodicSwitchingMatrix, PM2 <: PeriodicSwitchingMatrix} 
    K > 0 || throw(ArgumentError("number of grid ponts K must be greater than 0, got K = $K"))    
    period = promote_period(A, C)
@@ -269,6 +456,10 @@ function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", 
    Kc = length(ts)
   
    if isconstant(A) && isconstant(C)
+      if stability_check
+         ev = eigvals(tpmeval(A,0))
+         maximum(real.(ev)) >= - sqrt(eps(T)) && error("system stability check failed")  
+      end 
       X = adj ? lyapc(tpmeval(A,0)', tpmeval(C,0)) :  lyapc(tpmeval(A,0), tpmeval(C,0))
       return PeriodicSwitchingMatrix([X], ts, period; nperiod)
    else
@@ -283,6 +474,10 @@ function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", 
           @inbounds Ad[:,:,k] = exp(tpmeval(A,ts[i])*(tf-ts[i])/K) 
           K == 1 || [Ad[:,:,j] = Ad[:,:,k] for j in k+1:k+K-1]  
       end
+      if stability_check
+         ev = pseig(Ad)
+         maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")  
+      end 
       if adj
          Threads.@threads for i = Kc:-1:1
             t0 = i == Kc ? tsub : ts[i+1]
@@ -318,7 +513,7 @@ function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", 
       return PeriodicSwitchingMatrix([X[:,:,i] for i in 1:size(X,3)], tt, period; nperiod)
    end
 end
-function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", reltol = 1e-4, abstol = 1e-7, dt = 0) where
+function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", reltol = 1e-4, abstol = 1e-7, dt = 0, stability_check = false) where
                 {PM1 <: PeriodicTimeSeriesMatrix, PM2 <: PeriodicTimeSeriesMatrix} 
    K > 0 || throw(ArgumentError("number of grid ponts K must be greater than 0, got K = $K"))    
    period = promote_period(A, C)
@@ -348,6 +543,10 @@ function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", 
    Ts = Δ
    δ = Tsd/2
    if isconstant(A) && isconstant(C)
+      if stability_check
+         ev = eigvals(tpmeval(A,0))
+         maximum(real.(ev)) >= - sqrt(eps(T)) && error("system stability check failed")  
+      end 
       X = adj ? lyapc(tpmeval(A,0)', tpmeval(C,0)) :  lyapc(tpmeval(A,0), tpmeval(C,0))
       return PeriodicTimeSeriesMatrix([X], period; nperiod)
    else
@@ -361,6 +560,10 @@ function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", 
           @inbounds Ad[:,:,k] = exp(tpmeval(A,(i-1)*Ts+δ)*Tsd) 
           K == 1 || [Ad[:,:,j] = Ad[:,:,k] for j in k+1:k+K-1]  
       end
+      if stability_check
+         ev = pseig(Ad)
+         maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")  
+      end 
       if adj
          k = Kc1
          Threads.@threads for i = Kc:-1:1
@@ -429,6 +632,29 @@ function tvclyap_eval(t::Real,X::PeriodicTimeSeriesMatrix,A::PM1, C::PM2; adj = 
       t0 = (ind-1)*Δ
    end
    return tvclyap(A, C, tf, t0, X.values[ind]; adj, solver, reltol, abstol, dt) 
+end
+function tvclyap_eval(t::Real,X::PeriodicTimeSeriesMatrix,A::PM1, X0::AbstractMatrix; adj = false, solver = "non-stiff", reltol = 1e-4, abstol = 1e-7, dt = 0) where
+   {PM1 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicTimeSeriesMatrix}} 
+   tsub = X.period/X.nperiod
+   ns = length(X.values)
+   Δ = tsub/ns
+   tf = mod(t,tsub)
+   tf == 0 && (return X.values[1])
+   if adj 
+      ind = round(Int,tf/Δ)
+      if ind == ns
+         t0 = ind*Δ; ind = 1
+      else
+         t0 = (ind+1)*Δ; ind = ind+2; 
+         ind > ns && (ind = 1) 
+     end 
+   else
+      ind = round(Int,tf/Δ)
+      ind == 0 && (ind = 1) 
+      t0 = (ind-1)*Δ
+   end
+   #@show tf, t0
+   return tvclyap(A, PM1(zeros(eltype(X0),size(X0)...),A.period), tf, t0, X.values[ind]; adj, solver, reltol, abstol, dt) 
 end
 function tvclyap_eval(t::Real,X::PeriodicSwitchingMatrix,A::PM1, C::PM2; adj = false, solver = "non-stiff", reltol = 1e-4, abstol = 1e-7, dt = 0) where
                      {PM1 <: PeriodicSwitchingMatrix, PM2 <: PeriodicSwitchingMatrix}  
@@ -510,6 +736,137 @@ function tvclyap(A::PM1, C::PM2, tf, t0, W0::Union{AbstractMatrix,Missing} = mis
       end
    end
    return MatrixEquations.vec2triu(sol[end], her=true)     
+end
+function tvclyap(A::PM1, C::PM2, ts::AbstractVector, W0::AbstractMatrix; adj = false, solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) where
+   {T1, T2, PM1 <: AbstractPeriodicArray{:c,T1}, PM2 <: AbstractPeriodicArray{:c,T2}} 
+   #{PM1 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicSwitchingMatrix}, PM2 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicSwitchingMatrix}} 
+   """
+      tvclyap(A, C, ts, W0; adj, solver, reltol, abstol) -> W::Matrix
+
+   Compute the solution at the time values ts of the differential matrix Lyapunov equation 
+            .
+            W(t) = A(t)*W(t)+W(t)*A'(t)+C(t), W(ts[1]) = W0, if adj = false
+
+   or 
+            .
+            W(t) = -A(t)'*W(t)-W(t)*A(t)-C(t), W(ts[end]) = W0, tf < t0, if adj = true. 
+
+   The ODE solver to be employed can be specified using the keyword argument `solver`, 
+   together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
+   absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+   """
+   n = size(A,1)
+   n == size(A,2) || error("the periodic matrix A must be square")
+   (n,n) == size(C) || error("the periodic matrix C must have same dimensions as A")
+   T = eltype(ts)
+   # using OrdinaryDiffEq
+   u0 = MatrixEquations.triu2vec(W0)
+   tspan = adj ? (ts[end], ts[1]) : (ts[1], ts[end]) 
+   fclyap!(du,u,p,t) = adj ? muladdcsym!(du, u, -1, tpmeval(A,t)', tpmeval(C,t)) : muladdcsym!(du, u, 1, tpmeval(A,t), tpmeval(C,t))
+   prob = ODEProblem(fclyap!, u0, tspan)
+   if solver == "stiff" 
+      if reltol > 1.e-4  
+         # standard stiff
+         sol = solve(prob, Rodas4(); reltol, abstol, save_everystep = false)
+      else
+         # high accuracy stiff
+         sol = solve(prob, KenCarp58(); reltol, abstol, save_everystep = false)
+      end
+   elseif solver == "non-stiff" 
+      if reltol > 1.e-4  
+         # standard non-stiff
+         sol = solve(prob, Tsit5(); reltol, abstol, save_everystep = false)
+      else
+         # high accuracy non-stiff
+         sol = solve(prob, Vern9(); reltol, abstol, save_everystep = false)
+      end
+   elseif solver == "symplectic" 
+      # high accuracy symplectic
+      if dt == 0 
+         sol = solve(prob, IRKGaussLegendre.IRKGL16(maxtrials=4); adaptive = true, reltol, abstol, save_everystep = false)
+         #@show sol.retcode
+         if sol.retcode == :Failure
+            sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = false, reltol, abstol, save_everystep = false, dt = abs(tf-t0)/100)
+         end
+      else
+           sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = false, reltol, abstol, save_everystep = false, dt)
+      end
+ else 
+      if reltol > 1.e-4  
+         # low accuracy automatic selection
+         sol = solve(prob, AutoTsit5(Rosenbrock23()) ; reltol, abstol, save_everystep = false)
+      else
+         # high accuracy automatic selection
+         sol = solve(prob, AutoVern9(Rodas5(),nonstifftol = 11/10); reltol, abstol, save_everystep = false)
+      end
+   end
+   return MatrixEquations.vec2triu.(sol(ts).u, her=true)     
+end
+function tvclyap(A::PM1, C::PM2, W0::AbstractMatrix; adj = false, solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) where
+   {T1, T2, PM1 <: AbstractPeriodicArray{:c,T1}, PM2 <: AbstractPeriodicArray{:c,T2}} 
+   #{PM1 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicSwitchingMatrix}, PM2 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicSwitchingMatrix}} 
+   """
+      tvclyap(A, C, ts, W0; adj, solver, reltol, abstol) -> W::Matrix
+
+   Compute the solution at the time values ts of the differential matrix Lyapunov equation 
+            .
+            W(t) = A(t)*W(t)+W(t)*A'(t)+C(t), W(ts[1]) = W0, if adj = false
+
+   or 
+            .
+            W(t) = -A(t)'*W(t)-W(t)*A(t)-C(t), W(ts[end]) = W0, tf < t0, if adj = true. 
+
+   The ODE solver to be employed can be specified using the keyword argument `solver`, 
+   together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
+   absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+   """
+   n = size(A,1)
+   n == size(A,2) || error("the periodic matrix A must be square")
+   (n,n) == size(C) || error("the periodic matrix C must have same dimensions as A")
+   period = A.period
+   T = eltype(period)
+   # using OrdinaryDiffEq
+   u0 = MatrixEquations.triu2vec(W0)
+   tspan = adj ? (period, zero(T)) : (zero(T), period) 
+   fclyap!(du,u,p,t) = adj ? muladdcsym!(du, u, -1, tpmeval(A,t)', tpmeval(C,t)) : muladdcsym!(du, u, 1, tpmeval(A,t), tpmeval(C,t))
+   prob = ODEProblem(fclyap!, u0, tspan)
+   if solver == "stiff" 
+      if reltol > 1.e-4  
+         # standard stiff
+         sol = solve(prob, Rodas4(); reltol, abstol, save_everystep = false)
+      else
+         # high accuracy stiff
+         sol = solve(prob, KenCarp58(); reltol, abstol, save_everystep = false)
+      end
+   elseif solver == "non-stiff" 
+      if reltol > 1.e-4  
+         # standard non-stiff
+         sol = solve(prob, Tsit5(); reltol, abstol, save_everystep = false)
+      else
+         # high accuracy non-stiff
+         sol = solve(prob, Vern9(); reltol, abstol, save_everystep = false)
+      end
+   elseif solver == "symplectic" 
+      # high accuracy symplectic
+      if dt == 0 
+         sol = solve(prob, IRKGaussLegendre.IRKGL16(maxtrials=4); adaptive = true, reltol, abstol, save_everystep = false)
+         #@show sol.retcode
+         if sol.retcode == :Failure
+            sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = false, reltol, abstol, save_everystep = false, dt = abs(tf-t0)/100)
+         end
+      else
+           sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = false, reltol, abstol, save_everystep = false, dt)
+      end
+ else 
+      if reltol > 1.e-4  
+         # low accuracy automatic selection
+         sol = solve(prob, AutoTsit5(Rosenbrock23()) ; reltol, abstol, save_everystep = false)
+      else
+         # high accuracy automatic selection
+         sol = solve(prob, AutoVern9(Rodas5(),nonstifftol = 11/10); reltol, abstol, save_everystep = false)
+      end
+   end
+   return PeriodicFunctionMatrix(t-> MatrixEquations.vec2triu(sol(t), her=true),period)     
 end
 function muladdcsym!(y::AbstractVector, x::AbstractVector, isig, A::AbstractMatrix, C::AbstractMatrix)
    # A*X + X*A' + C

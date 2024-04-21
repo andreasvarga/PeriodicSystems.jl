@@ -126,9 +126,12 @@ function pstimeresp(psys::PeriodicStateSpace{PM}, u::AbstractVecOrMat{<:Number},
              ic = mod(i-1,pc)+1
              id = mod(i-1,pd)+1
              ut = u[i,:]
-             y[i,:] = psysd.C.M[ic]*xt + psysd.D.M[id]*ut
+            #  y[i,:] = psysd.C.M[ic]*xt + psysd.D.M[id]*ut
+            #  state_history && (x[i,:] = xt) 
+            #  xt = psysd.A.M[ia]*xt + psysd.B.M[ib]*ut
+             y[i,:] = psysd.C.M[:,:,ic]*xt + psysd.D.M[:,:,id]*ut
              state_history && (x[i,:] = xt) 
-             xt = psysd.A.M[ia]*xt + psysd.B.M[ib]*ut
+             xt = psysd.A.M[:,:,ia]*xt + psysd.B.M[:,:,ib]*ut
          end
          return y, tout, x
       else
@@ -287,9 +290,12 @@ function psstepresp(psys::PeriodicStateSpace{PM}, tfinal::Real = 0;
                  ib = mod(i-1,pb)+1
                  ic = mod(i-1,pc)+1
                  id = mod(i-1,pd)+1
-                 y[i,:,j] = psysd.C.M[ic]*xt + psysd.D.M[id][:,j]*ut
+               #   y[i,:,j] = psysd.C.M[ic]*xt + psysd.D.M[id][:,j]*ut
+               #   state_history && (x[i,:,j] = xt) 
+               #   xt = psysd.A.M[ia]*xt + psysd.B.M[ib][:,j]*ut
+                 y[i,:,j] = psysd.C.M[:,:,ic]*xt + psysd.D.M[:,:,id][:,j]*ut
                  state_history && (x[i,:,j] = xt) 
-                 xt = psysd.A.M[ia]*xt + psysd.B.M[ib][:,j]*ut
+                 xt = psysd.A.M[:,:,ia]*xt + psysd.B.M[:,:,ib][:,j]*ut
              end
          end
          return y, tout, x

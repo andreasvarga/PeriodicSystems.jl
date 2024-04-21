@@ -152,10 +152,13 @@ d = zeros(2,1);
 psysc = ps(a,PeriodicFunctionMatrix(b,period),c,d);
 
 K = 120;
-psys = psc2d(psysc,period/K,reltol = 1.e-10);
+@time psysa = psc2d(psysc,period/K,reltol = 1.e-10);
+psys = convert(PeriodicStateSpace{PeriodicMatrix},psysa);
+
 A = psys.A; B = psys.B; 
 q = [2 0 0 0; 0 1 0 0; 0 0 0 0;0 0 0 0]; r = [1.e-11;;];
 Q = PeriodicMatrix(q, period; nperiod=K); R = PeriodicMatrix(r,period; nperiod=K);
+Qa = PeriodicArray(q, period; nperiod=K); Ra = PeriodicArray(r,period; nperiod=K);
 
 @time X, EVALS, G = prdric(A,B,R,Q,itmax = 2);
 ev = pseig(A-B*G)

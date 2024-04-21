@@ -39,7 +39,6 @@ To detect singularities of involved matrices, the keyword parameter `rtol = tol`
 specify the lower bound for the 1-norm reciprocal condition number. 
 The default value of  `tol` is `n*ϵ`, where `ϵ` is the working _machine epsilon_.
 
-
 _References_
 
 [1] A. Varga. On solving periodic Riccati equations.  
@@ -73,7 +72,7 @@ function prdric(A::PA1, B::PA2, R::PA3, Q::PA4, S::Union{PA5,Missing} = missing;
 
    #                   [  A(i)  0     B(i) ]             [   I    0      0   ]
    #  Work on   M(i) = [ -Q(i)  I    -S(i) ] and  L(i) = [   0   A(i)'   0   ]
-   #                   [ S(i)'  0     R(i) ]             [   I    0      0   ]
+   #                   [ S(i)'  0     R(i) ]             [   0  -B(i)'   0   ]
    
    n2 = 2*n
    ZERA = zeros(n,n)
@@ -224,9 +223,20 @@ function prdric(A::PA1, B::PA2, R::PA3, Q::PA4, S::Union{PA5,Missing} = missing;
   end
   return PeriodicArray(X,period), EVALS, PeriodicArray(F,period)
 end
-function prdric(A::PA1, B::PA2, R::AbstractMatrix, Q::AbstractMatrix, S::Union{AbstractMatrix,Missing} = missing; kwargs...) where {PA1 <: PeriodicArray, PA2 <: PeriodicArray}
+function prdric(A::PM1, B::PM2, R::PM3, Q::PM4, S::AbstractMatrix; kwargs...) where 
+   {PM1 <: PeriodicArray, PM2 <: PeriodicArray, PM3 <: PeriodicArray, PM4 <: PeriodicArray}
+   nperiod = rationalize(A.period/A.Ts).num
+   prdric(A, B, R, Q, PeriodicArray(S, A.period; nperiod); kwargs...)
+end
+function prdric(A::PM1, B::PM2, R::AbstractMatrix, Q::PM4, S::Union{PM5,AbstractMatrix,Missing} = missing; kwargs...) where 
+                {PM1 <: PeriodicArray, PM2 <: PeriodicArray, PM4 <: PeriodicArray, PM5 <: PeriodicArray}
   nperiod = rationalize(A.period/A.Ts).num
-  prdric(A, B, PeriodicArray(R, A.period; nperiod), PeriodicArray(Q, A.period; nperiod), ismissing(S) ? S : PeriodicArray(S, A.period; nperiod); kwargs...)
+  prdric(A, B, PeriodicArray(R, A.period; nperiod), Q, ismissing(S) ? S : isa(S,AbstractMatrix) ? PeriodicArray(S, A.period; nperiod) : S; kwargs...)
+end
+function prdric(A::PM1, B::PM2, R::Union{PM4,AbstractMatrix}, Q::AbstractMatrix, S::Union{PM5,AbstractMatrix,Missing} = missing; kwargs...) where 
+                {PM1 <: PeriodicArray, PM2 <: PeriodicArray, PM4 <: PeriodicArray, PM5 <: PeriodicArray}
+  nperiod = rationalize(A.period/A.Ts).num
+  prdric(A, B, isa(R,AbstractMatrix) ? PeriodicArray(R, A.period; nperiod) : R, PeriodicArray(Q, A.period; nperiod), ismissing(S) ? S : isa(S,AbstractMatrix) ? PeriodicArray(S, A.period; nperiod) : S; kwargs...)
 end
 """
      prdric(A, B, R, Q[, S]; itmax = 0, nodeflate = false, fast, rtol) -> (X, EVALS, F)
@@ -279,13 +289,16 @@ function prdric(A::PM1, B::PM2, R::PM3, Q::PM4, S::Union{PM5,Missing} = missing;
   {PM1 <: PeriodicMatrix, PM2 <: PeriodicMatrix, PM3 <: PeriodicMatrix, PM4 <: PeriodicMatrix, PM5 <: PeriodicMatrix}
   ma, na = size(A) 
   mb, nb = size(B) 
+  nq = size(Q,2)
+  missingS = ismissing(S)
+  missingS || (ms = size(S,1))
   m = maximum(nb)
   m == minimum(nb) || throw(DimensionMismatch("only constant number of columns of B supported"))
   pr = length(R) 
   pa = length(A) 
   pb = length(B) 
   pq = length(Q) 
-  ps = ismissing(S) ? 1 : length(S)
+  ps = missingS ? 1 : length(S)
   p = lcm(pa,pb,pq,pr,ps)
 
   # perform checks applicable to both constant and time-varying dimensions  
@@ -302,11 +315,13 @@ function prdric(A::PM1, B::PM2, R::PM3, Q::PM4, S::Union{PM5,Missing} = missing;
   if constdim 
      # constant dimensions
      n == ma1 || error("the periodic matrix A must be square")
-     ismissing(S) && 
+     n == minimum(nq) == maximum(nq) || throw(DimensionMismatch("incompatible dimensions between A and Q"))
+     missingS && 
         (S = PeriodicMatrix(zeros(n,m),A.period,nperiod = rationalize(A.period/A.Ts).num))
+     ms = size(S,1)
   else
      # time-varying dimensions
-     ismissing(S) && (ps = p; S = PeriodicMatrix([zeros(na[i],m) for i in 1:p], A.period, nperiod = 1))
+     missingS && (ps = p; S = PeriodicMatrix([zeros(na[i],m) for i in 1:p], A.period, nperiod = 1))
      pa == pb == pq == ps || throw(DimensionMismatch("A, B, Q and S must have the same length"))
      (pr == 1 || pr == pa) || throw(DimensionMismatch("R must have the length equal to or length of A"))
      all(ma .== view(na,mod.(1:pa,pa).+1)) || 
@@ -322,7 +337,7 @@ function prdric(A::PM1, B::PM2, R::PM3, Q::PM4, S::Union{PM5,Missing} = missing;
  
   #                   [  A(i)  0     B(i) ]             [   I    0      0   ]
   #  Work on   M(i) = [ -Q(i)  I    -S(i) ] and  L(i) = [   0   A(i)'   0   ]
-  #                   [ S(i)'  0     R(i) ]             [   I    0      0   ]
+  #                   [ S(i)'  0     R(i) ]             [   0  -B(i)'   0   ]
                                          
   n2 = 2*n
   ZERA = zeros(n,n)
@@ -392,28 +407,32 @@ function prdric(A::PM1, B::PM2, R::PM3, Q::PM4, S::Union{PM5,Missing} = missing;
     At = zeros(n,n,pa); [copyto!(view(At,1:ma[i],1:na[i],i),A.M[i]) for i in 1:pa]
     Bt = zeros(n,m,pb); [copyto!(view(Bt,1:mb[i],1:m,i),B.M[i]) for i in 1:pb]
     Rt = zeros(m,m,pr); [copyto!(view(Rt,1:m,1:m,i),R.M[i]) for i in 1:pr]
-    Qt = zeros(n,n,pa); [copyto!(view(Qt,1:na[i],1:na[i],i),Q.M[i]) for i in 1:pq]
-    St = zeros(n,m,pa); ismissing(S) || [copyto!(view(St,1:na[i],1:m,i),S.M[i]) for i in 1:ps]
-
+    Qt = zeros(n,n,pq); [copyto!(view(Qt,1:nq[i],1:nq[i],i),Q.M[i]) for i in 1:pq]
+    St = zeros(n,m,ps); missingS || [copyto!(view(St,1:ms[i],1:m,i),S.M[i]) for i in 1:ps]
     Xt, EVALS, Ft = prdric(PeriodicArray(At,A.period;nperiod = A.nperiod),PeriodicArray(Bt,B.period;nperiod = B.nperiod),
                            PeriodicArray(Rt,R.period;nperiod = R.nperiod),PeriodicArray(Qt,Q.period;nperiod = Q.nperiod),
-                           ismissing(S) ? missing : PeriodicArray(St,S.period;nperiod = S.nperiod); itmax, nodeflate, PSD_SLICOT, fast, rtol)
+                           missingS ? missing : PeriodicArray(St,S.period;nperiod = S.nperiod); itmax, nodeflate, PSD_SLICOT, fast, rtol)
 
     return PeriodicMatrix([Xt.M[1:na[mod(i-1,pa)+1],1:na[mod(i-1,pa)+1],i] for i in 1:p],period), EVALS, PeriodicMatrix([Ft.M[1:m,1:na[mod(i-1,pa)+1],i] for i in 1:p],period)
   end
-  
+   
 end
-function prdric(A::PM1, B::PM2, R::AbstractMatrix, Q::PM4, S::Union{PM5,Missing} = missing; kwargs...) where 
+function prdric(A::PM1, B::PM2, R::PM3, Q::PM4, S::AbstractMatrix; kwargs...) where 
+   {PM1 <: PeriodicMatrix, PM2 <: PeriodicMatrix, PM3 <: PeriodicMatrix, PM4 <: PeriodicMatrix}
+   nperiod = rationalize(A.period/A.Ts).num
+   prdric(A, B, R, Q, PeriodicMatrix(S, A.period; nperiod); kwargs...)
+end
+function prdric(A::PM1, B::PM2, R::AbstractMatrix, Q::PM4, S::Union{PM5,AbstractMatrix,Missing} = missing; kwargs...) where 
                 {PM1 <: PeriodicMatrix, PM2 <: PeriodicMatrix, PM4 <: PeriodicMatrix, PM5 <: PeriodicMatrix}
   nperiod = rationalize(A.period/A.Ts).num
-  prdric(A, B, PeriodicMatrix(R, A.period; nperiod), Q, S; kwargs...)
+  prdric(A, B, PeriodicMatrix(R, A.period; nperiod), Q, ismissing(S) ? S : isa(S,AbstractMatrix) ? PeriodicMatrix(S, A.period; nperiod) : S; kwargs...)
 end
-function prdric(A::PM1, B::PM2, R::AbstractMatrix, Q::AbstractMatrix, S::Union{AbstractMatrix,Missing} = missing; kwargs...) where 
-                {PM1 <: PeriodicMatrix, PM2 <: PeriodicMatrix}
+function prdric(A::PM1, B::PM2, R::Union{PM4,AbstractMatrix}, Q::AbstractMatrix, S::Union{PM5,AbstractMatrix,Missing} = missing; kwargs...) where 
+                {PM1 <: PeriodicMatrix, PM2 <: PeriodicMatrix, PM4 <: PeriodicMatrix, PM5 <: PeriodicMatrix}
   ma, na = size(A)
   if maximum(na) == minimum(na) && maximum(ma) == minimum(ma)
      nperiod = rationalize(A.period/A.Ts).num
-     prdric(A, B, PeriodicMatrix(R, A.period; nperiod), PeriodicMatrix(Q, A.period; nperiod), ismissing(S) ? S : PeriodicMatrix(S, A.period; nperiod); kwargs...)
+     prdric(A, B, isa(R,AbstractMatrix) ? PeriodicMatrix(R, A.period; nperiod) : R, PeriodicMatrix(Q, A.period; nperiod), ismissing(S) ? S : isa(S,AbstractMatrix) ? PeriodicMatrix(S, A.period; nperiod) : S; kwargs...)
   else
      error("Constant Q and S are not possible for time-varying dimensions")
   end
@@ -453,12 +472,23 @@ _References_
 """
 function pfdric(A::PA1, C::PA2, R::PA3, Q::PA4, S::Union{PA5,Missing} = missing; kwargs...) where 
   {PA1 <: PeriodicArray, PA2 <: PeriodicArray, PA3 <: PeriodicArray, PA4 <: PeriodicArray, PA5 <: PeriodicArray}
-  Xt, EVALS, Ft =  prdric(reverse(A)', reverse(C)', reverse(R)', reverse(Q)', ismissing(S) ? S : reverse(S)'; kwargs...) 
+  Xt, EVALS, Ft =  prdric(reverse(A)', reverse(C)', reverse(R), reverse(Q), ismissing(S) ? S : reverse(S); kwargs...) 
   return reverse(pmshift(Xt)), EVALS, reverse(Ft)'
 end
-function pfdric(A::PA1, B::PA2, R::AbstractMatrix, Q::AbstractMatrix, S::Union{AbstractMatrix,Missing} = missing; kwargs...) where {PA1 <: PeriodicArray, PA2 <: PeriodicArray}
-  nperiod = rationalize(A.period/A.Ts).num
-  pfdric(A, B, PeriodicArray(R, A.period; nperiod), PeriodicArray(Q, A.period; nperiod), ismissing(S) ? S : PeriodicArray(S, A.period; nperiod); kwargs...)
+function pfdric(A::PM1, C::PM2, R::PM3, Q::PM4, S::AbstractMatrix; kwargs...) where 
+   {PM1 <: PeriodicArray, PM2 <: PeriodicArray, PM3 <: PeriodicArray, PM4 <: PeriodicArray}
+   nperiod = rationalize(A.period/A.Ts).num
+   pfdric(A, C, R, Q, PeriodicArray(S, A.period; nperiod); kwargs...)
+end
+function pfdric(A::PM1, C::PM2, R::AbstractMatrix, Q::PM4, S::Union{PM5,AbstractMatrix,Missing} = missing; kwargs...) where 
+   {PM1 <: PeriodicArray, PM2 <: PeriodicArray, PM4 <: PeriodicArray, PM5 <: PeriodicArray}
+   nperiod = rationalize(A.period/A.Ts).num
+   pfdric(A, C, PeriodicArray(R, A.period; nperiod), Q, ismissing(S) ? S : isa(S,AbstractMatrix) ? PeriodicArray(S, A.period; nperiod) : S; kwargs...)
+end
+function pfdric(A::PM1, C::PM2, R::Union{PM4,AbstractMatrix}, Q::AbstractMatrix, S::Union{PM5,AbstractMatrix,Missing} = missing; kwargs...) where 
+   {PM1 <: PeriodicArray, PM2 <: PeriodicArray, PM4 <: PeriodicArray, PM5 <: PeriodicArray}
+   nperiod = rationalize(A.period/A.Ts).num
+   pfdric(A, C, isa(R,AbstractMatrix) ? PeriodicArray(R, A.period; nperiod) : R, PeriodicArray(Q, A.period; nperiod), ismissing(S) ? S : isa(S,AbstractMatrix) ? PeriodicArray(S, A.period; nperiod) : S; kwargs...)
 end
 """
      pfdric(A, C, R, Q[, S]; itmax = 0, nodeflate = false, fast, rtol) -> (X, EVALS, F)
@@ -494,20 +524,20 @@ _References_
 """
 function pfdric(A::PM1, C::PM2, R::PM3, Q::PM4, S::Union{PM5,Missing} = missing; kwargs...) where 
   {PM1 <: PeriodicMatrix, PM2 <: PeriodicMatrix, PM3 <: PeriodicMatrix, PM4 <: PeriodicMatrix, PM5 <: PeriodicMatrix}
-  Xt, EVALS, Ft =  prdric(reverse(A)', reverse(C)', reverse(R)', reverse(Q)', ismissing(S) ? S : reverse(S)'; kwargs...) 
+  Xt, EVALS, Ft =  prdric(reverse(A)', reverse(C)', reverse(R), reverse(Q), ismissing(S) ? S : reverse(S); kwargs...) 
   return reverse(pmshift(Xt)), EVALS, reverse(Ft)'
 end
-function pfdric(A::PM1, C::PM2, R::AbstractMatrix, Q::PM4, S::Union{PM5,Missing} = missing; kwargs...) where 
+function pfdric(A::PM1, C::PM2, R::AbstractMatrix, Q::PM4, S::Union{PM5,AbstractMatrix,Missing} = missing; kwargs...) where 
                 {PM1 <: PeriodicMatrix, PM2 <: PeriodicMatrix, PM4 <: PeriodicMatrix, PM5 <: PeriodicMatrix}
   nperiod = rationalize(A.period/A.Ts).num
-  pfdric(A, C, PeriodicMatrix(R, A.period; nperiod), Q, S; kwargs...)
+  pfdric(A, C, PeriodicMatrix(R, A.period; nperiod), Q, ismissing(S) ? S : isa(S,AbstractMatrix) ? PeriodicMatrix(S, A.period; nperiod) : S; kwargs...)
 end
-function pfdric(A::PM1, C::PM2, R::AbstractMatrix, Q::AbstractMatrix, S::Union{AbstractMatrix,Missing} = missing; kwargs...) where 
-                {PM1 <: PeriodicMatrix, PM2 <: PeriodicMatrix}
+function pfdric(A::PM1, C::PM2, R::Union{PM4,AbstractMatrix}, Q::AbstractMatrix, S::Union{PM5,AbstractMatrix,Missing} = missing; kwargs...) where 
+                {PM1 <: PeriodicMatrix, PM2 <: PeriodicMatrix, PM4 <: PeriodicMatrix, PM5 <: PeriodicMatrix}
   ma, na = size(A)
   if maximum(na) == minimum(na) && maximum(ma) == minimum(ma)
      nperiod = rationalize(A.period/A.Ts).num
-     pfdric(A, C, PeriodicMatrix(R, A.period; nperiod), PeriodicMatrix(Q, A.period; nperiod), ismissing(S) ? S : PeriodicMatrix(S, A.period; nperiod); kwargs...)
+     pfdric(A, C, isa(R,AbstractMatrix) ? PeriodicMatrix(R, A.period; nperiod) : R, PeriodicMatrix(Q, A.period; nperiod), ismissing(S) ? S : isa(S,AbstractMatrix) ? PeriodicMatrix(S, A.period; nperiod) : S; kwargs...)
   else
      error("Constant Q and S are not possible for time-varying dimensions")
   end

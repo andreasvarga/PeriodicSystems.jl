@@ -132,20 +132,20 @@ psysc = ps(a,PeriodicFunctionMatrix(b,period),c,d);
 K = 120;
 @time psys = psc2d(psysc,period/K,reltol = 1.e-10);
 @test all(abs.(pseig(psys.A)) .≈ 1)
-@test psys.A.M[1] ≈ exp(a*period/K) && psys.C.M[1] == c && psys.D.M[1] == d
+@test psys.A[1] ≈ exp(a*period/K) && psys.C[1] == c && psys.D[1] == d
 
 # lti system 
 sys = rss(3,2,3);
 psysc = ps(sys,10);
 @time sysd = c2d(sys,1)[1];
 @time psys = psc2d(psysc,1);
-@test psys.A.M[1] ≈ sysd.A && psys.B.M[1] == sysd.B && psys.C.M[1] == sysd.C && psys.D.M[1] == sysd.D
+@test psys.A[1] ≈ sysd.A && psys.B[1] == sysd.B && psys.C[1] == sysd.C && psys.D[1] == sysd.D
 
 # only dynamic gains
 psysc = ps(C);
 Ts = pi/10;
 @time psys = psc2d(psysc,Ts);
-@test all([psys.D.M[i] == C.f((i-1)*Ts) for i in 1:10])
+@test all([psys.D[i] == C.f((i-1)*Ts) for i in 1:10])
 
 # A and B constant matrices
 a = rand(2,2); b = rand(2,1); c = rand(1,2); d = rand(1,1);
@@ -154,8 +154,8 @@ psysc = ps(a,b,C,d);
 Ts = pi/10;
 @time sysd = c2d(sys,Ts)[1];
 @time psys = psc2d(psysc,Ts);
-@test psys.A.M[1] ≈ sysd.A && psys.B.M[1] == sysd.B && 
-      all([psys.C.M[i] == C.f((i-1)*Ts) for i in 1:10]) && psys.D.M[1] == sysd.D
+@test psys.A[1] ≈ sysd.A && psys.B[1] == sysd.B && 
+      all([psys.C[i] == C.f((i-1)*Ts) for i in 1:10]) && psys.D[1] == sysd.D
 
 end # psc2d      
 end # module

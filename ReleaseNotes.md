@@ -5,11 +5,14 @@
 The following new functions have been implemented:
 - output feedback stabilization of constant systems using periodic switching and periodic harmonic gains (WIP)
 - output feedback based stabilization of periodic systems using periodic harmonic gains (WIP)
-- `plqr`, `plqry` LQ-optimal state feedack based stabilization of periodic systems (WIP)
-- `plqofc` LQ-optimal output feedback stabilization of discrete-time periodic systems
+- `pclqr`, `pclqry`, `pdlqr`, `pdlqry` LQ-optimal state feedack based stabilization of periodic systems 
+- `pckeg`, `pckegw`, `pdkeg`, `pdkegw` Kalman estimator gain matrix for periodic systems 
+- `pclqofc_sw`, `pclqofc_hr` LQ-optimal output feedback stabilization of continuopus-time periodic systems
+- `pdlqofc`, `pdlqofc_sw` LQ-optimal output feedback stabilization of discrete-time periodic systems
 
 The following new supporting functions have been implemented:
-- `pdlyap2` to solve solve a pair of periodic Lyapunov equations
+- `pclyap2` to solve solve a pair of periodic continuous-time Lyapunov equations
+- `pdlyap2` to solve solve a pair of periodic discrete-time Lyapunov equations
 - `pslyapd2` to solve solve a pair of periodic Lyapunov equations using preallocated workspace 
 - `pdlyaps2!` to solve solve a pair of reduced periodic Lyapunov equations using preallocated workspace 
 - tools for efficient operations leading to symmetric periodic matrices  compute the symmetric matrix X = Y + transpose(Y) for a periodic matrix Y
@@ -27,6 +30,7 @@ New versions of the following functions have been implemented:
 The following extensions have been implemented:
 - new periodic matrix type: switching periodic array 
 - solution of periodic Lyapunov equations for discrete-time switching periodic arrays 
+- enhanced version of function `psc2d` to determine discretized systems of arbitrary types
 
 ## Version 0.6.2 
 

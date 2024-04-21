@@ -20,7 +20,6 @@ and additionally `R` and `Q` must be symmetric. The resulting symmetric periodic
 the number of subperiods is adjusted accordingly. 
 _Note:_ Presently the `PeriodicSwitchingMatrix` type is not supported. 
 
-
 If `fast = true` (default) the multiple-shooting method is used in conjunction with fast pencil reduction techniques, as proposed in [1],
 to determine the periodic solution in `t = 0` and a multiple point generator of the appropriate periodic differential Riccati equation
 is determined  (see [2] for details). 
@@ -34,7 +33,7 @@ The obtained periodic generator is finally converted into a periodic function ma
 the function value `X(t)` by integrating the appropriate ODE from the nearest grid point value. 
 
 To speedup function evaluations, interpolation based function evaluations can be used 
-by setting the keyword argument `intpol = true` (default: `intpol = false`). 
+by setting the keyword argument `intpol = true` (default: `intpol = true` if `solver = "symplectic"`, otherwise `intpol = false`). 
 In this case the interpolation method to be used can be specified via the keyword argument
 `intpolmeth = meth`. The allowable values for `meth` are: `"constant"`, `"linear"`, `"quadratic"` and `"cubic"` (default) (see also [`ts2pfm`](@ref)).
    
@@ -54,7 +53,8 @@ _References_
 [2] A. Varga. On solving periodic Riccati equations.  
     Numerical Linear Algebra with Applications, 15:809-835, 2008.    
 """
-function pcric(A::PeriodicFunctionMatrix, R::PeriodicFunctionMatrix, Q::PeriodicFunctionMatrix; K::Int = 10, adj = false, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true, intpol = false, intpolmeth = "cubic")
+function pcric(A::PeriodicFunctionMatrix, R::PeriodicFunctionMatrix, Q::PeriodicFunctionMatrix; K::Int = 10, adj = false, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, 
+   fast = true, intpol = solver == "symplectic" ? true : false, intpolmeth = "cubic")
    X, EVALS = pgcric(A, R, Q, K;  adj, solver, reltol, abstol, dt, fast, PSD_SLICOT)
    if intpol
       return convert(PeriodicFunctionMatrix, X, method = intpolmeth), EVALS
@@ -64,7 +64,8 @@ function pcric(A::PeriodicFunctionMatrix, R::PeriodicFunctionMatrix, Q::Periodic
 end
 for PM in (:PeriodicSymbolicMatrix, :HarmonicArray, :FourierFunctionMatrix)
    @eval begin
-      function pcric(A::$PM, R::$PM, Q::$PM; K::Int = 10, adj = false, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true, intpol = false, intpolmeth = "cubic") 
+      function pcric(A::$PM, R::$PM, Q::$PM; K::Int = 10, adj = false, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, 
+         fast = true,  intpol = solver == "symplectic" ? true : false, intpolmeth = "cubic") 
          At = convert(PeriodicFunctionMatrix,A)
          Rt = convert(PeriodicFunctionMatrix,R)
          Qt = convert(PeriodicFunctionMatrix,Q)
@@ -94,7 +95,8 @@ end
 
 for PM in (:PeriodicFunctionMatrix, :PeriodicSymbolicMatrix, :HarmonicArray, :FourierFunctionMatrix, :PeriodicTimeSeriesMatrix)
    @eval begin
-      function prcric(A::$PM, B::$PM, R::$PM, Q::$PM; K::Int = 10, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true, intpol = false, intpolmeth = "cubic") 
+      function prcric(A::$PM, B::$PM, R::$PM, Q::$PM; K::Int = 10, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, 
+         fast = true,  intpol = solver == "symplectic" ? true : false, intpolmeth = "cubic") 
          n = size(A,1)
          n == size(A,2) || error("the periodic matrix A must be square")
          n == size(B,1) || error("the periodic matrix B must have the same number of rows as A")
@@ -103,11 +105,12 @@ for PM in (:PeriodicFunctionMatrix, :PeriodicSymbolicMatrix, :HarmonicArray, :Fo
          (n,n) == size(Q) || error("the periodic matrix Q must have the same dimensions as A")
          issymmetric(R) || error("the periodic matrix R must be symmetric")
          issymmetric(Q) || error("the periodic matrix Q must be symmetric")
-         tr = B*inv(R)*B'
-         X, EVALS = pcric(A, (tr+tr')/2, Q; K, adj = true, solver, reltol, abstol, dt, fast, PSD_SLICOT, intpol, intpolmeth)
+         Rt = pmmultrsym(B*inv(R), B)
+         X, EVALS = pcric(A, Rt, Q; K, adj = true, solver, reltol, abstol, dt, fast, PSD_SLICOT, intpol, intpolmeth)
          return X, EVALS, inv(R)*transpose(B)*X
       end
-      function prcric(A::$PM, B::$PM, R::AbstractMatrix, Q::AbstractMatrix; K::Int = 10, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true, intpol = false, intpolmeth = "cubic") 
+      function prcric(A::$PM, B::$PM, R::AbstractMatrix, Q::AbstractMatrix; K::Int = 10, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, 
+         fast = true,  intpol = solver == "symplectic" ? true : false, intpolmeth = "cubic") 
          n = size(A,1)
          n == size(A,2) || error("the periodic matrix A must be square")
          n == size(B,1) || error("the periodic matrix B must have the same number of rows as A")
@@ -116,11 +119,12 @@ for PM in (:PeriodicFunctionMatrix, :PeriodicSymbolicMatrix, :HarmonicArray, :Fo
          (n,n) == size(Q) || error("the periodic matrix Q must have the same dimensions as A")
          issymmetric(R) || error("the matrix R must be symmetric")
          issymmetric(Q) || error("the matrix Q must be symmetric")
-         tr = B*$PM(inv(R), A.period)*B'
-         X, EVALS = pcric(A, (tr+tr')/2, $PM(Q, A.period); K, adj = true, solver, reltol, abstol, dt, fast, PSD_SLICOT, intpol, intpolmeth)
+         Rt = pmmultrsym(B*$PM(inv(R),B.period), B)
+         X, EVALS = pcric(A, Rt, $PM(Q, A.period); K, adj = true, solver, reltol, abstol, dt, fast, PSD_SLICOT, intpol, intpolmeth)
          return X, EVALS, inv(R)*B'*X
       end
-      function pfcric(A::$PM, C::$PM, R::$PM, Q::$PM; K::Int = 10, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true, intpol = false, intpolmeth = "cubic") 
+      function pfcric(A::$PM, C::$PM, R::$PM, Q::$PM; K::Int = 10, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, 
+         fast = true, intpol = solver == "symplectic" ? true : false, intpolmeth = "cubic") 
          n = size(A,1)
          n == size(A,2) || error("the periodic matrix A must be square")
          n == size(C,2) || error("the periodic matrix C must have the same number of columns as A")
@@ -129,11 +133,12 @@ for PM in (:PeriodicFunctionMatrix, :PeriodicSymbolicMatrix, :HarmonicArray, :Fo
          (n,n) == size(Q) || error("the periodic matrix Q must have the same dimensions as A")
          issymmetric(R) || error("the periodic matrix R must be symmetric")
          issymmetric(Q) || error("the periodic matrix Q must be symmetric")
-         tr = C'*inv(R)*C
-         X, EVALS = pcric(A, (tr+tr')/2, Q; K, adj = false, solver, reltol, abstol, dt, fast, PSD_SLICOT, intpol, intpolmeth)
+         Rt = pmtrmulsym(C,inv(R)*C)
+         X, EVALS = pcric(A, Rt, Q; K, adj = false, solver, reltol, abstol, dt, fast, PSD_SLICOT, intpol, intpolmeth)
          return X, EVALS, (X*C')*inv(R)
       end
-      function pfcric(A::$PM, C::$PM, R::AbstractMatrix, Q::AbstractMatrix; K::Int = 10, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, fast = true, intpol = false, intpolmeth = "cubic") 
+      function pfcric(A::$PM, C::$PM, R::AbstractMatrix, Q::AbstractMatrix; K::Int = 10, PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1.e-4, abstol = 1.e-7, dt = 0.0, 
+                      fast = true, intpol = solver == "symplectic" ? true : false, intpolmeth = "cubic") 
          n = size(A,1)
          n == size(A,2) || error("the periodic matrix A must be square")
          n == size(C,2) || error("the periodic matrix C must have the same number of columns as A")
@@ -142,14 +147,14 @@ for PM in (:PeriodicFunctionMatrix, :PeriodicSymbolicMatrix, :HarmonicArray, :Fo
          (n,n) == size(Q) || error("the periodic matrix Q must have the same dimensions as A")
          issymmetric(R) || error("the matrix R must be symmetric")
          issymmetric(Q) || error("the matrix Q must be symmetric")
-         tr = C'*$PM(inv(R), A.period; nperiod = A.nperiod)*C
-         X, EVALS = pcric(A, (tr+tr')/2, $PM(Q, A.period; nperiod = A.nperiod); K, adj = false, solver, reltol, abstol, dt, fast, PSD_SLICOT, intpol, intpolmeth)
+         Rt = pmtrmulsym(C,$PM(inv(R), C.period)*C)
+         X, EVALS = pcric(A, Rt, $PM(Q, A.period); K, adj = false, solver, reltol, abstol, dt, fast, PSD_SLICOT, intpol, intpolmeth)
          return X, EVALS, (X*C')*inv(R)
       end
    end
 end
 """
-    pfcric(A, C, R, Q; K = 10, solver, reltol, abstol, fast) -> (X, EVALS, F)
+    pfcric(A, C, R, Q; K = 10, solver, intpol, intpolmeth, reltol, abstol, fast) -> (X, EVALS, F)
 
 Compute the symmetric stabilizing solution `X(t)` of the periodic filtering related Riccati differential equation
 
@@ -163,19 +168,48 @@ the periodic stabilizing Kalman gain
 
 and the corresponding stable characteristic multipliers `EVALS` of `A(t)-F(t)C(t)`. 
 
-If `fast = true` (default) the multiple-shooting method is used in conjunction with fast pencil reduction techniques, while
-if `fast = false`, the multiple-shooting method is used in 
-conjunction with the periodic Schur decomposition approach. 
-
 The periodic matrices `A`, `C`, `R` and `Q` must have the same type and commensurate periods, 
 and additionally `R` must be symmetric positive definite and `Q` must be symmetric positive semidefinite. 
 The resulting symmetric periodic solution `X` has the period 
 set to the least common commensurate period of `A`, `C`, `R` and `Q` and the number of subperiods
 is adjusted accordingly. 
+
+If `fast = true` (default) the multiple-shooting method is used in conjunction with fast pencil reduction techniques, as proposed in [1],
+to determine the periodic solution in `t = 0` and a multiple point generator of the appropriate periodic differential Riccati equation
+is determined  (see [2] for details). 
+If `fast = false`, the multiple-shooting method is used in 
+conjunction with the periodic Schur decomposition to determine multiple point generators directly from the stable periodic invariant subspace of 
+an appropriate symplectic transition matrix (see also [2] for more details). 
+
+The keyword argument `K` specifies the number of grid points to be used
+for the resulting multiple point periodic generator (default: `K = 10`). 
+The obtained periodic generator is finally converted into a periodic function matrix which determines for a given `t` 
+the function value `X(t)` by integrating the appropriate ODE from the nearest grid point value. 
+
+To speedup function evaluations, interpolation based function evaluations can be used 
+by setting the keyword argument `intpol = true` (default: `intpol = true` if `solver = "symplectic"`, otherwise `intpol = false`). 
+In this case the interpolation method to be used can be specified via the keyword argument
+`intpolmeth = meth`. The allowable values for `meth` are: `"constant"`, `"linear"`, `"quadratic"` and `"cubic"` (default) (see also [`ts2pfm`](@ref)).
+   
+The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, together with
+the required relative accuracy `reltol` (default: `reltol = 1.e-4`) and 
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) (see [`tvstm`](@ref)). 
+For large values of `K`, parallel computation of the matrices of the discrete-time problem can be alternatively performed 
+by starting Julia with several execution threads. 
+The number of execution threads is controlled either by using the `-t/--threads` command line argument 
+or by using the `JULIA_NUM_THREADS` environment variable.  
+
+_References_
+
+[1] A. Varga. On solving periodic differential matrix equations with applications to periodic system norms computation. 
+    Proc. IEEE CDC/ECC, Seville, 2005. 
+
+[2] A. Varga. On solving periodic Riccati equations.  
+    Numerical Linear Algebra with Applications, 15:809-835, 2008.    
 """
 pfcric(A::PeriodicFunctionMatrix, C::PeriodicFunctionMatrix, R::PeriodicFunctionMatrix, Q::PeriodicFunctionMatrix)
 """
-    prcric(A, B, R, Q; K = 10, solver, reltol, abstol) -> (X, EVALS, F)
+    prcric(A, B, R, Q; K = 10, solver, intpol, intpolmeth, reltol, abstol, fast) -> (X, EVALS, F)
 
 Compute the symmetric stabilizing solution `X(t)` of the periodic control related Riccati differential equation
 
@@ -189,18 +223,46 @@ the periodic stabilizing state-feedback gain
 
 and the corresponding stable characteristic multipliers `EVALS` of `A(t)-B(t)F(t)`. 
 
-If `fast = true` (default) the multiple-shooting method is used in conjunction with fast pencil reduction techniques, while
-if `fast = false`, the multiple-shooting method is used in 
-conjunction with the periodic Schur decomposition approach. 
-
 The periodic matrices `A`, `B`, `R` and `Q` must have the same type and commensurate periods, 
 and additionally `R` must be symmetric positive definite and `Q` must be symmetric positive semidefinite. 
 The resulting symmetric periodic solution `X` has the period 
 set to the least common commensurate period of `A`, `B`, `R` and `Q` and the number of subperiods
 is adjusted accordingly. 
+
+If `fast = true` (default) the multiple-shooting method is used in conjunction with fast pencil reduction techniques, as proposed in [1],
+to determine the periodic solution in `t = 0` and a multiple point generator of the appropriate periodic differential Riccati equation
+is determined  (see [2] for details). 
+If `fast = false`, the multiple-shooting method is used in 
+conjunction with the periodic Schur decomposition to determine multiple point generators directly from the stable periodic invariant subspace of 
+an appropriate symplectic transition matrix (see also [2] for more details). 
+
+The keyword argument `K` specifies the number of grid points to be used
+for the resulting multiple point periodic generator (default: `K = 10`). 
+The obtained periodic generator is finally converted into a periodic function matrix which determines for a given `t` 
+the function value `X(t)` by integrating the appropriate ODE from the nearest grid point value. 
+
+To speedup function evaluations, interpolation based function evaluations can be used 
+by setting the keyword argument `intpol = true` (default: `intpol = true` if `solver = "symplectic"`, otherwise `intpol = false`). 
+In this case the interpolation method to be used can be specified via the keyword argument
+`intpolmeth = meth`. The allowable values for `meth` are: `"constant"`, `"linear"`, `"quadratic"` and `"cubic"` (default) (see also [`ts2pfm`](@ref)).
+   
+The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, together with
+the required relative accuracy `reltol` (default: `reltol = 1.e-4`) and 
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) (see [`tvstm`](@ref)). 
+For large values of `K`, parallel computation of the matrices of the discrete-time problem can be alternatively performed 
+by starting Julia with several execution threads. 
+The number of execution threads is controlled either by using the `-t/--threads` command line argument 
+or by using the `JULIA_NUM_THREADS` environment variable.  
+
+_References_
+
+[1] A. Varga. On solving periodic differential matrix equations with applications to periodic system norms computation. 
+    Proc. IEEE CDC/ECC, Seville, 2005. 
+
+[2] A. Varga. On solving periodic Riccati equations.  
+    Numerical Linear Algebra with Applications, 15:809-835, 2008.    
 """
 prcric(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix, R::PeriodicFunctionMatrix, Q::PeriodicFunctionMatrix)
-
 """
     pgcric(A, R, Q[, K = 1]; adj = false, solver, reltol, abstol, fast, PSD_SLICOT) -> (X, EVALS)
 
@@ -250,7 +312,7 @@ _References_
 [2] A. Varga. On solving periodic Riccati equations.  
     Numerical Linear Algebra with Applications, 15:809-835, 2008.    
 """
-function pgcric(A::PM1, R::PM3, Q::PM4, K::Int = 1; adj = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), 
+function pgcric(A::PM1, R::PM3, Q::PM4, K::Int = 1;  scaling = true, adj = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), 
    PSD_SLICOT::Bool = true, solver = "symplectic", reltol = 1e-4, abstol = 1e-7, dt = 0.0, fast = false) where
    {PM1 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}, 
    PM3 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix},
@@ -269,33 +331,47 @@ function pgcric(A::PM1, R::PM3, Q::PM4, K::Int = 1; adj = false, rtol::Real = si
    Ts = period/K/nperiod
    if isconstant(A) && isconstant(R) && isconstant(Q)
       if adj 
-         X, EVALS, = arec(tpmeval(A,0),tpmeval(R,0), tpmeval(Q,0); rtol)
+         X, EVALS, = arec(tpmeval(A,0),tpmeval(R,0), tpmeval(Q,0); scaling = 'S', rtol)
       else
-         X, EVALS, = arec(tpmeval(A,0)', tpmeval(R,0), tpmeval(Q,0); rtol)
+         X, EVALS, = arec(tpmeval(A,0)', tpmeval(R,0), tpmeval(Q,0); scaling = 'S', rtol)
       end 
       return PeriodicTimeSeriesMatrix([X], period; nperiod), EVALS
    end
 
    T = promote_type(eltype(A),eltype(Q),eltype(R),Float64)
    n2 = n+n
+   # use block scaling if appropriate
+   if scaling
+      qs = sqrt(norm(Q,1))
+      rs = sqrt(norm(R,1))
+      scaling = (qs > rs) & (rs > 0)
+   end
+   if scaling
+      scal = qs/rs  
+      Qt = Q/scal
+      Rt = R*scal 
+   else    
+      Qt = Q; Rt = R
+   end
+
    #hpd = Array{T,3}(undef, n2, n2, K) 
    i1 = 1:n; i2 = n+1:n2
    if K == 1
-      hpd  = tvcric(A, R, Q, Ts, 0; adj, solver, reltol, abstol)
+      hpd  = tvcric(A, Rt, Qt, Ts, 0; adj, solver, reltol, abstol)
       SF = schur(hpd)
       select = abs.(SF.values) .< 1
       n == count(select .== true) || error("The symplectic pencil is not dichotomic")
       ordschur!(SF, select)
       x = SF.Z[i2,i1]/SF.Z[i1,i1]; x = (x+x')/2
       EVALS = SF.values[i1]
-      X = PeriodicTimeSeriesMatrix([x], period; nperiod)
+      X = PeriodicTimeSeriesMatrix([scaling ? scal*x : x], period; nperiod)
       ce = log.(complex(EVALS))/period
       return X, isreal(ce) ? real(ce) : ce 
    end
    if fast
       hpd = Vector{Matrix{T}}(undef, K) 
       Threads.@threads for i = 1:K
-         @inbounds hpd[i]  = tvcric(A, R, Q, i*Ts, (i-1)*Ts; adj, solver, reltol, abstol, dt) 
+         @inbounds hpd[i]  = tvcric(A, Rt, Qt, i*Ts, (i-1)*Ts; adj, solver, reltol, abstol, dt) 
       end
       a, e = psreduc_reg(hpd)
       # Compute the ordered QZ decomposition with large eigenvalues in the
@@ -306,17 +382,16 @@ function pgcric(A::PM1, R::PM3, Q::PM4, K::Int = 1; adj = false, rtol::Real = si
       # this code may produce inaccurate small characteristic multipliers for large values of K
       # the following test try to detect the presence of infinite values
       all(isfinite.(SF.values)) || @warn "possible accuracy loss"
-      #@show a, e, SF.values
       select = adj ? abs.(SF.values) .> 1 : abs.(SF.values) .< 1
       n == count(select .== true) || error("The symplectic pencil is not dichotomic")
       ordschur!(SF, select)
       EVALS = adj ? SF.values[i2] : SF.values[i1]
       # compute the periodic generator in t = 0
-      x = SF.Z[i2,i1]/SF.Z[i1,i1]; x = (x+x')/2
+      x = SF.Z[i2,i1]/SF.Z[i1,i1]; 
+      x = (x+x')/2
       X = similar(Vector{Matrix{T}},K)
       xn = x; xlast = zeros(eltype(x),n,n); kit = 0; 
       tol = 10*eps()*norm(xn,1)
-      #@show norm(xn-xlast,1) 
       while norm(xn-xlast,1) > tol && kit <= 3
        kit += 1
        if adj
@@ -334,16 +409,15 @@ function pgcric(A::PM1, R::PM3, Q::PM4, K::Int = 1; adj = false, rtol::Real = si
        end
        xlast = xn 
        xn = X[1]
-       #@show norm(xn-xlast,1) 
       end
 
       ce = log.(complex(EVALS))/period
-      return PeriodicTimeSeriesMatrix(X, period; nperiod), isreal(ce) ? real(ce) : ce  
+      return PeriodicTimeSeriesMatrix(scaling ? scal*X : X, period; nperiod), isreal(ce) ? real(ce) : ce  
    end
    if PSD_SLICOT
       hpd = Array{T,3}(undef, n2, n2, K) 
       Threads.@threads for i = 1:K
-         @inbounds hpd[:,:,i]  = tvcric(A, R, Q, i*Ts, (i-1)*Ts; adj, solver, reltol, abstol) 
+         @inbounds hpd[:,:,i]  = tvcric(A, Rt, Qt, i*Ts, (i-1)*Ts; adj, solver, reltol, abstol, dt) 
       end
       # this code is based on SLICOT tools
       S, Z, ev, sind, = PeriodicSystems.pschur(hpd)
@@ -361,7 +435,7 @@ function pgcric(A::PM1, R::PM3, Q::PM4, K::Int = 1; adj = false, rtol::Real = si
       # this experimental code is based on tools provided in the PeriodicSchurDecompositions package
       hpd = Vector{Matrix{T}}(undef, K) 
       Threads.@threads for i = 1:K
-         @inbounds hpd[i]  = tvcric(A, R, Q, i*Ts, (i-1)*Ts; adj, solver, reltol, abstol, dt) 
+         @inbounds hpd[i]  = tvcric(A, Rt, Qt, i*Ts, (i-1)*Ts; adj, solver, reltol, abstol, dt) 
       end
       PSF = PeriodicSchurDecompositions.pschur(hpd,:L)
       select = adj ? abs.(PSF.values) .< 1 : abs.(PSF.values) .> 1
@@ -375,7 +449,7 @@ function pgcric(A::PM1, R::PM3, Q::PM4, K::Int = 1; adj = false, rtol::Real = si
       end
    end
    ce = log.(complex(EVALS))/period
-   return PeriodicTimeSeriesMatrix(X, period; nperiod), isreal(ce) ? real(ce) : ce    
+   return PeriodicTimeSeriesMatrix(scaling ? scal*X : X, period; nperiod), isreal(ce) ? real(ce) : ce    
 end
 function tvcric(A::PM1, R::PM3, Q::PM4, tf, t0; adj = false, solver = "symplectic", reltol = 1e-4, abstol = 1e-7, dt = 0.0) where
     {PM1 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}, 
@@ -586,13 +660,12 @@ function tvcric_sol(A::PM1, R::PM3, Q::PM4, tf, t0, X0::AbstractMatrix; adj = fa
    elseif solver == "symplectic" 
       # high accuracy symplectic
       if dt == 0 
-        sol = solve(prob, IRKGaussLegendre.IRKGL16(maxtrials=4); adaptive = true, reltol, abstol, save_everystep = false)
-        #@show sol.retcode
-        if sol.retcode == :Failure
-           sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = false, reltol, abstol, save_everystep = false, dt = abs(tf-t0)/100)
-        end
+         sol = solve(prob, IRKGaussLegendre.IRKGL16(maxtrials=4); adaptive = true, reltol, abstol, save_everystep = false)
+         if sol.retcode == SciMLBase.ReturnCode.Failure
+            sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = false, reltol, abstol, save_everystep = false, dt = abs(tf-t0)/1000)
+         end
       else
-          sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = false, reltol, abstol, save_everystep = false, dt)
+         sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = false, reltol, abstol, save_everystep = false, dt)
       end
   else 
       if reltol > 1.e-4  

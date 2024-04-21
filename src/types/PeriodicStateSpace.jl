@@ -204,6 +204,15 @@ function PeriodicStateSpace(A::PTSM1, B::PTSM2, C::PTSM3, D::PTSM4) where {PTSM1
                                            (period == D.period && T == eltype(D)) ? D : SwitchingPeriodicMatrix{:d,T}(D,period), 
                                            Float64(period))
 end
+function PeriodicStateSpace(A::PTSM1, B::PTSM2, C::PTSM3, D::PTSM4) where {PTSM1 <: SwitchingPeriodicArray, PTSM2 <: SwitchingPeriodicArray, PTSM3 <: SwitchingPeriodicArray, PTSM4 <: SwitchingPeriodicArray}
+   period = ps_validation(A, B, C, D)
+   T = promote_type(eltype(A),eltype(B),eltype(C),eltype(D))
+   PeriodicStateSpace{SwitchingPeriodicArray{:d,T}}((period == A.period && T == eltype(A)) ? A : SwitchingPeriodicArray{:d,T}(A,period), 
+                                           (period == B.period && T == eltype(B)) ? B : SwitchingPeriodicArray{:d,T}(B,period), 
+                                           (period == C.period && T == eltype(C)) ? C : SwitchingPeriodicArray{:d,T}(C,period), 
+                                           (period == D.period && T == eltype(D)) ? D : SwitchingPeriodicArray{:d,T}(D,period), 
+                                           Float64(period))
+end
 
 
 function ps_validation(A::PM1, B::PM2, C::PM3, D::PM4) where {T1, T2, T3, T4, PM1 <: AbstractPeriodicArray{:c,T1}, PM2 <: AbstractPeriodicArray{:c,T2}, PM3 <: AbstractPeriodicArray{:c,T3}, PM4 <: AbstractPeriodicArray{:c,T4}}
@@ -281,10 +290,10 @@ function ps_validation(A::PA1, B::PA2, C::PA3, D::PA4) where {T1, T2, T3, T4, PA
     nx = size(A,1)
     nx == size(A,2) || error("matrix A(t) is not square")
     
-    any(size(B, 1) .!= nx) && error("A and B must have the same row size")
-    any(size(C, 2) .!= nx) &&  error("A and C must have the same column size")
-    any(size(C, 1) .!= ny) && error("C and D must have the same row size")
-    any(size(B, 2) .!= nu) && error("B and D must have the same column size")
+    size(B, 1) == nx || error("A and B must have the same row size")
+    size(C, 2) == nx || error("A and C must have the same column size")
+    size(C, 1) == ny || error("C and D must have the same row size")
+    size(B, 2) == nu || error("B and D must have the same column size")
  
     return period
 end
@@ -319,6 +328,22 @@ function ps_validation(A::PM1, B::PM2, C::PM3, D::PM4) where {T1, T2, T3, T4, PM
       any(size(B, 2) .!= nu[1]) && error("all matrices B[i] and D[i] must have the same column size")
    end
    return period
+end
+function ps_validation(A::PM1, B::PM2, C::PM3, D::PM4) where {T1, T2, T3, T4, PM1 <: SwitchingPeriodicArray{:d,T1}, PM2 <: SwitchingPeriodicArray{:d,T2}, PM3 <: SwitchingPeriodicArray{:d,T3}, PM4 <: SwitchingPeriodicArray{:d,T4}}
+   period = promote_period(A, B, C, D)
+   max(length(A),length(B),length(C),length(D)) == 0 && (return period)
+
+   # Validate dimensions
+   ny = size(D,1)
+   nu = size(D,2)
+   nx = size(A,1)
+   nx == size(A,2) || error("matrix A(t) is not square")
+   
+   size(B, 1) == nx || error("A and B must have the same row size")
+   size(C, 2) == nx || error("A and C must have the same column size")
+   size(C, 1) == ny || error("C and D must have the same row size")
+   size(B, 2) == nu || error("B and D must have the same column size")
+  return period
 end
 
 

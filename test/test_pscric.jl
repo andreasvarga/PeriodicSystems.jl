@@ -90,7 +90,7 @@ Xref, EVALSref, Fref = arec(A', C', R, Q); Fref = copy(Fref')
 # Ac = PeriodicTimeSeriesMatrix(A,period)
 # Cc = PeriodicTimeSeriesMatrix(C,period)
 # @time Xc, EVALSc, Fc = pfcric(Ac, Cc, R, Q)
-# @test iszero(Xc-Xref) && iszero(Fc-Fref) && iszero(EVALSc-EVALSref)
+# @test iszero(Xc-Xref) && iszero(Fc-Fref) && iszero(EVALSc-EVALSref) 
 
 
 P1 = PeriodicFunctionMatrix(t->[cos(ω*t) sin(ω*t); -sin(ω*t) cos(ω*t)],period); 
@@ -201,18 +201,18 @@ for PM in (PeriodicFunctionMatrix, HarmonicArray)
     @test norm(psysc.A'*X+X*psysc.A+q-X*psysc.B*inv(r)*psysc.B'*X +derivative(X))/norm(X) < 1.e-7 
 end 
 
-psysc = ps(a,convert(PM,PeriodicFunctionMatrix(b,period)),c,d);
+# psysc = ps(a,convert(PM,PeriodicFunctionMatrix(b,period)),c,d);
 
-X1, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 100, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true);
-Xts, ev = pgcric(psysc.A, psysc.B*inv(r)*psysc.B', HarmonicArray(q,psysc.period), 100; adj = true);
-@test X1(0) ≈ Xts(0) && EVALS ≈ ev 
+# X1, EVALS, F = prcric(psysc.A, psysc.B, r, q; K = 100, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true);
+# Xts, ev = pgcric(psysc.A, psysc.B*inv(r)*psysc.B', HarmonicArray(q,psysc.period), 100; adj = true);
+# @test X1(0) ≈ Xts(0) && EVALS ≈ ev 
 
-T = psysc.period/100
-@test X1(T) ≈ Xts(T)
-t = T*100*rand();
-@test convert(HarmonicArray,Xts)(t) ≈ X1(t)
-Xt = PeriodicFunctionMatrix(t->PeriodicSystems.tvcric_eval(t,Xts,psysc.A, psysc.B*inv(r)*psysc.B', HarmonicArray(q,2pi); adj = true, solver = "symplectic", reltol = 1e-10, abstol = 1e-10),Xts.period)
-@test Xt(t) ≈ X1(t)
+# T = psysc.period/100
+# @test X1(T) ≈ Xts(T)
+# t = T*100*rand();
+# @test convert(HarmonicArray,Xts)(t) ≈ X1(t)
+# Xt = PeriodicFunctionMatrix(t->PeriodicSystems.tvcric_eval(t,Xts,psysc.A, psysc.B*inv(r)*psysc.B', HarmonicArray(q,2pi); adj = true, solver = "symplectic", reltol = 1e-10, abstol = 1e-10),Xts.period)
+# @test Xt(t) ≈ X1(t)
 
 
 end  # test

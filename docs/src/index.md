@@ -94,10 +94,22 @@ The targeted functionality of this package is described in [1] and will cover bo
 
 **Simplification of periodic system models**
 
+**Periodic state feedback controller and estimator design** 
+* **[`pclqr`](@ref)**  LQ-optimal state feedack stabilization of continuous-time periodic systems. 
+* **[`pclqry`](@ref)** LQ-optimal state feedack stabilization with output weighting of continuous-time periodic systems. 
+* **[`pdlqr`](@ref)**  LQ-optimal state feedack stabilization of discrete-time periodic systems. 
+* **[`pdlqry`](@ref)** LQ-optimal state feedack stabilization with output weighting of discrete-time periodic systems. 
+* **[`pckeg`](@ref)**  Kalman estimator gain matrix for continuous-time periodic systems. 
+* **[`pckegw`](@ref)**  Kalman estimator gain matrix for continuous-time periodic systems with noise inputs.
+* **[`pdkeg`](@ref)**  Kalman estimator gain matrix for periodic systems. 
+* **[`pdkegw`](@ref)**  Kalman estimator gain matrix for periodic systems with noise inputs.
+
 **Periodic output and state feedback controller design** 
 
-* **[`plqofc`](@ref)** LQ-optimal stabilization of discrete-time periodic systems using periodic output feedback.
-* **[`plqofc_sw`](@ref)** LQ-optimal stabilization of discrete-time periodic systems using switching periodic output feedback.
+* **[`pclqofc_sw`](@ref)** LQ-optimal stabilization of continuous-time periodic systems using switching periodic output feedback.
+* **[`pclqofc_hr`](@ref)** LQ-optimal stabilization of continuous-time periodic systems using harmonic output feedback.
+* **[`pdlqofc`](@ref)** LQ-optimal stabilization of discrete-time periodic systems using periodic output feedback.
+* **[`pdlqofc_sw`](@ref)** LQ-optimal stabilization of discrete-time periodic systems using switching periodic output feedback.
 
 **Periodic Schur decompositions**
 

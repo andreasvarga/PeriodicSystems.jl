@@ -85,7 +85,7 @@ function Base.getproperty(A::PeriodicMatrix, d::Symbol)
    end
 end
 Base.propertynames(A::PeriodicMatrix) = (:dperiod, :Ts, fieldnames(typeof(A))...)
-isconstant(A::PeriodicMatrix) = (A.dperiod == 1)
+isconstant(A::PeriodicMatrix) = (A.dperiod == 1) || all([A.M[1] == A.M[i] for i in 2:A.dperiod])
 Base.size(A::PeriodicMatrix) = (size.(A.M,1),size.(A.M,2))
 Base.size(A::PeriodicMatrix, d::Integer) = size.(A.M,d)
 Base.length(A::PeriodicMatrix) = A.dperiod
@@ -236,7 +236,7 @@ struct PeriodicArray{Domain,T} <: AbstractPeriodicArray{Domain,T}
     nperiod::Int
 end 
 # additional constructors
-function  PeriodicArray{:d,T}(M::Array{T,3}, period::Real; nperiod::Int = 1) where {T <: Real} 
+function  PeriodicArray{:d,T}(M::AbstractArray{T,3}, period::Real; nperiod::Int = 1) where {T <: Real} 
    period > 0 || error("period must be positive")       
    nperiod > 0 || error("number of subperiods must be positive") 
    PeriodicArray{:d,T}(M, Float64(period), nperiod) 
@@ -258,8 +258,8 @@ function PeriodicArray{:d,T}(A::PeriodicArray{:d,T1}, period::Real) where {T,T1}
 end
 
 #PeriodicArray{:d,T}(M::Array{T1,3}, period::Real; nperiod::Int = 1) where {T,T1} = PeriodicArray(T.(M), period; nperiod)
-PeriodicArray(M::Array{T,3}, period::Real; nperiod::Int = 1) where {T <: Real} = PeriodicArray{:d,T}(M, period, nperiod)
-PeriodicArray(M::VecOrMat{T}, period::Real; nperiod::Int = 1) where T = PeriodicArray(reshape(M,size(M,1),size(M,2),1), period; nperiod)
+PeriodicArray(M::AbstractArray{T,3}, period::Real; nperiod::Int = 1) where {T <: Real} = PeriodicArray{:d,T}(M, period, nperiod)
+PeriodicArray(M::AbstractVecOrMat{T}, period::Real; nperiod::Int = 1) where T = PeriodicArray(reshape(M,size(M,1),size(M,2),1), period; nperiod)
 function Base.getproperty(A::PeriodicArray, d::Symbol)  
    if d === :dperiod
       return size(getfield(A, :M), 3)
@@ -436,6 +436,8 @@ function PeriodicFunctionMatrix(A::VecOrMat{T}, period::Real) where {T <: Real}
       PeriodicFunctionMatrix{:c,T}(t -> reshape(A,size(A,1),size(A,2)), period; isconst = true)
    end
 end
+PeriodicFunctionMatrix{:c,Float64}(A::VecOrMat{T}, period::Real) where {T <: Real} = PeriodicFunctionMatrix(Float64.(A), period)
+
 function PeriodicFunctionMatrix{:c,T}(at::PeriodicFunctionMatrix, period::Real) where {T}
    period > 0 || error("period must be positive") 
    Aperiod = at.period
@@ -736,9 +738,11 @@ HarmonicArray(A0::VecOrMat{T}, period::Real; nperiod::Int = 1) where {T <: Real}
           HarmonicArray(complex(reshape(A0,size(A0,1),size(A0,2),1)), period; nperiod) 
 HarmonicArray(A0::VecOrMat{T}, Acos::Vector{MT}, period::Real; nperiod::Int = 1) where {T <: Real, MT <: VecOrMat{T}}  = 
           HarmonicArray(A0, Acos, nothing, period; nperiod) 
+HarmonicArray{:c,Float64}(A::VecOrMat{T}, period::Real; nperiod::Int = 1) where {T <: Real} = HarmonicArray(Float64.(A), period; nperiod)
+
 
 # properties
-isconstant(A::HarmonicArray) = size(A.values,3) <= 1
+isconstant(A::HarmonicArray) = size(A.values,3) <= 1 || iszero(view(A.values,:,:,2:size(A.values,3)))
 isperiodic(A::HarmonicArray) = true
 Base.size(A::HarmonicArray) = (size(A.values,1),size(A.values,2))
 Base.eltype(A::HarmonicArray{:c,T}) where T = T
@@ -809,6 +813,18 @@ function PeriodicSwitchingMatrix{:c,T}(A::PeriodicSwitchingMatrix{:c,T1}, period
       PeriodicSwitchingMatrix{:c,T}([T.(A.values[i]) for i in 1:length(A)], A.ts, Aperiod/n; nperiod)
    end
 end
+function  PeriodicSwitchingMatrix(M::AbstractArray{T,3}, ts::Vector{T1}, period::Real; nperiod::Int = 1) where {T <: Real, T1 <: Real} 
+   period > 0 || error("period must be positive")       
+   nperiod > 0 || error("number of subperiods must be positive") 
+   p = length(ts)
+   size(M,3) == p || error("number of component matrices must be equal to the dimension of ts") 
+   ts[1] == 0 || error("ts must have the first value equal to zero")
+   for i in 1:p-1
+       ts[i+1] > ts[i] || error("ts must have only strictly increasing positive values")
+   end
+   PeriodicSwitchingMatrix{:c,T}([M[:,:,i] for i in 1:p], ts, Float64(period), nperiod) 
+end
+
 
 # properties
 isconstant(At::PeriodicSwitchingMatrix) = length(At.values) <= 1
@@ -945,7 +961,8 @@ function Base.convert(::Type{SwitchingPeriodicMatrix}, A::PeriodicMatrix{:d,T}) 
    end
    SwitchingPeriodicMatrix{:d,T}([A.M[ns[i]] for i in 1:length(ns)],ns, A.period; nperiod = A.nperiod)
 end
-Base.convert(::Type{PeriodicArray}, A::PeriodicMatrix) = pm2pa(A)
+Base.convert(::Type{PeriodicArray}, A::PM) where {PM <: PeriodicMatrix} = pm2pa(A)
+Base.convert(::Type{PeriodicArray{:d,T}}, A::PM) where {T, PM <: PeriodicMatrix} = pm2pa(A)
 function Base.convert(::Type{SwitchingPeriodicMatrix}, A::PeriodicArray{:d,T}) where {T}
    ns = Int[]
    na = size(A.M,3)
@@ -1008,8 +1025,8 @@ function Base.convert(::Type{PeriodicFunctionMatrix{:c,T}}, A::PeriodicSymbolicM
 end
 function Base.convert(::Type{PeriodicFunctionMatrix}, A::PeriodicSymbolicMatrix) 
    @variables t
-   f = eval(build_function(A.F, t, expression=Val{false})[1])
-   PeriodicFunctionMatrix{:c,Float64}(x -> f(x), A.period, size(A), A.nperiod, isconstant(A))
+   f = eval(build_function(A.F, t, expression=Val{false}, nanmath=false)[1])
+   return PeriodicFunctionMatrix{:c,Float64}(x -> f(x), A.period, size(A), A.nperiod, isconstant(A))
 end
 # function Base.convert(::Type{PeriodicFunctionMatrix{:c,T}}, A::PeriodicSymbolicMatrix) where T
 #    @variables t
@@ -1029,6 +1046,8 @@ Base.convert(::Type{PeriodicFunctionMatrix}, At::PeriodicTimeSeriesMatrix; metho
 #Base.convert(::Type{PeriodicFunctionMatrix}, At::PeriodicSwitchingMatrix; method = "linear") = tsw2pfm(At; method)
 Base.convert(::Type{PeriodicFunctionMatrix}, A::PeriodicSwitchingMatrix) = 
          PeriodicFunctionMatrix{:c,eltype(A)}(t::Real -> tpmeval(A,t), A.period, size(A), A.nperiod, isconstant(A))
+Base.convert(::Type{PeriodicFunctionMatrix{:c,T}}, A::PeriodicSwitchingMatrix) where {T} =
+         PeriodicFunctionMatrix{:c,T}(t::Real -> tpmeval(A,t), A.period, size(A), A.nperiod, isconstant(A))
 
 
 # function PeriodicFunctionMatrix(A::PeriodicTimeSeriesMatrix; method = "linear")
@@ -1097,6 +1116,7 @@ Base.convert(::Type{PeriodicSymbolicMatrix}, A::FourierFunctionMatrix) =
 # conversion to continuous-time HarmonicArray
 Base.convert(::Type{HarmonicArray}, A::PeriodicTimeSeriesMatrix) = ts2hr(A)
 Base.convert(::Type{HarmonicArray}, A::PeriodicFunctionMatrix) = pfm2hr(A)
+Base.convert(::Type{HarmonicArray{:c, T}}, A::PeriodicFunctionMatrix) where {T} = pfm2hr(A)
 Base.convert(::Type{HarmonicArray}, A::PeriodicSymbolicMatrix) = psm2hr(A)
 #Base.convert(::Type{HarmonicArray}, A::FourierFunctionMatrix) = pfm2hr(convert(PeriodicFunctionMatrix,A))
 Base.convert(::Type{HarmonicArray}, A::FourierFunctionMatrix) = ffm2hr(A)
@@ -1154,6 +1174,7 @@ end
 # conversions to PeriodicSwitchingMatrix
 function Base.convert(::Type{PeriodicSwitchingMatrix}, A::PeriodicFunctionMatrix; ns::Int = 128)
    ns > 0 || throw(ArgumentError("number of samples must be positive, got $ns"))
+   isconstant(A) && (return PeriodicSwitchingMatrix(A(0), A.period))
    convert(PeriodicSwitchingMatrix,convert(PeriodicTimeSeriesMatrix,A;ns))
 end
 

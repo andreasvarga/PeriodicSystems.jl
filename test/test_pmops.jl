@@ -171,7 +171,7 @@ Xderf = convert(FourierFunctionMatrix,PeriodicFunctionMatrix(Xder,2*pi));
 @test norm(Af'*Xf+Xf*Af+Cdf+derivative(Xf),1) < 1.e-7
 
 D = rand(2,2)
-@test Af+I == I+Af && Af*5 == 5*Af && Af*D ≈ -Af*(-D)  && iszero(Af-Af) && !iszero(Af)
+@test Af+I == I+Af && Af*5 == 5*Af && Af*D ≈ -Af*(-D)  && iszero(Af-Af) && !iszero(Af) 
 @test FourierFunctionMatrix(D,2*pi) == FourierFunctionMatrix(D,4*pi) && 
       FourierFunctionMatrix(D,2*pi) ≈ FourierFunctionMatrix(D,4*pi)
 @test inv(Af1)*Af1 ≈ I ≈ Af1*inv(Af1) 

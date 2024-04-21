@@ -85,6 +85,8 @@ end
 -(A::PeriodicArray, C::AbstractMatrix) = +(A,-C)
 -(A::AbstractMatrix, C::PeriodicArray) = +(A, -C)
 function (+)(A::PeriodicArray, J::UniformScaling{<:Real})
+    m, n = size(A,1), size(A,2)
+    n == m || throw(DimensionMismatch("periodic matrix is not square: dimensions are $((m,n))"))
     x = similar(A.M)
     [x[:,:,i] = A.M[:,:,i] + J for i in 1:size(A.M,3)]
     return PeriodicArray(x, A.period; nperiod = A.nperiod)
@@ -158,7 +160,12 @@ for (PMF, MF) in ((:pmmuladdsym, :muladdsym!), (:pmmultraddsym, :multraddsym!), 
             n = size(A,1)
             X = Array{T,3}(undef, n, n, p)
             nta = numerator(rationalize(period/A.period))
-            K = nta*A.nperiod*pa
+            ntb = numerator(rationalize(period/C.period))
+            ntc = numerator(rationalize(period/C.period))
+            Ka = nta*A.nperiod*pa
+            Kb = ntb*B.nperiod*pb
+            Kc = ntc*C.nperiod*pc
+            K = max(Ka,Kb,Kc)
         
             for i = 1:p
                 ia = mod(i-1,pa)+1
@@ -177,7 +184,32 @@ for (PMF, MF) in ((:pmmuladdsym, :muladdsym!), (:pmmultraddsym, :multraddsym!), 
     end
 end
 
-for PMF in (:pmmuladdsym, :pmmultraddsym, :pmmuladdtrsym )
+for (PMF, MF) in ((:pmmulsym, :muladdsym!), (:pmtrmulsym, :multraddsym!), (:pmmultrsym,:muladdtrsym!) )
+    @eval begin
+        function $PMF(B::PeriodicArray,C::PeriodicArray, β = true)
+            # compute the symmetric results βB*C, βB'*C, and βB*C'. 
+            isconstant(B) || isconstant(C) || B.Ts ≈ C.Ts || error("B and C must have the same sampling time")
+            period = promote_period(B, C)
+            pb = length(B)
+            pc = length(C)
+            p = lcm(pb,pc)
+            T = promote_type(eltype(B),eltype(C))
+            n = $PMF == pmtrmulsym ? size(B,2) : size(B,1)
+            X = Array{T,3}(undef, n, n, p)
+            ntb = numerator(rationalize(period/B.period))
+            K = ntb*B.nperiod*pb      
+            for i = 1:p
+                ib = mod(i-1,pb)+1
+                ic = mod(i-1,pc)+1
+                $MF(view(X,:,:,i), view(B.M,:,:,ib), view(C.M,:,:,ic),(0,β))
+            end
+            return PeriodicArray(X, period; nperiod = div(K,p))
+        end
+    end
+end
+
+
+for PMF in (:pmmuladdsym, :pmmultraddsym, :pmmuladdtrsym)
     for PM in (:PeriodicArray, :PeriodicMatrix)
         @eval begin
             $PMF(A::$PM,B::AbstractMatrix,C::$PM, (α,β) = (true, true)) = $PMF(A, $PM(B, A.period), C, (α,β))
@@ -189,7 +221,15 @@ for PMF in (:pmmuladdsym, :pmmultraddsym, :pmmuladdtrsym )
         end
     end
 end
-    
+for PMF in (:pmmulsym, :pmtrmulsym, :pmmultrsym)
+    for PM in (:PeriodicArray, :PeriodicMatrix)
+        @eval begin
+            $PMF(B::$PM,C::AbstractMatrix, β = true) = $PMF(B, $PM(C, B.period), β)
+            $PMF(B::AbstractMatrix,C::$PM, β = true) = $PMF($PM(B, C.period), C, β)
+        end
+    end
+end
+   
 LinearAlgebra.issymmetric(A::PeriodicArray) = all([issymmetric(A.M[:,:,i]) for i in 1:A.dperiod])
 Base.iszero(A::PeriodicArray) = iszero(A.M)
 function ==(A::PeriodicArray, B::PeriodicArray)
@@ -197,8 +237,16 @@ function ==(A::PeriodicArray, B::PeriodicArray)
     isequal(A.M, B.M) &&  (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
 end
 function Base.isapprox(A::PeriodicArray, B::PeriodicArray; rtol::Real = sqrt(eps(Float64)), atol::Real = 0)
-    isconstant(A) && isconstant(B) && (return isapprox(A.M, B.M; rtol, atol))
-    isapprox(A.M, B.M; rtol, atol) && (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
+    isconstant(A) && isconstant(B) && (return isapprox(A.M, B.M; rtol, atol)) 
+    (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod) || (return false)
+    pa = size(A.M,3)
+    pb = size(B.M,3)
+    for i = 1:lcm(pa,pb)
+        ia = mod(i-1,pa)+1
+        ib = mod(i-1,pb)+1
+        isapprox(view(A.M,:,:,ia),view(B.M,:,:,ib); rtol, atol) || (return false)
+    end
+    return true
 end
 function Base.isapprox(A::PeriodicArray, J::UniformScaling{<:Real}; kwargs...)
     all([isapprox(A.M[:,:,i], J; kwargs...) for i in 1:size(A.M,3)])
@@ -332,7 +380,11 @@ end
 -(A::PeriodicMatrix, B::PeriodicMatrix) = +(A,-B)
 -(A::PeriodicMatrix, C::AbstractMatrix) = +(A,-C)
 -(A::AbstractMatrix, C::PeriodicMatrix) = +(A, -C)
-(+)(A::PeriodicMatrix, J::UniformScaling{<:Real}) = PeriodicMatrix([A.M[i] + J for i in 1:length(A.M)], A.period; nperiod = A.nperiod)
+function (+)(A::PeriodicMatrix, J::UniformScaling{<:Real})
+    m, n = size(A)
+    n == m || throw(DimensionMismatch("periodic matrix is not square: dimensions are $((m,n))"))
+    PeriodicMatrix([A.M[i] + J for i in 1:length(A.M)], A.period; nperiod = A.nperiod)
+end
 (+)(J::UniformScaling{<:Real}, A::PeriodicMatrix) = +(A,J)
 (-)(A::PeriodicMatrix, J::UniformScaling{<:Real}) = +(A,-J)
 (-)(J::UniformScaling{<:Real}, A::PeriodicMatrix) = +(-A,J)
@@ -419,7 +471,12 @@ for (PMF, MF) in ((:pmmuladdsym, :muladdsym!), (:pmmultraddsym, :multraddsym!), 
             T = promote_type(eltype(A),eltype(B),eltype(B))
             X = Vector{Matrix{T}}(undef, p)
             nta = numerator(rationalize(period/A.period))
-            K = nta*A.nperiod*pa
+            ntb = numerator(rationalize(period/C.period))
+            ntc = numerator(rationalize(period/C.period))
+            Ka = nta*A.nperiod*pa
+            Kb = ntb*B.nperiod*pb
+            Kc = ntc*C.nperiod*pc
+            K = max(Ka,Kb,Kc)
         
             for i = 1:p
                 ia = mod(i-1,pa)+1
@@ -434,6 +491,32 @@ for (PMF, MF) in ((:pmmuladdsym, :muladdsym!), (:pmmultraddsym, :multraddsym!), 
         $PMF(A::PeriodicMatrix,B::PeriodicMatrix,C::PeriodicMatrix, α, β) = $PMF(A, B, C, (α,β))
     end
 end
+for (PMF, MF) in ((:pmmulsym, :muladdsym!), (:pmtrmulsym, :multraddsym!), (:pmmultrsym,:muladdtrsym!) )
+    @eval begin
+        function $PMF(B::PeriodicMatrix,C::PeriodicMatrix, β = true)
+            # compute the symmetric results βB*C, βB'*C, and βB*C'. 
+            isconstant(B) || isconstant(C) || B.Ts ≈ C.Ts || error("B and C must have the same sampling time")
+            period = promote_period(B, C)
+            pb = length(B)
+            pc = length(C)
+            p = lcm(pb,pc)
+            T = promote_type(eltype(B),eltype(B))
+            X = Vector{Matrix{T}}(undef, p)
+            ntb = numerator(rationalize(period/B.period))
+            K = ntb*B.nperiod*pb      
+            tb = $PMF == pmtrmulsym
+            for i = 1:p
+                ib = mod(i-1,pb)+1
+                ic = mod(i-1,pc)+1
+                n = tb ? size(B.M[ib],2) : size(B.M[ib],1)
+                X[i] = Matrix{T}(undef, n, n)
+                $MF(view(X[i],:,:), B.M[ib], C.M[ic],(0,β))
+            end
+            return PeriodicMatrix(X, period; nperiod = div(K,p))
+        end
+    end
+end
+
 muladdsym!(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, α, β) = muladdsym!(A,B,C,(α,β))
 function muladdsym!(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, (α,β) = (true, true))
     # compute in A the symmetrix matrix α*A +  β*B*C
@@ -607,9 +690,21 @@ function ==(A::PeriodicMatrix, B::PeriodicMatrix)
     isconstant(A) && isconstant(B) && (return isequal(A.M, B.M))
     isequal(A.M, B.M) &&  (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
 end
+# function Base.isapprox(A::PeriodicMatrix, B::PeriodicMatrix; rtol::Real = sqrt(eps(Float64)), atol::Real = 0)
+#     isconstant(A) && isconstant(B) && (return isapprox(A.M, B.M; rtol, atol))
+#     isapprox(A.M, B.M; rtol, atol) && (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
+# end
 function Base.isapprox(A::PeriodicMatrix, B::PeriodicMatrix; rtol::Real = sqrt(eps(Float64)), atol::Real = 0)
-    isconstant(A) && isconstant(B) && (return isapprox(A.M, B.M; rtol, atol))
-    isapprox(A.M, B.M; rtol, atol) && (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
+    isconstant(A) && isconstant(B) && (return isapprox(A.M, B.M; rtol, atol)) 
+    (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod) || (return false)
+    pa = length(A)
+    pb = length(B)
+    for i = 1:lcm(pa,pb)
+        ia = mod(i-1,pa)+1
+        ib = mod(i-1,pb)+1
+        isapprox(view(A.M,ia),view(B.M,ib); rtol, atol) || (return false)
+    end
+    return true
 end
 function Base.isapprox(A::PeriodicMatrix, J::UniformScaling{<:Real}; kwargs...)
     all([isapprox(A.M[i], J; kwargs...) for i in 1:length(A.M)])
@@ -783,9 +878,9 @@ end
 -(A::SwitchingPeriodicMatrix, C::AbstractMatrix) = +(A,-C)
 -(A::AbstractMatrix, C::SwitchingPeriodicMatrix) = +(A, -C)
 function (+)(A::SwitchingPeriodicMatrix, J::UniformScaling{<:Real}) 
-    nv, mv = size(A)
-    n = minimum(nv) 
-    n == maximum(nv) == minimum(mv) == maximum(mv) || throw(DimensionMismatch("A must be square"))
+    mv, nv = size(A)
+    n = minimum(nv);  
+    n == maximum(nv) == minimum(mv) == maximum(mv) || throw(DimensionMismatch("periodic matrix is not square: dimensions are $((mv,nv))"))
     A+Matrix(J(n))
 end
 (+)(J::UniformScaling{<:Real}, A::SwitchingPeriodicMatrix) = +(A,J)
@@ -1025,7 +1120,7 @@ end
 -(A::AbstractMatrix, C::SwitchingPeriodicArray) = +(A, -C)
 function (+)(A::SwitchingPeriodicArray, J::UniformScaling{<:Real}) 
     m, n = size(A)
-    n == m || throw(DimensionMismatch("A must be square"))
+    n == m || throw(DimensionMismatch("periodic matrix is not square: dimensions are $((m,n))"))
     A+Matrix(J(n))
 end
 (+)(J::UniformScaling{<:Real}, A::SwitchingPeriodicArray) = +(A,J)
@@ -1359,7 +1454,10 @@ end
 -(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix) = +(A,-B)
 -(A::PeriodicFunctionMatrix, C::AbstractMatrix) = +(A,-C)
 -(A::AbstractMatrix, C::PeriodicFunctionMatrix) = +(A, -C)
-(+)(A::PeriodicFunctionMatrix, J::UniformScaling{<:Real}) = PeriodicFunctionMatrix{:c,eltype(A)}(t -> A.f(t)+J, A.period, A.dims, A.nperiod,A._isconstant)
+function (+)(A::PeriodicFunctionMatrix, J::UniformScaling{<:Real})
+    A.dims[1] == A.dims[2] || throw(DimensionMismatch("matrix is not square: dimensions are $(A.dims)"))
+    PeriodicFunctionMatrix{:c,eltype(A)}(t -> A.f(t)+J, A.period, A.dims, A.nperiod,A._isconstant)
+end
 (+)(J::UniformScaling{<:Real}, A::PeriodicFunctionMatrix) = +(A,J)
 (-)(A::PeriodicFunctionMatrix, J::UniformScaling{<:Real}) = +(A,-J)
 (-)(J::UniformScaling{<:Real}, A::PeriodicFunctionMatrix) = +(-A,J)
@@ -1385,27 +1483,188 @@ end
 for (PMF, MF) in ((:pmmuladdsym, :muladdsym!), (:pmmultraddsym, :multraddsym!), (:pmmuladdtrsym,:muladdtrsym!) )
     @eval begin
         function  $PMF(A::PeriodicFunctionMatrix,B::PeriodicFunctionMatrix,C::PeriodicFunctionMatrix, (α,β) = (true, true))
+            A.dims[1] == A.dims[2] || throw(ArgumentError("A must be a square matrix"))
+            if $MF == muladdsym!
+                A.dims[1] == B.dims[1] || throw(ArgumentError("A and B must have the same number of rows"))
+                A.dims[1] == C.dims[2] || throw(ArgumentError("A and C must have the same number of columns"))
+                B.dims[2] == C.dims[1] || throw(ArgumentError("the number of columns of B must be equal to the number of rows of C"))
+            elseif $MF == multraddsym!
+                A.dims[1] == B.dims[2] || throw(ArgumentError("the number of rows of A must be equal to the number of columns of B"))
+                A.dims[1] == C.dims[2] || throw(ArgumentError("A and C must have the same number of columns"))
+                B.dims[1] == C.dims[1] || throw(ArgumentError("B and C must have the same number of rows"))
+            else
+                A.dims[1] == B.dims[1] || throw(ArgumentError("A and B must have the same number of rows"))
+                A.dims[1] == C.dims[1] || throw(ArgumentError("the number of columns of A must be equal with the number of rows of C"))
+                B.dims[2] == C.dims[2] || throw(ArgumentError("B and C must have the same number of columns"))
+            end
             period = promote_period(A, B, C)
             nperiod = gcd(A.nperiod,B.nperiod,C.nperiod)
-            T = promote_type(eltype(A),eltype(B),eltype(B))
+            T = promote_type(eltype(A),eltype(B),eltype(C))
             if isconstant(A) && isconstant(B) && isconstant(C)
-                return PeriodicFunctionMatrix{:c,T}(t -> $MF(A.f(0),B.f(0),C.f(0),(α,β)), period, (A.dims[1],A.dims[2]), nperiod, true)
-             else
-                return PeriodicFunctionMatrix{:c,T}(t -> $MF(A.f(t),B.f(t),C.f(t),(α,β)), period, (A.dims[1],B.dims[2]), nperiod, false)
-             end
+               return PeriodicFunctionMatrix{:c,T}(t -> $MF(T.(copy(A.f(0))),B.f(0),C.f(0),(α,β)), period, (A.dims[1],A.dims[2]), nperiod, true)
+            else
+               return PeriodicFunctionMatrix{:c,T}(t -> $MF(T.(copy(A.f(t))),B.f(t),C.f(t),(α,β)), period, (A.dims[1],A.dims[2]), nperiod, false)
+            end
         end
     end
 end
-for PM in (:PeriodicFunctionMatrix, :PeriodicSymbolicMatrix, :HarmonicArray, :FourierFunctionMatrix, :PeriodicTimeSeriesMatrix)
+# function muladdtrsym!(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, (α,β) = (true, true))
+#     # compute in A the symmetrix matrix α*A +  β*transpose(B)*C
+#     n = LinearAlgebra.checksquare(A)
+#     n == size(B,1) || throw(ArgumentError("A and B must have the same number of rows"))
+#     n == size(C,1) || throw(ArgumentError("A and C must have the same number of rows"))
+#     m = size(B,2)
+#     m == size(C,2) || throw(ArgumentError("B and C have incompatible dimensions"))
+#     ZERO = zero(promote_type(eltype(B),eltype(C)))
+#     if α == 0
+#         for i = 1:n
+#             for j = i:n
+#                 temp = ZERO
+#                 for k = 1:m
+#                     temp += (B[i,k]*C[j,k])
+#                 end
+#                 A[i,j] = β*temp
+#                 A[j,i] = A[i,j]
+#             end
+#         end
+#     else
+#         for i = 1:n
+#             for j = i:n
+#                 temp = ZERO
+#                 for k = 1:m
+#                     temp += (B[i,k]*C[j,k])
+#                 end
+#                 A[i,j] = α*A[i,j]+β*temp
+#                 A[j,i] = A[i,j]
+#             end
+#         end
+#     end
+#     return A
+# end
+function mulsym(B::AbstractMatrix, C::AbstractMatrix, β = true)
+    # compute the symmetrix matrix A = β*B*C
+    n, m = size(B) 
+    (m, n) == size(C) || throw(ArgumentError("B' and C must have the same dimensions"))
+    T = promote_type(eltype(B),eltype(C))
+    A = Matrix{T}(undef,n,n)
+    ZERO = zero(T)
+    for i = 1:n
+        for j = i:n
+            temp = ZERO
+            for k = 1:m
+                temp += (B[i,k]*C[k,j])
+            end
+            A[i,j] = β*temp
+            A[j,i] = A[i,j]
+        end
+    end
+    return A
+end
+
+function multrsym(B::AbstractMatrix, C::AbstractMatrix, β = true)
+    # compute the symmetrix matrix A = β*B*transpose(C)
+    n, m = size(B) 
+    (n, m) == size(C) || throw(ArgumentError("B and C must have the same dimensions"))
+    T = promote_type(eltype(B),eltype(C))
+    A = Matrix{T}(undef,n,n)
+    ZERO = zero(T)
+    for i = 1:n
+        for j = i:n
+            temp = ZERO
+            for k = 1:m
+                temp += (B[i,k]*C[j,k])
+            end
+            A[i,j] = β*temp
+            A[j,i] = A[i,j]
+        end
+    end
+    return A
+end
+function trmulsym(B::AbstractMatrix, C::AbstractMatrix, β = true)
+    # compute the symmetrix matrix A = β*transpose(B)*C
+    m, n = size(B) 
+    (m, n) == size(C) || throw(ArgumentError("B and C must have the same dimensions"))
+    T = promote_type(eltype(B),eltype(C))
+    A = Matrix{T}(undef,n,n)
+    ZERO = zero(T)
+    for i = 1:n
+        for j = i:n
+            temp = ZERO
+            for k = 1:m
+                temp += (B[k,i]*C[k,j])
+            end
+            A[i,j] = β*temp
+            A[j,i] = A[i,j]
+        end
+    end
+    return A
+end
+
+
+for (PMF, MF) in ((:pmmulsym, :mulsym), (:pmtrmulsym, :trmulsym), (:pmmultrsym,:multrsym) )
     @eval begin
-        pmmuladdsym(A::$PM,B::AbstractMatrix,C::$PM, (α,β) = (true, true)) = pmmuladdsym(A, $PM(B, A.Ts; nperiod = 1), C, (α,β))
-        pmmuladdsym(A::$PM,B::$PM,C::AbstractMatrix, (α,β) = (true, true)) = pmmuladdsym(A, B, $PM(C, A.Ts; nperiod = 1), (α,β))
-        pmmuladdsym(A::$PM,B::AbstractMatrix,C::AbstractMatrix, (α,β) = (true, true)) = pmmuladdsym(A, $PM(B, A.Ts; nperiod = 1), $PM(C, A.Ts; nperiod = 1), (α,β))
-        pmmuladdsym(A::AbstractMatrix,B::$PM,C::$PM, (α,β) = (true, true)) = pmmuladdsym($PM(A, B.Ts; nperiod = 1), B, C, (α,β))
-        pmmuladdsym(A::AbstractMatrix,B::AbstractMatrix,C::$PM, (α,β) = (true, true)) = pmmuladdsym($PM(A, C.Ts; nperiod = 1), $PM(B, C.Ts; nperiod = 1), C, (α,β))
-        pmmuladdsym(A::AbstractMatrix,B::$PM,C::AbstractMatrix, (α,β) = (true, true)) = pmmuladdsym($PM(A, B.Ts; nperiod = 1), B, $PM(C, B.Ts; nperiod = 1), (α,β))
+        function $PMF(B::PeriodicFunctionMatrix,C::PeriodicFunctionMatrix, β = true)
+            # compute the symmetric results βB*C, βB'*C, and βB*C'. 
+            period = promote_period(B, C)
+            nperiod = gcd(B.nperiod,C.nperiod)
+            T = promote_type(eltype(B),eltype(C))
+            n = $PMF == pmtrmulsym ? size(B,2) : size(B,1)
+            if isconstant(B) && isconstant(C)
+               return PeriodicFunctionMatrix{:c,T}(t -> $MF(B.f(0),C.f(0),β), period, (n,n), nperiod, true)
+            else
+               return PeriodicFunctionMatrix{:c,T}(t -> $MF(B.f(t),C.f(t),β), period, (n,n), nperiod, false)
+            end
+        end
     end
 end
+
+for PMF in (:pmmuladdsym, :pmmultraddsym, :pmmuladdtrsym)
+    for PM in (:HarmonicArray,)
+        @eval begin
+            $PMF(A::$PM,B::$PM,C::$PM, (α,β) = (true, true)) = convert($PM,$PMF(convert(PeriodicFunctionMatrix,A), convert(PeriodicFunctionMatrix,B), convert(PeriodicFunctionMatrix,C), (α,β)))
+            # $PMF(A::$PM,B::AbstractMatrix,C::$PM, (α,β) = (true, true)) = $PMF(A, $PM(B, A.period), C, (α,β))
+            # $PMF(A::$PM,B::$PM,C::AbstractMatrix, (α,β) = (true, true)) = $PMF(A, B, $PM(C, A.period), (α,β))
+            # $PMF(A::$PM,B::AbstractMatrix,C::AbstractMatrix, (α,β) = (true, true)) = $PMF(A, $PM(B, A.period), $PM(C, A.period), (α,β))
+            # $PMF(A::AbstractMatrix,B::$PM,C::$PM, (α,β) = (true, true)) = $PMF($PM(A, B.period), B, C, (α,β))
+            # $PMF(A::AbstractMatrix,B::AbstractMatrix,C::$PM, (α,β) = (true, true)) = $PMF($PM(A, C.period), $PM(B, C.period), C, (α,β))
+            # $PMF(A::AbstractMatrix,B::$PM,C::AbstractMatrix, (α,β) = (true, true)) = $PMF($PM(A, B.period), B, $PM(C, B.period), (α,β))
+        end
+    end
+end
+
+
+for PMF in (:pmmuladdsym, :pmmultraddsym, :pmmuladdtrsym)
+    for PM in (:PeriodicFunctionMatrix, :HarmonicArray)
+        @eval begin
+            $PMF(A::$PM,B::AbstractMatrix,C::$PM, (α,β) = (true, true)) = $PMF(A, $PM(B, A.period), C, (α,β))
+            $PMF(A::$PM,B::$PM,C::AbstractMatrix, (α,β) = (true, true)) = $PMF(A, B, $PM(C, A.period), (α,β))
+            $PMF(A::$PM,B::AbstractMatrix,C::AbstractMatrix, (α,β) = (true, true)) = $PMF(A, $PM(B, A.period), $PM(C, A.period), (α,β))
+            $PMF(A::AbstractMatrix,B::$PM,C::$PM, (α,β) = (true, true)) = $PMF($PM(A, B.period), B, C, (α,β))
+            $PMF(A::AbstractMatrix,B::AbstractMatrix,C::$PM, (α,β) = (true, true)) = $PMF($PM(A, C.period), $PM(B, C.period), C, (α,β))
+            $PMF(A::AbstractMatrix,B::$PM,C::AbstractMatrix, (α,β) = (true, true)) = $PMF($PM(A, B.period), B, $PM(C, B.period), (α,β))
+        end
+    end
+end
+for PMF in (:pmmulsym, :pmtrmulsym, :pmmultrsym)
+    for PM in (:HarmonicArray,:PeriodicSymbolicMatrix,:FourierFunctionMatrix,:PeriodicTimeSeriesMatrix)
+        @eval begin
+            $PMF(B::$PM,C::$PM, β = true) = convert($PM,$PMF(convert(PeriodicFunctionMatrix,B), convert(PeriodicFunctionMatrix,C), β))
+        end
+    end
+end
+
+
+
+# for PM in (:PeriodicFunctionMatrix, :PeriodicSymbolicMatrix, :HarmonicArray, :FourierFunctionMatrix, :PeriodicTimeSeriesMatrix)
+#     @eval begin
+#         pmmuladdsym(A::$PM,B::AbstractMatrix,C::$PM, (α,β) = (true, true)) = pmmuladdsym(A, $PM(B, A.Ts; nperiod = 1), C, (α,β))
+#         pmmuladdsym(A::$PM,B::$PM,C::AbstractMatrix, (α,β) = (true, true)) = pmmuladdsym(A, B, $PM(C, A.Ts; nperiod = 1), (α,β))
+#         pmmuladdsym(A::$PM,B::AbstractMatrix,C::AbstractMatrix, (α,β) = (true, true)) = pmmuladdsym(A, $PM(B, A.Ts; nperiod = 1), $PM(C, A.Ts; nperiod = 1), (α,β))
+#         pmmuladdsym(A::AbstractMatrix,B::$PM,C::$PM, (α,β) = (true, true)) = pmmuladdsym($PM(A, B.Ts; nperiod = 1), B, C, (α,β))
+#         pmmuladdsym(A::AbstractMatrix,B::AbstractMatrix,C::$PM, (α,β) = (true, true)) = pmmuladdsym($PM(A, C.Ts; nperiod = 1), $PM(B, C.Ts; nperiod = 1), C, (α,β))
+#         pmmuladdsym(A::AbstractMatrix,B::$PM,C::AbstractMatrix, (α,β) = (true, true)) = pmmuladdsym($PM(A, B.Ts; nperiod = 1), B, $PM(C, B.Ts; nperiod = 1), (α,β))
+#     end
+# end
 
 #pmmuladdsym(A::AbstractMatrix,B::PeriodicFunctionMatrix,C::PeriodicFunctionMatrix, (α,β) = (true, true)) = pmmuladdsym(PeriodicFunctionMatrix(A, B.period), B, C, (α,β))
 # function pmmultraddsym(A::PeriodicFunctionMatrix,B::PeriodicFunctionMatrix,C::PeriodicFunctionMatrix, (α,β) = (true, true))
@@ -1570,8 +1829,8 @@ end
 -(A::PeriodicFunctionMatrix, C::PeriodicSymbolicMatrix) = +(A, -C)
 
 function (+)(A::PeriodicSymbolicMatrix, J::UniformScaling{<:Real}) 
-    n = size(A,1)
-    n == size(A,2) || throw(DimensionMismatch("A must be square"))
+    m, n = size(A)
+    n == m || throw(DimensionMismatch("matrix is not square: dimensions are $((m,n))"))
     PeriodicSymbolicMatrix(A.F+Matrix(J(n)), A.period; nperiod = A.nperiod)
 end
 (+)(J::UniformScaling{<:Real}, A::PeriodicSymbolicMatrix) = +(A,J)
@@ -1666,8 +1925,9 @@ function derivative(A::HarmonicArray{:c,T}) where {T}
 end
 function LinearAlgebra.inv(A::HarmonicArray)
     convert(HarmonicArray,inv(convert(PeriodicFunctionMatrix,A)))
-    # ts = (0:127)*A.period/A.nperiod/128
-    # convert(HarmonicArray,PeriodicTimeSeriesMatrix(inv.(tvmeval(Ah,collect(ts))),2*pi))
+    #convert(HarmonicArray,inv(convert(PeriodicTimeSeriesMatrix,A)))
+    # ts = (0:N-1)*A.period/A.nperiod/N
+    # convert(HarmonicArray,PeriodicTimeSeriesMatrix(inv.(tvmeval(A,collect(ts))),A.period;nperiod = A.nperiod))
     #convert(HarmonicArray,inv(convert(PeriodicFunctionMatrix,A)))
 end
 function tr(A::HarmonicArray{:c,T}) where {T}
@@ -1771,8 +2031,8 @@ end
 -(A::HarmonicArray, C::PeriodicFunctionMatrix) = +(A,-C)
 -(A::PeriodicFunctionMatrix, C::HarmonicArray) = +(A, -C)
 function (+)(A::HarmonicArray, J::UniformScaling{<:Real}) 
-    n = size(A,1)
-    n == size(A,2) || throw(DimensionMismatch("A must be square"))
+    m, n = size(A)
+    n == m || throw(DimensionMismatch("matrix is not square: dimensions are $((m,n))"))
     A+Matrix(J(n))
 end
 (+)(J::UniformScaling{<:Real}, A::HarmonicArray) = +(A,J)
@@ -1780,6 +2040,8 @@ end
 (-)(J::UniformScaling{<:Real}, A::HarmonicArray) = +(-A,J)
 
 *(A::HarmonicArray, B::HarmonicArray) = convert(HarmonicArray,convert(PeriodicFunctionMatrix,A) * convert(PeriodicFunctionMatrix,B))
+
+
 # TODO: perform * explicitly
 function *(A::HarmonicArray, C::AbstractMatrix)
     m, n, k = size(A.values)
@@ -1802,12 +2064,12 @@ end
 *(A::HarmonicArray, J::UniformScaling{<:Real}) = A*J.λ
 *(A::HarmonicArray, C::PeriodicFunctionMatrix) = *(convert(PeriodicFunctionMatrix,A), C)
 *(A::PeriodicFunctionMatrix, C::HarmonicArray) = *(A, convert(PeriodicFunctionMatrix,C))
-function pmmultraddsym(A::HarmonicArray,B::HarmonicArray,C::HarmonicArray, (α,β) = (true, true))
-    convert(HarmonicArray,pmmultraddsym(convert(PeriodicFunctionMatrix,A), convert(PeriodicFunctionMatrix,B), convert(PeriodicFunctionMatrix,C), (α,β)))
-end
-function pmmultraddsym(A::AbstractMatrix,B::HarmonicArray,C::HarmonicArray, (α,β) = (true, true))
-    convert(HarmonicArray,pmmultraddsym(PeriodicFunctionMatrix(A, B.period), convert(PeriodicFunctionMatrix,B), convert(PeriodicFunctionMatrix,C), (α,β)))
-end
+# function pmmultraddsym(A::HarmonicArray,B::HarmonicArray,C::HarmonicArray, (α,β) = (true, true))
+#     convert(HarmonicArray,pmmultraddsym(convert(PeriodicFunctionMatrix,A), convert(PeriodicFunctionMatrix,B), convert(PeriodicFunctionMatrix,C), (α,β)))
+# end
+# function pmmultraddsym(A::AbstractMatrix,B::HarmonicArray,C::HarmonicArray, (α,β) = (true, true))
+#     convert(HarmonicArray,pmmultraddsym(PeriodicFunctionMatrix(A, B.period), convert(PeriodicFunctionMatrix,B), convert(PeriodicFunctionMatrix,C), (α,β)))
+# end
 
 
 
@@ -1873,7 +2135,7 @@ function vertcat(A::HarmonicArray, B::HarmonicArray)
        lmax = max(la,lb)
        Ahr = zeros(Complex{T},m+mb,n,lmax)
        copyto!(view(Ahr,1:m,1:n,1:la), view(A.values,1:m,1:n,1:la))
-       copyto!(view(Ahr,m+1:m+mb,1:n,1:la), view(B.values,1:mb,1:nb,1:lb))
+       copyto!(view(Ahr,m+1:m+mb,1:n,1:lb), view(B.values,1:mb,1:n,1:lb))
        return HarmonicArray{:c,T}(Ahr, A.period, nperiod = A.nperiod) 
     else
        #TODO: fix different numbers of subperiods 
@@ -1897,11 +2159,11 @@ function blockdiag(A::HarmonicArray, B::HarmonicArray)
         copyto!(view(Ahr,1:ma,1:na,1:la),A.values) 
         copyto!(view(Ahr,ma+1:ma+mb,na+1:na+nb,1:lb),B.values) 
         return HarmonicArray{:c,real(T)}(Ahr, A.period, nperiod = A.nperiod) 
-      else
+    else
         #TODO: fix different numbers of subperiods 
         convert(HarmonicArray,blockdiag(convert(PeriodicFunctionMatrix,A),convert(PeriodicFunctionMatrix,B)))
-     end
- end
+    end
+end
 
 
 
@@ -1983,8 +2245,8 @@ end
 -(A::FourierFunctionMatrix, C::AbstractMatrix) = +(A,-C)
 -(A::AbstractMatrix, C::FourierFunctionMatrix) = +(A, -C)
 function (+)(A::FourierFunctionMatrix, J::UniformScaling{<:Real}) 
-    n = size(A,1)
-    n == size(A,2) || throw(DimensionMismatch("A must be square"))
+    m, n = size(A)
+    n == m || throw(DimensionMismatch("matrix is not square: dimensions are $((m,n))"))
     A+Matrix(J(n))
 end
 (+)(J::UniformScaling{<:Real}, A::FourierFunctionMatrix) = +(A,J)
@@ -2038,7 +2300,7 @@ end
 
 
 
-Base.iszero(A::FourierFunctionMatrix) = iszero(A.M)
+Base.iszero(A::FourierFunctionMatrix) = all(iszero,coefficients(A.M))
 LinearAlgebra.issymmetric(A::FourierFunctionMatrix) = iszero(A.M-transpose(A.M))
 function ==(A::FourierFunctionMatrix, B::FourierFunctionMatrix)
     isconstant(A) && isconstant(B) && (return iszero(A.M(0)-B.M(0)))
@@ -2148,8 +2410,8 @@ end
 -(A::PeriodicFunctionMatrix, C::PeriodicTimeSeriesMatrix) = +(A, -C)
 
 function (+)(A::PeriodicTimeSeriesMatrix, J::UniformScaling{<:Real}) 
-    n = size(A,1)
-    n == size(A,2) || throw(DimensionMismatch("A must be square"))
+    m, n = size(A)
+    n == m || throw(DimensionMismatch("matrix is not square: dimensions are $((m,n))"))
     A+Matrix(J(n))
 end
 (+)(J::UniformScaling{<:Real}, A::PeriodicTimeSeriesMatrix) = +(A,J)
@@ -2385,8 +2647,8 @@ end
 -(A::PeriodicFunctionMatrix, C::PeriodicSwitchingMatrix) = +(A, -C)
 
 function (+)(A::PeriodicSwitchingMatrix, J::UniformScaling{<:Real}) 
-    n = size(A,1)
-    n == size(A,2) || throw(DimensionMismatch("A must be square"))
+    m, n = size(A)
+    n == m || throw(DimensionMismatch("matrix is not square: dimensions are $((m,n))"))
     A+Matrix(J(n))
 end
 (+)(J::UniformScaling{<:Real}, A::PeriodicSwitchingMatrix) = +(A,J)

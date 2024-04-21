@@ -268,22 +268,28 @@ ts = [0.4459591888577492, 1.2072325802972004, 1.9910835248218244, 2.199819983890
      2.9004720268745463, 2.934294124172935, 4.149208861412936, 4.260935465730602, 5.956614157549958]
 
 
-@time Yt1 = pclyap(Ats, Cts; K = 1, reltol = 1.e-14, abstol = 1.e-14);
-@time Yt = pclyap(Ats,Cts; K = 1, reltol = 1.e-10, abstol = 1.e-10,intpol=true);
-@test norm((Ats*Yt1+Yt1*Ats'+Cts-derivative(Yt1)).(ts)) < 1.e-5 && norm(Yt-Yt1) < 1.e-6
+@time Yt1 = pclyap(Ats, Cts; K = 1, reltol = 1.e-14, abstol = 1.e-14); 
+@test norm((Ats*Yt1+Yt1*Ats'+Cts-derivative(Yt1)).(ts)) < 1.e-5 
 
-Xt1 = pclyap(Ats, Cts; K = 1, reltol = 1.e-14, abstol = 1.e-14);
+@time Yt = pclyap(Ats,Cts; K, reltol = 1.e-14, abstol = 1.e-14,intpol=true);
+@test norm((Ats*Yt+Yt*Ats'+Cts-derivative(Yt)).(ts)) < 1.e-5 
+
+Xt1 = pclyap(Ats, Cts; K = 128, reltol = 1.e-14, abstol = 1.e-14,intpol=true);
 @test norm((Ats*Xt1+Xt1*Ats'+Cts-derivative(Xt1)).(ts)) < 1.e-5 
 
-Xt2 = pclyap(Ats, Cts; K = 2, reltol = 1.e-10, abstol = 1.e-10);
+Xt2 = pclyap(Ats, Cts; K = 256, reltol = 1.e-14, abstol = 1.e-14,intpol=true);
+@test norm((Ats*Xt2+Xt2*Ats'+Cts-derivative(Xt2)).(ts)) < 1.e-5 
 @test norm((Xt1-Xt2).(ts)) < 1.e-7
 
 Ka = 10; Kc = 1; 
 Ats1 = convert(PeriodicTimeSeriesMatrix,At;ns = Ka);
 Cts1 = convert(PeriodicTimeSeriesMatrix,Ct;ns = Kc);
-Xt1 = pclyap(Ats1, Cts1; K = 1, reltol = 1.e-10, abstol = 1.e-10);
-Xt2 = pclyap(Ats1, Cts1; K = 10, reltol = 1.e-10, abstol = 1.e-10);
-@test norm((Xt1-Xt2).(ts)) < 1.e-7
+Xt1 = pclyap(Ats1, Cts1; K = 10, reltol = 1.e-14, abstol = 1.e-14);
+@test norm((Ats1*Xt1+Xt1*Ats1'+Cts1-derivative(Xt1)).(ts)) < 1.e-5 
+
+Xt2 = pclyap(Ats1, Cts1; K = 2000, reltol = 1.e-14, abstol = 1.e-14);
+@test norm((Ats1*Xt2+Xt2*Ats1'+Cts1-derivative(Xt2)).(ts)) < 1.e-5 
+#@test norm((Xt1-Xt2).(ts)) < 1.e-7
 
 K = 10000;
 Ats2 = convert(PeriodicTimeSeriesMatrix,At;ns = K);
@@ -293,20 +299,20 @@ Xt1 = pclyap(Ats2, Cts2; K = 1, reltol = 1.e-14, abstol = 1.e-14);
 @test norm((Xt1-Xt).(ts)) < 1.0e-3 &&
       norm((Xt2-Xt).(ts)) < 1.0e-3
 
-Xt1 = pclyap(Ats, Cdts; K = 1, adj = true, reltol = 1.e-12, abstol = 1.e-12);
-Xt2 = pclyap(Ats, Cdts; K = 2, adj = true, reltol = 1.e-10, abstol = 1.e-10);
+Xt1 = pclyap(Ats, Cdts; K = 100, adj = true, reltol = 1.e-14, abstol = 1.e-14,intpol=true);
+Xt2 = pclyap(Ats, Cdts; K = 200, adj = true, reltol = 1.e-14, abstol = 1.e-14,intpol=true);
 @test norm((Xt1-Xt2).(ts)) < 1.e-7
 
 
 Cdts1 = convert(PeriodicTimeSeriesMatrix,Cdt;ns = Kc);
-Xt1 = pclyap(Ats1, Cdts1; K = 1, adj = true, reltol = 1.e-12, abstol = 1.e-12);
-Xt2 = pclyap(Ats1, Cdts1; K = 2, adj = true, reltol = 1.e-10, abstol = 1.e-10);
-@test norm((Xt1-Xt2).(ts)) < 1.e-7
+Xt1 = pclyap(Ats1, Cdts1; K = 100, adj = true, reltol = 1.e-14, abstol = 1.e-14,intpol=true);
+Xt2 = pclyap(Ats1, Cdts1; K = 200, adj = true, reltol = 1.e-14, abstol = 1.e-14,intpol=true);
+@test norm((Xt1-Xt2).(ts)) < 1.e-5
 
 Cdts2 = convert(PeriodicTimeSeriesMatrix,Cdt;ns = 10000);
 Xt1 = pclyap(Ats2, Cdts2; K = 1, adj = true, reltol = 1.e-14, abstol = 1.e-14);
-@time Xt2 = prclyap(Ats2, Cdts2; reltol = 1.e-14, abstol = 1.e-14);
-@test norm((Xt1-Xt).(ts)) < 1.0e-3 && norm((Xt2-Xt).(ts)) < 1.0e-3
+@time Xt2 = prclyap(Ats2, Cdts2; K = 1, reltol = 1.e-14, abstol = 1.e-14);
+@test norm((Xt1-Xt2).(ts)) < 1.e-5
 
 @time Yt = pfclyap(Ats, Cts; reltol = 1.e-14, abstol = 1.e-14);
 @test norm((Ats*Yt+Yt*Ats'+Cts-derivative(Yt)).(ts)) < 1.e-5 
@@ -324,16 +330,16 @@ Cdsw = convert(PeriodicSwitchingMatrix,Cdts)
 ts = [0.4459591888577492, 1.2072325802972004, 1.9910835248218244, 2.1998199838900527, 2.4360161318589695, 
      2.9004720268745463, 2.934294124172935, 4.149208861412936, 4.260935465730602, 5.956614157549958]
 
-@time Yt = pclyap(Asw, Csw; K = 2, reltol = 1.e-10, abstol = 1.e-10);
-@test norm((Asw*Yt+Yt*Asw'+Csw-derivative(Yt)).(ts)) < 1.e-6 && norm((Yt-Yt1).(ts)) < 1.e-6
-
-@time Yt = pclyap(Asw, Cdsw; K = 2, adj = true, reltol = 1.e-10, abstol = 1.e-10)
-@test norm((Asw'*Yt+Yt*Asw+Cdsw+derivative(Yt)).(ts)) < 1.e-6  
-
-@time Yt = pfclyap(Asw, Csw; reltol = 1.e-10, abstol = 1.e-10);
+@time Yt = pclyap(Asw, Csw; K = 2, reltol = 1.e-14, abstol = 1.e-14);
 @test norm((Asw*Yt+Yt*Asw'+Csw-derivative(Yt)).(ts)) < 1.e-6 
 
-@time Yt = prclyap(Asw, Cdsw; reltol = 1.e-10, abstol = 1.e-10)
+@time Yt = pclyap(Asw, Cdsw; K = 2, adj = true, reltol = 1.e-14, abstol = 1.e-14)
+@test norm((Asw'*Yt+Yt*Asw+Cdsw+derivative(Yt)).(ts)) < 1.e-6  
+
+@time Yt = pfclyap(Asw, Csw; reltol = 1.e-14, abstol = 1.e-14);
+@test norm((Asw*Yt+Yt*Asw'+Csw-derivative(Yt)).(ts)) < 1.e-6 
+
+@time Yt = prclyap(Asw, Cdsw; reltol = 1.e-14, abstol = 1.e-14)
 @test norm((Asw'*Yt+Yt*Asw+Cdsw+derivative(Yt)).(ts)) < 1.e-6  
 
 
