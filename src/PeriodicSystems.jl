@@ -62,7 +62,7 @@ export pcplyap, pfcplyap, prcplyap, pgcplyap, tvcplyap_eval
 export pcric, prcric, pfcric, tvcric, pgcric, prdric, pfdric, tvcric_eval
 export derivative, pmrand, horzcat, vertcat, pmsymadd!, pmmuladdsym
 export psfeedback, pssfeedback, pssofeedback
-export pspofstab_sw, pspofstab_hr, pclqr, pclqry, pdlqr, pdlqry, pdkeg, pckeg, pdkegw, pckegw, pdlqofc, pdlqofc_sw, pclqofc_sw, pclqofc_hr
+export pcpofstab_sw, pcpofstab_hr, pdpofstab_sw, pdpofstab_hr, pclqr, pclqry, pdlqr, pdlqry, pdkeg, pckeg, pdkegw, pckegw, pdlqofc, pdlqofc_sw, pclqofc_sw, pclqofc_hr
 
 abstract type AbstractDynamicalSystem end
 abstract type AbstractLTISystem <: AbstractDynamicalSystem end

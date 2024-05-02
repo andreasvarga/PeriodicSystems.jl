@@ -356,7 +356,7 @@ function SwitchingPeriodicArray{:d,T}(A::SwitchingPeriodicArray{:d,T1}, period::
    end
 end
 
-SwitchingPeriodicArray(M::Array{T,3}, ns::Vector{Int}, period::Real; nperiod::Int = 1) where {T <: Real} = SwitchingPeriodicArray{:d,T}(M, ns, period, nperiod)
+SwitchingPeriodicArray(M::Array{T,3}, ns::Vector{Int}, period::Real; nperiod::Int = 1) where {T <: Real} = SwitchingPeriodicArray{:d,T}(M, ns, period; nperiod)
 SwitchingPeriodicArray(M::VecOrMat{T}, period::Real; nperiod::Int = 1) where T = SwitchingPeriodicArray(reshape(M,size(M,1),size(M,2),1), [1], period; nperiod)
 
 function Base.getproperty(A::SwitchingPeriodicArray, d::Symbol)  

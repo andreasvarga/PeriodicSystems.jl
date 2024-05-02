@@ -30,7 +30,7 @@ DescriptorSystems = "1.3"
 FastLapackInterface = "2.0"
 FFTW = "1"
 IRKGaussLegendre = "0.2"
-Interpolations = "0.13, 0.14"
+Interpolations = "0.15"
 LinearAlgebra = "1"
 LinearMaps = "3.3"
 LineSearches = "7.2"
@@ -45,7 +45,7 @@ QuadGK = "2.9"
 Random = "1"
 SLICOT_jll = "5.8, 5.9"
 Symbolics = "4, 5"
-julia = "1.8"
+julia = "1.9"
 
 
 [extras]

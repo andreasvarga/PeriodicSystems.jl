@@ -26,7 +26,7 @@ Many control applications are formulated as genuine
 periodic control problems as for example, satellite attitude control, helicopter forward flight control, orbital stabilization of underactuated systems, etc. Besides
 that, periodic systems represent a general framework to analyze and design multi-rate sampled-data systems. 
 
-The targeted functionality of this package is described in [1] and will cover both continuous-time and discrete-time periodic systems. The following categories of functions are implemented or planned:
+The targeted functionality of this package is described in [1] and will cover both continuous-time and discrete-time periodic systems. The following categories of functions are currently implemented:
 
 **Building periodic system state-space models**
 
@@ -42,6 +42,8 @@ The targeted functionality of this package is described in [1] and will cover bo
 * **[`pshorzcat`](@ref)**  Horizontal concatenation of periodic systems.
 * **[`psvertcat`](@ref)**  Vertical concatenation of periodic systems.
 * **[`psfeedback`](@ref)**  Periodic output feedback connection.
+* **[`pssfeedback`](@ref)**  Periodic state feedback connection.
+* **[`pssofeedback`](@ref)**  Periodic state feedback with state estimator connection.
 
 **Discretization of continuous-time periodic systems**
 
@@ -104,8 +106,12 @@ The targeted functionality of this package is described in [1] and will cover bo
 * **[`pdkeg`](@ref)**  Kalman estimator gain matrix for periodic systems. 
 * **[`pdkegw`](@ref)**  Kalman estimator gain matrix for periodic systems with noise inputs.
 
-**Periodic output and state feedback controller design** 
+**Periodic output feedback controller design** 
 
+* **[`pcpofstab_sw`](@ref)** Stabilization of continuous-time periodic systems using switching periodic output feedback.
+* **[`pcpofstab_hr`](@ref)** Stabilization of continuous-time periodic systems using harmonic output feedback.
+* **[`pdpofstab_sw`](@ref)** Stabilization of discrete-time periodic systems using switching periodic output feedback.
+* **[`pdpofstab_hr`](@ref)** Stabilization of discrete-time periodic systems using discretized harmonic periodic output feedback.
 * **[`pclqofc_sw`](@ref)** LQ-optimal stabilization of continuous-time periodic systems using switching periodic output feedback.
 * **[`pclqofc_hr`](@ref)** LQ-optimal stabilization of continuous-time periodic systems using harmonic output feedback.
 * **[`pdlqofc`](@ref)** LQ-optimal stabilization of discrete-time periodic systems using periodic output feedback.

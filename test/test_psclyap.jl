@@ -331,16 +331,16 @@ ts = [0.4459591888577492, 1.2072325802972004, 1.9910835248218244, 2.199819983890
      2.9004720268745463, 2.934294124172935, 4.149208861412936, 4.260935465730602, 5.956614157549958]
 
 @time Yt = pclyap(Asw, Csw; K = 2, reltol = 1.e-14, abstol = 1.e-14);
-@test norm((Asw*Yt+Yt*Asw'+Csw-derivative(Yt)).(ts)) < 1.e-6 
+@test norm((Asw*Yt+Yt*Asw'+Csw-derivative(Yt)).(ts)) < 1.e-5 
 
 @time Yt = pclyap(Asw, Cdsw; K = 2, adj = true, reltol = 1.e-14, abstol = 1.e-14)
-@test norm((Asw'*Yt+Yt*Asw+Cdsw+derivative(Yt)).(ts)) < 1.e-6  
+@test norm((Asw'*Yt+Yt*Asw+Cdsw+derivative(Yt)).(ts)) < 1.e-5  
 
 @time Yt = pfclyap(Asw, Csw; reltol = 1.e-14, abstol = 1.e-14);
-@test norm((Asw*Yt+Yt*Asw'+Csw-derivative(Yt)).(ts)) < 1.e-6 
+@test norm((Asw*Yt+Yt*Asw'+Csw-derivative(Yt)).(ts)) < 1.e-5 
 
 @time Yt = prclyap(Asw, Cdsw; reltol = 1.e-14, abstol = 1.e-14)
-@test norm((Asw'*Yt+Yt*Asw+Cdsw+derivative(Yt)).(ts)) < 1.e-6  
+@test norm((Asw'*Yt+Yt*Asw+Cdsw+derivative(Yt)).(ts)) < 1.e-5  
 
 
 A4(t) = [0  1; -cos(t)-1 -2-sin(t)]

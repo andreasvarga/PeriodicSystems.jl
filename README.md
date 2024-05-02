@@ -10,7 +10,7 @@
 
 ## Compatibility
 
-Julia 1.7 and higher.
+Julia 1.9 and higher.
 
 <!-- ## How to install
 

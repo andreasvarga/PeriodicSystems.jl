@@ -1,14 +1,16 @@
 # Release Notes
 
-## Version 0.7 (planned)
+## Version 0.7 
 
 The following new functions have been implemented:
-- output feedback stabilization of constant systems using periodic switching and periodic harmonic gains (WIP)
-- output feedback based stabilization of periodic systems using periodic harmonic gains (WIP)
 - `pclqr`, `pclqry`, `pdlqr`, `pdlqry` LQ-optimal state feedack based stabilization of periodic systems 
 - `pckeg`, `pckegw`, `pdkeg`, `pdkegw` Kalman estimator gain matrix for periodic systems 
+- `pcpofstab_sw`, `pcpofstab_hr` LQ-optimal output feedback stabilization of continuopus-time periodic systems
+- `pdpofstab_sw`, `pdpofstab_hr` LQ-optimal output feedback stabilization of discrete-time periodic systems
 - `pclqofc_sw`, `pclqofc_hr` LQ-optimal output feedback stabilization of continuopus-time periodic systems
 - `pdlqofc`, `pdlqofc_sw` LQ-optimal output feedback stabilization of discrete-time periodic systems
+- `pssfeedback` Periodic state feedback connection.
+- `pssofeedback` Periodic state feedback with state estimator connection.
 
 The following new supporting functions have been implemented:
 - `pclyap2` to solve solve a pair of periodic continuous-time Lyapunov equations

@@ -428,16 +428,16 @@ function pckegw(psys::PeriodicStateSpace{PM}, Qw, Rv, Sn = missing; intpol = tru
    return L, EVALS
 end
 """
-    pdlqofc(psys, Q, R; S, G = I, sdeg = 1, stabilizer, optimizer, vinit, maxiter, vtol, Jtol, gtol, show_trace) -> (Kopt, info)
+    pdlqofc(psys, Q, R; S, G = I, sdeg = 1, stabilizer, optimizer, vinit, maxiter, vtol, Jtol, gtol, show_trace) -> (Fopt, info)
 
 Compute for the discrete-time periodic state-space system `psys = (A(t),B(t),C(t),D(t))` of the form
    
     x(t+1) = A(t)x(t) + B(t)u(t) + Bw(t)w(t) 
       y(t) = C(t)x(t) + D(t)u(t) + Dw(t)w(t) ,
 
-the optimal periodic feedback gain `Kopt(t)` in the output feedback control law  
+the optimal periodic feedback gain `Fopt(t)` in the output feedback control law  
 
-    u(t) = Kopt(t)*y(t), 
+    u(t) = Fopt(t)*y(t), 
     
 which minimizes the expectation of the quadratic index
 
@@ -453,19 +453,19 @@ i.e., either of type `PeriodicMatrix` or `PeriodicArray`.
 The dimension `m` of `u(t)` is deduced from the dimension of `R(t)`. 
 `Q`, `R` and `S` can be alternatively provided as constant real matrices. 
 
-The resulting `m×p` periodic output feedback gain `Kopt(t)` has the same type as the state-space system matrices
-and is computed as `Kopt(t) = inv(I+K(t)D(t))*K(t)`, with `K(t)` 
+The resulting `m×p` periodic output feedback gain `Fopt(t)` has the same type as the state-space system matrices
+and is computed as `Fopt(t) = inv(I+F(t)D(t))*F(t)`, with `F(t)` 
 defined as 
 
-     K(t) = K_i  for i ∈ {1, ..., ns} 
+     F(t) = F_i  for i ∈ {1, ..., ns} 
            
-where `ns` is the number of sampling times in a period (i.e., `ns = psys.period/psys.Ts`) and `K_i` is the `i`-th gain. 
+where `ns` is the number of sampling times in a period (i.e., `ns = psys.period/psys.Ts`) and `F_i` is the `i`-th gain. 
 
 The covariance of the initial state `x(0)` can be specified via the keyword argument `G` (default: `G = I`)
 and a desired stability degree of the closed-loop characteristic multipliers can be specified using
 the keyword argument `sdeg` (default: `sdeg = 1`). 
 
-For the determination of the optimal feedback gains `K_i` for `i = 1, ...., ns` an optimization-based approach is employed using 
+For the determination of the optimal feedback gains `F_i` for `i = 1, ...., ns` an optimization-based approach is employed using 
 tools available in the optimization package [`Optim.jl`](https://github.com/JuliaNLSolvers/Optim.jl). 
 By default, the gradient-based limited-memory quasi-Newton method (also known as `L-BFGS`) for unconstrained minimizations 
 is employed using the keyword argument setting `optimizer = LBFGS(;alphaguess = LineSearches.InitialStatic(;scaled=true))`, where 
@@ -483,7 +483,7 @@ where `α ≥ 1` is chosen such that `A(t)/α` is stable, and the values of `α`
 The optimization method for stabilization can be independently selected using the keyword argument `stabilizer`, with the default setting  
 `stabilizer = LBFGS(;alphaguess = LineSearches.InitialStatic(;scaled=true))`. If only stabilization is desired, then use  `optimizer = nothing`. 
 
-An internal optimization variable `v` is used, formed as an `m×p×ns` array with `v[:,:,i] := K_i`, for `i = 1, ..., ns`. 
+An internal optimization variable `v` is used, formed as an `m×p×ns` array with `v[:,:,i] := F_i`, for `i = 1, ..., ns`. 
 By default, `v` is initialized as `v = 0` (i.e., a zero array of appropriate dimensions). 
 The keyword argument `vinit = v0` can be used to initialize `v` with an arbitrary `m×p×ns` real array `v0`.   
 
@@ -491,7 +491,7 @@ The optimization process is controlled using several keyword parameters.
 The keyword parameter `maxiter = maxit` can be used to specify the maximum number of iterations to be performed (default: `maxit = 1000`).
 The keyword argument `vtol` can be used to specify the absolute tolerance in 
 the changes of the optimization variable `v` (default: `vtol = 0`). The keyword argument `Jtol` can be used to specify the
-relative tolerance in the changes of the optimization criterium `J` (default: `Jtol = 0`), 
+relative tolerance in the changes of the optimization criterion `J` (default: `Jtol = 0`), 
 while `gtol` can be used to specify the absolute tolerance in the gradient `∇J`, in infinity norm (default: `gtol = 1e-5`). 
 With the keyword argument `show_trace = true`,  a trace of the optimization algorithm's state is shown on `stdout` (default `show_trace = false`).   
 For stabilization purposes, the values `Jtol = 1.e-3`, `gtol = 1.e-2`, `maxit = 20` are used to favor faster convergence. 
@@ -601,12 +601,12 @@ function pdlqofc(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, R::
    ismissing(vinit) || (m,p,N) == size(vinit) || throw(ArgumentError(" dimensions of vinit must be ($p,$m,$N)")) 
    ismissing(vinit) ? x = zeros(mu,p,N) : x = copy(vinit)
    A = psys.A; Bu = psys.B[:,1:mu]; C = psys.C; 
-   K0 = PeriodicArray(x, A.period)
+   F0 = PeriodicArray(x, A.period)
    stlim = 1-sqrt(eps()); 
-   sdeg0 = maximum(abs.(pseig(A+Bu*K0*C)))
+   sdeg0 = maximum(abs.(pseig(A+Bu*F0*C)))
    if sdeg < 1 
       scal = 1/(sdeg^(1/N)); A = psys.A*scal; Bu = Bu*scal
-      sd = maximum(abs.(pseig(A+B*K0*C)))
+      sd = maximum(abs.(pseig(A+B*F0*C)))
    else
       sd = sdeg0
    end 
@@ -674,7 +674,7 @@ function pdlqofc(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, R::
       #fopt = nothing
       fopt = pdlqofcfungrad!(true, nothing, x, par)
       result = nothing
-      Kopt = Kbuild(xopt,psys.D)
+      Fopt = Kbuild(xopt,psys.D)
    else
       maxit = maxiter 
       par = (A, Bu, C, R, Q, S, GR, WORK, WORK1, WORK2)
@@ -689,14 +689,14 @@ function pdlqofc(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, R::
       KK = PeriodicArray(xopt, A.period)
       sd = maximum(abs.(pseig(psys.A+Bu*KK*C)))
       fopt = minimum(result)
-      Kopt = Kbuild(xopt,psys.D)
+      Fopt = Kbuild(xopt,psys.D)
    end
    show_trace && println("final stability degree = $sd")
    
    info = (vopt = xopt, fopt = fopt, sdeg0 = sdeg0, sdeg = sd, optres = result)
    sd <= sdeg || @warn "achieved stability degree $sd larger than desired one $sdeg"
 
-   return Kopt, info
+   return Fopt, info
 end
 
 function pdlqofcfungrad!(Fun,Grad,x,par) 
@@ -786,16 +786,16 @@ function Kbuild(x::Array{T,3}, D::PM) where {T, PM <: PeriodicArray}
    return iszero(D) ? K : inv(I+K*D)*K
 end
 """
-    pdlqofc_sw(psys, Q, R, ns; S, vinit, kwargs...) -> (Kopt, info)
+    pdlqofc_sw(psys, Q, R, ns; S, vinit, kwargs...) -> (Fopt, info)
 
 Compute for the discrete-time periodic state-space system `psys = (A(t),B(t),C(t),D(t))` of the form
    
    x(t+1) = A(t)x(t) + B(t)u(t) + Bw(t)w(t) 
      y(t) = C(t)x(t) + D(t)u(t) + Dw(t)w(t) ,
 
-the optimal switching periodic feedback gain `Kopt(t)` in the output feedback control law  
+the optimal switching periodic feedback gain `Fopt(t)` in the output feedback control law  
 
-    u(t) = Kopt(t)*y(t), 
+    u(t) = Fopt(t)*y(t), 
 
 which minimizes the expectation of the quadratic index 
 
@@ -811,19 +811,19 @@ i.e., either of type `PeriodicMatrix` or `PeriodicArray`.
 The dimension `m` of `u(t)` is deduced from the dimension of `R(t)`. 
 `Q`, `R` and `S` can be alternatively provided as constant real matrices. 
 
-The switching times for the resulting switching periodic gain `Kopt(t)` are specified by the 
+The switching times for the resulting switching periodic gain `Fopt(t)` are specified by the 
 `N`-dimensional integer vector `ns`. 
 By default, `ns = 1:N`, where `N` is the maximal number of samples (i.e., `N = psys.period/psys.Ts`). 
 
-The resulting `m×p` periodic output feedback gain `Kopt(t)` has the type `SwitchingPeriodicArray`
-and is computed as `Kopt(t) = inv(I+K(t)D(t))*K(t)`, with `K(t)` 
+The resulting `m×p` periodic output feedback gain `Fopt(t)` has the type `SwitchingPeriodicArray`
+and is computed as `Fopt(t) = inv(I+F(t)D(t))*F(t)`, with `F(t)` 
 defined as 
 
-     K(t) = K_i for t ∈ [ns[i]Δ,ns[i+1]Δ) and i ∈ {1, ..., N-1}, or
-     K(t) = K_N for t ∈ [ns[N]Δ,T),
+     F(t) = F_i for t ∈ [ns[i]Δ,ns[i+1]Δ) and i ∈ {1, ..., N-1}, or
+     F(t) = F_N for t ∈ [ns[N]Δ,T),
            
 where `T` is the system period (i.e., `T = psys.period`), `Δ` is the system sampling time (i.e., `Δ = psys.Ts`) 
-and `K_i` is the `i`-th gain. 
+and `F_i` is the `i`-th gain. 
 
 If an initial value for the optimization variable `v` is provided using the keyword argument `vinit = gains`, then `gains`
 must be an `m×p×N` array, where `m` and `p` are the numbers of system control inputs and outputs.
@@ -878,12 +878,12 @@ function pdlqofc_sw(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
 
    A = psys.A; Bu = psys.B[:,1:mu]; C = psys.C; 
    #Ksw = SwitchingPeriodicArray(x, ns, A.period)
-   K0 = convert(PeriodicArray,SwitchingPeriodicArray(x, ns, A.period))
+   F0 = convert(PeriodicArray,SwitchingPeriodicArray(x, ns, A.period))
    stlim = 1-sqrt(eps()); 
-   sdeg0 = maximum(abs.(pseig(A+Bu*K0*C)))
+   sdeg0 = maximum(abs.(pseig(A+Bu*F0*C)))
    if sdeg < 1 
       scal = 1/(sdeg^(1/N)); A = A*scal; Bu = Bu*scal
-      sd = maximum(abs.(pseig(A+B*K0*C)))
+      sd = maximum(abs.(pseig(A+B*F0*C)))
    else
       sd = sdeg0
    end 
@@ -946,7 +946,7 @@ function pdlqofc_sw(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
       #fopt = nothing
       fopt = pdlqofcswfungrad!(true, nothing, x, par)
       result = nothing
-      Kopt = Kbuild_sw(x,psys.D,ns)
+      Fopt = Kbuild_sw(x,psys.D,ns)
    else
       maxit = maxiter 
       par = (A, Bu, C, R, Q, S, ns, GR, WORK, WORK1, WORK2)
@@ -963,14 +963,14 @@ function pdlqofc_sw(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
       #KK = SwitchingPeriodicArray(x, ns, A.period)
       sd = maximum(abs.(pseig(psys.A+Bu*KK*C)))
       fopt = minimum(result)
-      Kopt = Kbuild_sw(xopt,psys.D,ns)
+      Fopt = Kbuild_sw(xopt,psys.D,ns)
    end
    show_trace && println("final stability degree = $sd")
    
    info = (vopt = xopt, fopt = fopt, sdeg0 = sdeg0, sdeg = sd, result = result)
    sd <= sdeg || @warn "achieved stability degree $sd larger than desired one $sdeg"
 
-   return Kopt, info
+   return Fopt, info
 end
 function pdlqofcswfungrad!(Fun,Grad,x,par) 
    # generic function/gradient evaluation for pdlqofc
@@ -1089,9 +1089,9 @@ end
 """
     pclqofc_sw(psys, Q, R, ts = missing; K = 1, sdeg = 0, G = I, vinit, optimizer, stabilizer,
                maxiter, vtol, Jtol, gtol, show_trace, solver, reltol, abstol, dt,
-               N = 128, intpolmeth = "cubic", quad = false ) -> (Kopt,info)
+               N = 128, intpolmeth = "cubic", quad = false ) -> (Fopt,info)
 
-Compute the optimal periodic stabilizing gain matrix `Kopt(t)`, such that for a continuous-time periodic state-space model 
+Compute the optimal periodic stabilizing gain matrix `Fopt(t)`, such that for a continuous-time periodic state-space model 
 `psys` of the form
    
       .
@@ -1100,7 +1100,7 @@ Compute the optimal periodic stabilizing gain matrix `Kopt(t)`, such that for a 
  
 the output feedback control law
 
-    u(t) = Kopt(t)*y(t), 
+    u(t) = Fopt(t)*y(t), 
     
 minimizes the expectation of the quadratic index
 
@@ -1115,25 +1115,25 @@ For a system of order `n` with `m` control inputs in `u(t)` and `p` measurable o
 The dimension `m` of `u(t)` is deduced from the dimension of `R(t)`. 
 `Q` and `R` can be alternatively provided as constant real matrices. 
 
-The resulting `m×p` periodic output feedback gain `Kopt(t)` is of type `PeriodicSwitchingMatrix`, 
+The resulting `m×p` periodic output feedback gain `Fopt(t)` is of type `PeriodicSwitchingMatrix`, 
 with the switching times defined by the vector `ts`. 
 The `ns` switching times contained in the vector `ts` must satisfy `0 = ts[1] < ts[2] < ... < ts[ns] < T`,
 where `T` is the system period. 
 If `ts = missing`, then `ts = [0]` is used by default (i.e., constant output feedback).
 
-The output feedback gain `Kopt(t)` is computed as `Kopt(t) = inv(I+K(t)D(t))*K(t)`, with `K(t)` 
+The output feedback gain `Fopt(t)` is computed as `Fopt(t) = inv(I+F(t)D(t))*F(t)`, with `F(t)` 
 defined as 
 
-     K(t) = K_i  for t ∈ [ts[i],ts[i+1]) and i ∈ {1, ..., ns-1} or 
-     K(t) = K_ns for t ∈ [ts[ns],T)
+     F(t) = F_i  for t ∈ [ts[i],ts[i+1]) and i ∈ {1, ..., ns-1} or 
+     F(t) = F_ns for t ∈ [ts[ns],T)
            
-where `K_i` is the `i`-th gain. 
+where `F_i` is the `i`-th gain. 
 
 The covariance matrix of the initial state `x(0)` can be specified via the keyword argument `G` (default: `G = I`)
 and a desired stability degree of the closed-loop characteristic exponents can be specified using
 the keyword argument `sdeg` (default: `sdeg = 0`). 
 
-For the determination of the optimal feedback gains `K_i` for `i = 1, ...., ns` an optimization-based approach is employed using 
+For the determination of the optimal feedback gains `F_i` for `i = 1, ...., ns` an optimization-based approach is employed using 
 tools available in the optimization package [`Optim.jl`](https://github.com/JuliaNLSolvers/Optim.jl). 
 By default, the gradient-based limited-memory quasi-Newton method (also known as `L-BFGS`) for unconstrained minimizations 
 is employed using the keyword argument setting `optimizer = LBFGS(;alphaguess = LineSearches.InitialStatic(;scaled=true))`, where 
@@ -1150,7 +1150,7 @@ with modified the state matrices of the form  `A(t)-αI`, where `α ≥ 0` is ch
 The optimization method for stabilization can be independently selected using the keyword argument `stabilizer`, with the default setting  
 `stabilizer = LBFGS(;alphaguess = LineSearches.InitialStatic(;scaled=true))`. If only stabilization is desired, then use  `optimizer = nothing`. 
 
-An internal optimization variable `v` is used, formed as an `m×p×ns` array with `v[:,:,i] := K_i`, for `i = 1, ..., ns`. 
+An internal optimization variable `v` is used, formed as an `m×p×ns` array with `v[:,:,i] := F_i`, for `i = 1, ..., ns`. 
 By default, `v` is initialized as `v = 0` (i.e., a zero array of appropriate dimensions). 
 The keyword argument `vinit = v0` can be used to initialize `v` with an arbitrary `m×p×ns` array `v0`.   
 
@@ -1158,7 +1158,7 @@ The optimization process is controlled using several keyword parameters.
 The keyword parameter `maxiter = maxit` can be used to specify the maximum number of iterations to be performed (default: `maxit = 1000`).
 The keyword argument `vtol` can be used to specify the absolute tolerance in 
 the changes of the optimization variable `v` (default: `vtol = 0`). The keyword argument `Jtol` can be used to specify the
-relative tolerance in the changes of the optimization criterium `J` (default: `Jtol = 0`), 
+relative tolerance in the changes of the optimization criterion `J` (default: `Jtol = 0`), 
 while `gtol` can be used to specify the absolute tolerance in the gradient  `∇J`, in infinity norm (default: `gtol = 1e-5`). 
 With the keyword argument `show_trace = true`,  a trace of the optimization algorithm's state is shown on `stdout` (default `show_trace = false`).   
 For stabilization purposes,  the values `Jtol = 1.e-3`, `gtol = 1.e-2`, `maxit = 20` are used to favor faster convergence. 
@@ -1307,7 +1307,7 @@ function pclqofc_sw(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
       par = (K, A, Bu, C, R, Q, ts, X0, options)
       fopt = pclqofcswfungrad!(true, nothing, x, par)
       result = nothing
-      Kopt = Kbuild_sw(xopt,psys.D,ts)
+      Fopt = Kbuild_sw(xopt,psys.D,ts)
    else
       maxit = maxiter 
 
@@ -1320,14 +1320,14 @@ function pclqofc_sw(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
       KK = PeriodicSwitchingMatrix(xopt, ts, period)
       sd = maximum(real.(psceig(A+Bu*convert(PeriodicFunctionMatrix,KK)*C,100)))
       fopt = minimum(result)
-      Kopt = Kbuild_sw(xopt,psys.D,ts)
+      Fopt = Kbuild_sw(xopt,psys.D,ts)
    end
    show_trace && println("final stability degree = $sd")
          
    info = (vopt = xopt, fopt = fopt, sdeg0 = sdeg0, sdeg = sd, optres = result)
    sd <= sdeg || @warn "achieved stability degree $sd larger than desired one $sdeg"
 
-   return Kopt, info
+   return Fopt, info
 end
 function check_commensurate_values(t1, t2)
       t = rationalize(t1/t2)
@@ -1415,7 +1415,7 @@ function fungradsw!(Fun, Grad, K, x, A::PM, B::PM, C::PM, R, Q, ts, X0, options)
 
    isnothing(Fun) ? (return nothing) : (tr(P(0)*X0))
 end
-Kbuild_sw(x::AbstractVector{T}, psys::PeriodicStateSpace{PM}, ts) where {T <: Real, PM <: PeriodicFunctionMatrix} = Kbuild_sw(x,psys.D,ts)
+Kbuild_sw(x::AbstractArray{T,3}, psys::PeriodicStateSpace{PM}, ts) where {T <: Real, PM <: PeriodicFunctionMatrix} = Kbuild_sw(x,psys.D,ts)
 function Kbuild_sw(x::AbstractArray{T,3}, D::PM, ts) where {T, PM <: PeriodicFunctionMatrix}
    K = PeriodicSwitchingMatrix(x, ts, D.period)
    mu = size(x,1)
@@ -1526,9 +1526,9 @@ end
 """
     pclqofc_hr(psys, Q, R, nh = 0; K = 1, sdeg = 0, G = I, vinit, optimizer, stabilizer,
                maxiter, vtol, Jtol, gtol, show_trace, solver, reltol, abstol, dt,
-               N = 128, intpolmeth = "cubic", quad = false ) -> (Kopt,info)
+               N = 128, intpolmeth = "cubic", quad = false ) -> (Fopt,info)
 
-Compute the optimal periodic stabilizing gain matrix `Kopt(t)`, such that for a continuous-time periodic state-space model 
+Compute the optimal periodic stabilizing gain matrix `Fopt(t)`, such that for a continuous-time periodic state-space model 
 `psys` of the form
    
       .
@@ -1537,7 +1537,7 @@ Compute the optimal periodic stabilizing gain matrix `Kopt(t)`, such that for a 
  
 the output feedback control law
 
-    u(t) = Kopt(t)*y(t), 
+    u(t) = Fopt(t)*y(t), 
     
 minimizes the expectation of the quadratic index
 
@@ -1552,21 +1552,21 @@ For a system of order `n` with `m` control inputs in `u(t)` and `p` measurable o
 The dimension `m` of `u(t)` is deduced from the dimension of `R(t)`. 
 `Q` and `R` can be alternatively provided as constant real matrices. 
 
-The resulting `m×p` periodic output feedback gain `Kopt(t)` is of type `HarmonicArray` and
-is computed as `Kopt(t) = inv(I+K(t)D(t))*K(t)`, with `K(t)` in the harmonic representation form 
+The resulting `m×p` periodic output feedback gain `Fopt(t)` is of type `HarmonicArray` and
+is computed as `Fopt(t) = inv(I+F(t)D(t))*F(t)`, with `F(t)` in the harmonic representation form 
 
                   nh
-     K(t) = K0 +  ∑ ( Kc_i*cos(i*t*2*π/T)+Ks_i*sin(i*2*π*t/T) ) ,
+     F(t) = F0 +  ∑ ( Fc_i*cos(i*t*2*π/T)+Fs_i*sin(i*2*π*t/T) ) ,
                  i=1 
 
-where `T` is the system period, `K0` is the constant term, `Kc_i` is the `i`-th cosinus coefficient matrix and `Ks_i` is the `i`-th sinus coefficient matrix. 
+where `T` is the system period, `F0` is the constant term, `Fc_i` is the `i`-th cosinus coefficient matrix and `Fs_i` is the `i`-th sinus coefficient matrix. 
 By default, the number of harmonics is `nh = 0` (i.e., constant output feedback is used).
 
 The covariance matrix of the initial state `x(0)` can be specified via the keyword argument `G` (default: `G = I`)
 and a desired stability degree of the closed-loop characteristic exponents can be specified using
 the keyword argument `sdeg` (default: `sdeg = 0`). 
 
-For the determination of the optimal feedback gains `K0`, `Kc_i` and `Ks_i` for `i = 1, ...., nh` an optimization-based approach is employed using 
+For the determination of the optimal feedback gains `F0`, `Fc_i` and `Fs_i` for `i = 1, ...., nh` an optimization-based approach is employed using 
 tools available in the optimization package [`Optim.jl`](https://github.com/JuliaNLSolvers/Optim.jl). 
 By default, the gradient-based limited-memory quasi-Newton method (also known as `L-BFGS`) for unconstrained minimizations 
 is employed using the keyword argument setting `optimizer = LBFGS(;alphaguess = LineSearches.InitialStatic(;scaled=true))`, where 
@@ -1583,7 +1583,7 @@ with modified the state matrices of the form  `A(t)-αI`, where `α ≥ 0` is ch
 The optimization method for stabilization can be independently selected using the keyword argument `stabilizer`, with the default setting  
 `stabilizer = LBFGS(;alphaguess = LineSearches.InitialStatic(;scaled=true))`. If only stabilization is desired, then use  `optimizer = nothing`. 
 
-An internal optimization variable `v` is used, formed as an `m*p*(2*nh+1)` dimensional vector `v := [vec(K0); vec(Kc_1); vec(Ks_1), ... ; vec(Kc_nh); vec(Ks_nh)]'. 
+An internal optimization variable `v` is used, formed as an `m*p*(2*nh+1)` dimensional vector `v := [vec(F0); vec(Fc_1); vec(Fs_1), ... ; vec(Kc_nh); vec(Ks_nh)]'. 
 By default, `v` is initialized as `v = 0` (i.e., a zero vector of appropriate dimension). 
 The keyword argument `vinit = v0` can be used to initialize `v` with an arbitrary vector `v0`.   
 
@@ -1591,7 +1591,7 @@ The optimization process is controlled using several keyword parameters.
 The keyword parameter `maxiter = maxit` can be used to specify the maximum number of iterations to be performed (default: `maxit = 1000`).
 The keyword argument `vtol` can be used to specify the absolute tolerance in 
 the changes of the optimization variable `v` (default: `vtol = 0`). The keyword argument `Jtol` can be used to specify the
-relative tolerance in the changes of the optimization criterium `J` (default: `Jtol = 0`), 
+relative tolerance in the changes of the optimization criterion `J` (default: `Jtol = 0`), 
 while `gtol` can be used to specify the absolute tolerance in the gradient  `∇J`, in infinity norm (default: `gtol = 1e-5`). 
 With the keyword argument `show_trace = true`,  a trace of the optimization algorithm's state is shown on `stdout` (default `show_trace = false`).   
 For stabilization purposes,  the values `Jtol = 1.e-3`, `gtol = 1.e-2`, `maxit = 20` are used to favor faster convergence. 
@@ -1744,7 +1744,7 @@ function pclqofc_hr(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
       #fopt = nothing
       fopt = pclqofchrfungrad!(true, nothing, x, par)
       result = nothing
-      Kopt = Kbuild_hr(xopt,psys.D,nh)
+      Fopt = Kbuild_hr(xopt,psys.D,nh)
    else
       maxit = maxiter 
 
@@ -1757,13 +1757,13 @@ function pclqofc_hr(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
       KK = HarmonicArray(reshape(xopt,mu,pt),period)
       sd = maximum(real.(psceig(psys.A+Bu*KK*C,100)))
       fopt = minimum(result)
-      Kopt = Kbuild_hr(xopt,psys.D,nh)
+      Fopt = Kbuild_hr(xopt,psys.D,nh)
    end
       
    info = (vopt = xopt, fopt = fopt, sdeg0 = sdeg0, sdeg = sd, optres = result)
    sd <= sdeg || @warn "achieved stability degree $sd larger than desired one $sdeg"
 
-   return Kopt, info
+   return Fopt, info
 end
 function pclqofchrfungrad!(Fun,Grad,x,par) 
    # generic function/gradient evaluation for pdlqofc
@@ -1866,11 +1866,494 @@ function Kbuild_hr(x::AbstractVector{T}, D::PM, nh::Int; PFM = false) where {T <
       G = I+K*D[:,1:mu]
       f = mu == 1 ? t->norm(G(t)) : t-> 1/cond(G(t))
       res = optimize(f,0,period,Optim.Brent(),rel_tol = eps())
-      @show res.minimum
       res.minimum > 1.e-8 || (@warn "possible unbounded feedback gain near t = $(res.minimizer)")
       return inv(G)*K
    end
 end
 
+"""
+    pcpofstab_sw(psys, ts = missing; K = 100, vinit, optimizer, maxit, vtol, Jtol, gtol, show_trace) -> (Fstab,info)
+
+For a continuoous-time periodic system `psys = (A(t), B(t), C(t), D(t))` of period `T` determine a periodic output feedback gain matrix 
+`Fstab(t)` of the same period and and switching times `ts`,  
+such that the characteristic exponents `Λ` of the closed-loop state-matrix `A(t)+B(t)*Fstab(t)*inv(I-D(t)*Fstab(t))*C(t)` are stable. 
+The matrices of the system `psys` are of type `PeriodicFunctionMatrix`. 
+The `ns` switching times contained in the vector `ts` must satisfy `0 = ts[1] < ts[2] < ... < ts[ns] < T`. 
+If `ts = missing`, then `ts = [0]` is used by default (i.e., constant output feedback). 
+
+The output feedback gain `Fstab(t)` is computed as `Fstab(t) = inv(I+F(t)D(t))*F(t)`, with `F(t)` 
+defined as 
+
+     F(t) = F_i  for t ∈ [ts[i],ts[i+1]) and i ∈ {1, ..., ns-1} or 
+     F(t) = F_ns for t ∈ [ts[ns],T)
+           
+where `F_i` is the `i`-th gain.  
+The resulting periodic matrix `Fstab(t)` is of type `PeriodicSwitchingMatrix`.
+The corresponding closed-loop periodic system can be obtained using the function [`psfeedback`](@ref).
+
+For the determination of the optimal feedback gains `F_i` for `i = 1, ...., ns` an optimization-based approach is employed using 
+tools available in the optimization package [`Optim.jl`](https://github.com/JuliaNLSolvers/Optim.jl). 
+By default, the gradient-free _Nelder-Mead_ local search method for unconstrained minimizations 
+is employed using the keyword argument setting `optimizer = Optim.NelderMead()`.   
+The alternative gradient-free _Simulated Annealing_ global search method can be selected, 
+`optimizer = Optim.SimulatedAnnealing()`. 
+
+For a system with `m` inputs and `p` outputs, 
+an internal optimization variable `v` is used, formed as an `m×p×ns` array with `v[:,:,i] := F_i`, for `i = 1, ..., ns`. 
+The performance index to be minimized is `J := sdeg(v)`, 
+where `sdeg(v)` is the stability degree defined as the largest real part of the characteristic exponents 
+of `Af(t) := A(t)+B(t)*F(t)*C(t)`. The keyword argument `K` is the number of factors used to express the monodromy matrix of `Af(t)` (default: `K = 100`), 
+when evaluating the characteristic exponents.   
+By default, `v` is initialized as `v = 0` (i.e., a zero array of appropriate dimensions). 
+The keyword argument `vinit = v0` can be used to initialize `v` with an arbitrary `m×p×ns` array `v0`.  
+
+The optimization process is controlled using several keyword parameters. 
+The keyword parameter `maxit` can be used to specify the maximum number of iterations to be performed (default: `maxit = 1000`).
+The keyword argument `vtol` can be used to specify the absolute tolerance in 
+the changes of the optimization variable `v` (default: `vtol = 0`). The keyword argument `Jtol` can be used to specify the
+relative tolerance in the changes of the optimization criterion `J` (default: `Jtol = 0`), 
+while `gtol` is the method specific main convergence tolerance (default: `gtol = 1e-3`). 
+With the keyword argument `show_trace = true`,  a trace of the optimization algorithm's state is shown on `stdout` (default `show_trace = false`).   
+(see the documentation of the [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl) package for additional information). 
+
+The returned named tuple `info` contains `(fopt, sdeg0, sdeg, vopt, optres)`, where:
+
+`info.fopt` is the resulting value of the optimal performance `J`;
+
+`info.sdeg0` is the initial stability degree of the closed-loop characteristic exponents;
+
+`info.sdeg` is the resulting stability degree of the closed-loop characteristic exponents;
+
+`info.vopt` is the resulting value of the optimization variable `v`; 
+
+`info.optres` is the result returned by the `Optim.optimize(...)` function of the 
+[`Optim.jl`](https://github.com/JuliaNLSolvers/Optim.jl) package; 
+several functions provided by this package
+can be used to inquire various information related to the optimization results
+(see the documention of this package). 
+"""
+function pcpofstab_sw(psys::PeriodicStateSpace{PM}, ts::Union{AbstractVector{<:Real},Missing} = missing; K = 100, vinit::Union{AbstractArray{T,3},Missing} = missing, 
+                      optimizer = NelderMead(), maxit = 1000, vtol = 0., Jtol = 0., gtol = 1e-3, show_trace = false) where {T <: Real, PM <: PeriodicFunctionMatrix}
+   period = psys.period
+   p, m = size(psys)
+   Δ = period/K
+   if ismissing(ts) 
+      ts = [0.]; ns = 1
+   else
+      ns = length(ts)
+      ts[1] == 0 || error("ts must have the first value equal to 0")
+      for i in 1:ns
+          Δti = i < ns ? ts[i+1] - ts[i] : period - ts[i]
+          Δti > 0 || error("ts must have only strictly increasing positive values less than $period")
+          if Δ < Δti
+            check_commensurate_values(Δti,Δ) || 
+              error("incommensurate switching times with the discretization points")
+          else
+             check_commensurate_values(Δ,Δti) || 
+               error("incommensurate switching times with the system period")
+          end
+      end
+   end
+
+   if ismissing(vinit) 
+      x = zeros(m,p,ns)
+   else
+      (m,p,ns) == size(vinit) || throw(ArgumentError(" dimensions of vinit must be ($m,$p,$ns)")) 
+      x = copy(vinit)
+   end
+
+   A = psys.A; B = psys.B; C = psys.C; 
+   KK = convert(PeriodicFunctionMatrix,PeriodicSwitchingMatrix(x, ts, period))
+   smarg = -sqrt(eps()); 
+   sdeg0 = maximum(real(psceig(A+B*KK*C,K)))
+   show_trace && println("initial stability degree = $sdeg0")
+
+   result = optimize(x->pssdeg_sw(x,K,psys,ts), x, optimizer, 
+       Optim.Options(x_tol = vtol, f_tol = Jtol, g_tol = gtol, iterations = maxit, show_trace=show_trace))
+   xopt = result.minimizer
+   fopt = minimum(result)
+   fopt >= sdeg0  && (@warn "no improvement of stability degree achieved")
+      
+   info = (vopt = xopt, fopt = fopt, sdeg0 = sdeg0, sdeg = fopt, optres = result)
+   Fopt = Kbuild_sw(xopt,psys.D,ts)
+   fopt < smarg || @warn "no stabilization achieved: increase the number of time values"
+
+   return Fopt, info
+
+end
+function pssdeg_sw(x::AbstractArray{T,3}, K, psys::PeriodicStateSpace{PM}, ts::AbstractVector{<:Real}) where  {T <: Real, PM <: PeriodicFunctionMatrix}
+   KK = PeriodicSwitchingMatrix(x, ts, psys.period)
+   return maximum(real(psceig(psys.A+psys.B*KK*psys.C,K)))
+end
+"""
+    pcpofstab_hr(psys,  nh = 0; K = 100, vinit, optimizer = "local", maxiter, vtol, Jtol, gtol, show_trace) -> (Fstab,info)
+
+For a continuoous-time periodic system `psys = (A(t), B(t), C(t), D(t))` of period `T` determine a periodic output feedback gain matrix 
+`Fstab(t)` of the same period,  
+such that the characteristic exponents `Λ` of the closed-loop state-matrix `A(t)+B(t)*Fstab(t)*inv(I-D(t)*Fstab(t))*C(t)` are stable. 
+The matrices of the system `psys` are of type `HarmonicArray`. 
+
+The resulting output feedback gain `Fstab(t)` is computed as `Fstab(t) = inv(I+F(t)D(t))*F(t)`, with `F(t)` in the harmonic representation form 
+
+                  nh
+     F(t) = F0 +  ∑ ( Fc_i*cos(i*t*2*π/T)+Fs_i*sin(i*2*π*t/T) ) ,
+                 i=1 
+
+where `F0` is the constant term, `Fc_i` is the `i`-th cosinus coefficient matrix and `Fs_i` is the `i`-th sinus coefficient matrix. 
+By default, the number of harmonics is `nh = 0` (i.e., constant output feedback is used).
+The resulting periodic matrix `Fstab(t)` is of type `HarmonicArray`.
+The corresponding closed-loop periodic system can be obtained using the function [`psfeedback`](@ref).
+
+For the determination of the optimal feedback gains `F0`, `Fc_i` and `Fs_i` for `i = 1, ...., nh` 
+an optimization-based approach is employed using using 
+tools available in the optimization package [`Optim.jl`](https://github.com/JuliaNLSolvers/Optim.jl). 
+By default, the gradient-free _Nelder-Mead_ local search method for unconstrained minimizations 
+is employed using the keyword argument setting `optimizer = Optim.NelderMead()`.   
+The alternative gradient-free _Simulated Annealing_ global search method can be selected, 
+`optimizer = Optim.SimulatedAnnealing()`. 
+
+For a system with `m` inputs and `p` outputs, 
+an internal optimization variable `v` is used, formed as an `m*p*(2*nh+1)` dimensional vector 
+`v := [vec(F0); vec(Fc_1); vec(Fs_1), ... ; vec(Fc_nh); vec(Fs_nh)]'. 
+The performance index to be minimized is `J := sdeg(v)`, 
+where `sdeg(v)` is the stability degree defined as the largest real part of the characteristic exponents 
+of `Af(t) := A(t)+B(t)*F(t)*C(t)`. The keyword argument `K` is the number of factors used to express the monodromy matrix of `Af(t)` (default: `K = 100`), 
+when evaluating the characteristic exponents.   
+By default, `v` is initialized as `v = 0` (i.e., a zero array of appropriate dimensions). 
+The keyword argument `vinit = v0` can be used to initialize `v` with an arbitrary `m×p×ns` array `v0`.  
+
+The optimization process is controlled using several keyword parameters. 
+The keyword parameter `maxiter = maxit` can be used to specify the maximum number of iterations to be performed (default: `maxit = 1000`).
+The keyword argument `vtol` can be used to specify the absolute tolerance in 
+the changes of the optimization variable `v` (default: `vtol = 0`). The keyword argument `Jtol` can be used to specify the
+relative tolerance in the changes of the optimization criterion `J` (default: `Jtol = 0`), 
+while `gtol` is the method specific main convergence tolerance (default: `gtol = 1e-3`). 
+With the keyword argument `show_trace = true`,  a trace of the optimization algorithm's state is shown on `stdout` (default `show_trace = false`).   
+(see the documentation of the [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl) package for additional information). 
+
+The returned named tuple `info` contains `(fopt, sdeg0, sdeg, vopt, optres)`, where:
+
+`info.fopt` is the resulting value of the optimal performance `J`;
+
+`info.sdeg0` is the initial stability degree of the closed-loop characteristic exponents;
+
+`info.sdeg` is the resulting stability degree of the closed-loop characteristic exponents;
+
+`info.vopt` is the resulting value of the optimization variable `v`; 
+
+`info.optres` is the result returned by the `Optim.optimize(...)` function of the 
+[`Optim.jl`](https://github.com/JuliaNLSolvers/Optim.jl) package; 
+several functions provided by this package
+can be used to inquire various information related to the optimization results
+(see the documention of this package). 
+"""
+function pcpofstab_hr(psys::PeriodicStateSpace{PM}, nh::Int = 0; K = 100, vinit::Union{AbstractVector{<:Real},Missing} = missing, 
+                      optimizer = NelderMead(), maxit = 1000, vtol = 0., Jtol = 0., gtol = 1e-3, show_trace = false) where {PM <: HarmonicArray}
+   period = psys.period
+   p, m = size(psys)
+
+   A = psys.A; B = psys.B; C = psys.C; 
+   T = eltype(A)
+ 
+   nh1 = nh+1
+   pt = p*(2nh+1)
+
+   lx = m*pt
+   if ismissing(vinit) 
+      x = zeros(lx)
+   else
+      length(vinit) == lx || throw(ArgumentError("length of vinit must be $lx")) 
+      x = copy(vinit)
+   end
+
+
+   smarg = -sqrt(eps()); 
+   sdeg0 = pssdeg_hr(x,K,psys,nh)
+   show_trace && println("initial stability degree = $sdeg0")
+
+   result = optimize(x->pssdeg_hr(x,K,psys,nh), x, optimizer, 
+       Optim.Options(x_tol = vtol, f_tol = Jtol, g_tol = gtol, iterations = maxit, show_trace=show_trace))
+   xopt = result.minimizer
+   fopt = minimum(result)
+   fopt >= sdeg0  && (@warn "no improvement of stability degree achieved")
+      
+   info = (vopt = xopt, fopt = fopt, sdeg0 = sdeg0, sdeg = fopt, optres = result)
+   Fopt = Kbuild_hr(xopt,psys.D,nh)
+   fopt < smarg || @warn "no stabilization achieved: increase the number of time values"
+
+   return Fopt, info
+
+end
+function pssdeg_hr(x::AbstractVector{T}, K::Int, psys::PeriodicStateSpace{PM}, nh::Int) where {T <: Real, PM <: HarmonicArray}
+   period = psys.period
+   p, m = size(psys); pm = p*m
+   ahr = Array{Complex{T},3}(undef, m, p, nh+1)
+   copyto!(view(ahr,1:m,1:p,1),complex.(reshape(view(x,1:pm),p,m)))
+   for i in 1:nh
+      copyto!(view(ahr,1:m,1:p,i+1),complex.(reshape(view(x,i*pm+1:(i+1)*pm),m,p),reshape(view(x,(i+1)*pm+1:(i+2)*pm),m,p)))
+   end
+   KK = HarmonicArray{:c,T}(ahr, period, 1)
+   return maximum(real(psceig(psys.A+psys.B*KK*psys.C,K))) 
+end
+"""
+    pdpofstab_sw(psys, ns = missing; vinit, optimizer, maxit, vtol, Jtol, gtol, show_trace) -> (Fstab,info)
+
+For a discrete-time periodic system `psys = (A(t), B(t), C(t), D(t))` determine a periodic output feedback gain matrix 
+`Fstab(t)` of the same period,  
+such that the characteristic exponents `Λ` of the closed-loop state-matrix `A(t)+B(t)*Fstab(t)*inv(I-D(t)*Fstab(t))*C(t)` are stable. 
+The matrices of the system `psys` are of type `PeriodicArray`. 
+The switching times for the resulting switching periodic gain `Fstab(t)` are specified by the 
+`N`-dimensional integer vector `ns`. 
+By default, `ns = [N]`, where `N` is the maximal number of samples (i.e., `N = psys.period/psys.Ts`), which corresponds to a constant gain.  
+
+The output feedback gain `Fstab(t)` is computed as `Fstab(t) = inv(I+F(t)D(t))*F(t)`, with `F(t)` 
+defined as 
+
+    F(t) = F_i for t ∈ [ns[i]Δ,ns[i+1]Δ) and i ∈ {1, ..., N-1}, or
+    F(t) = F_N for t ∈ [ns[N]Δ,T),
+         
+where `T` is the system period (i.e., `T = psys.period`), `Δ` is the system sampling time (i.e., `Δ = psys.Ts`),  
+and `F_i` is the `i`-th gain. 
+The resulting periodic matrix `Fstab(t)` is of type `SwitchingPeriodicArray`.
+The corresponding closed-loop periodic system can be obtained using the function [`psfeedback`](@ref).
+
+For the determination of the optimal feedback gains `F_i` for `i = 1, ...., N` 
+an optimization-based approach is employed using using 
+tools available in the optimization package [`Optim.jl`](https://github.com/JuliaNLSolvers/Optim.jl). 
+By default, the gradient-free _Nelder-Mead_ local search method for unconstrained minimizations 
+is employed using the keyword argument setting `optimizer = Optim.NelderMead()`.   
+The alternative gradient-free _Simulated Annealing_ global search method can be selected, 
+`optimizer = Optim.SimulatedAnnealing()`. 
+
+For a system with `m` inputs and `p` outputs, 
+an internal optimization variable `v` is used, defined as an `m×p×N` array. 
+By default, `v` is initialized as `v = 0` (i.e., a zero array of appropriate dimensions). 
+The keyword argument `vinit = v0` can be used to initialize `v` with an arbitrary `m×p×N` array `v0`.  
+
+The performance index to be minimized is `J := sdeg(v)`, 
+where `sdeg(v)` is the stability degree defined as the largest modulus of the characteristic exponents 
+of `Af(t) := A(t)+B(t)*F(t)*C(t)`. The optimization process is controlled using several keyword parameters. 
+The keyword parameter `maxit` can be used to specify the maximum number of iterations to be performed (default: `maxit = 1000`).
+The keyword argument `vtol` can be used to specify the absolute tolerance in 
+the changes of the optimization variable `v` (default: `vtol = 0`). The keyword argument `Jtol` can be used to specify the
+relative tolerance in the changes of the optimization criterion `J` (default: `Jtol = 0`), 
+while `gtol` is the method specific main convergence tolerance (default: `gtol = 1e-3`). 
+With the keyword argument `show_trace = true`,  a trace of the optimization algorithm's state is shown on `stdout` (default `show_trace = false`).   
+(see the documentation of the [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl) package for additional information). 
+
+The returned named tuple `info` contains `(fopt, sdeg0, sdeg, vopt, optres)`, where:
+
+`info.fopt` is the resulting value of the optimal performance `J`;
+
+`info.sdeg0` is the initial stability degree of the closed-loop characteristic exponents;
+
+`info.sdeg` is the resulting stability degree of the closed-loop characteristic exponents;
+
+`info.vopt` is the resulting value of the optimization variable `v`; 
+
+`info.optres` is the result returned by the `Optim.optimize(...)` function of the 
+[`Optim.jl`](https://github.com/JuliaNLSolvers/Optim.jl) package; 
+several functions provided by this package
+can be used to inquire various information related to the optimization results
+(see the documention of this package). 
+"""
+function pdpofstab_sw(psys::PeriodicStateSpace{PM}, ns::Union{AbstractVector{<:Int},Missing} = missing; vinit::Union{AbstractArray{<:Real,3},Missing} = missing, 
+   optimizer = NelderMead(), maxit = 1000, vtol = 0., Jtol = 0., gtol = 1e-5, show_trace = false) where {PM <: PeriodicArray}
+   p, m = size(psys)
+   T = eltype(psys.A)
+
+   if ismissing(ns)
+      #N = psys.A.dperiod*psys.A.nperiod
+      #ns = collect(1:N)
+      ns = [psys.A.dperiod*psys.A.nperiod]
+      N = 1
+   else
+      N = length(ns)
+      ns[1] > 0 || error("ns must have only strictly increasing positive values")
+      for i in 1:N-1
+          ns[i+1] > ns[i] || error("ns must have only strictly increasing positive values")
+      end
+   end
+   if ismissing(vinit) 
+      x = zeros(m,p,N)
+   else
+      (m,p,N) == size(vinit) || throw(ArgumentError(" dimensions of vinit must be ($m,$p,$N)")) 
+      x = copy(vinit)
+   end
+   smarg = 1-sqrt(eps(T))
+   sdeg0 = pssdeg_sw(x, psys, ns)
+   show_trace && println("initial stability degree = $sdeg0")
+
+   result = optimize(x->pssdeg_sw(x,psys,ns), x, optimizer, 
+      Optim.Options(x_tol = vtol, f_tol = Jtol, g_tol = gtol, iterations = maxit, show_trace=show_trace))
+   xopt = result.minimizer
+   fopt = minimum(result)
+   fopt >= sdeg0  && (@warn "no improvement of stability degree achieved")
+
+   info = (vopt = xopt, fopt = fopt, sdeg0 = sdeg0, sdeg = fopt, optres = result)
+   Fopt = Kbuild_sw(xopt,psys.D,ns)
+   fopt < smarg || @warn "no stabilization achieved: increase the number of time values"
+
+   return Fopt, info
+end
+function pssdeg_sw(x::AbstractArray{<:Real,3},psys::PeriodicStateSpace{PM}, ns::AbstractVector{<:Int}) where {PM <: PeriodicArray}
+    F = convert(PeriodicArray,SwitchingPeriodicArray(x, ns, psys.period))
+   #@show F
+   temp = psys.A+psys.B*F*psys.C
+   return maximum(abs.(psceig(temp)))
+end
+"""
+    pdpofstab_hr(psys, nh = 0; vinit, optimizer, maxit, vtol, Jtol, gtol, show_trace) -> (Fstab,info)
+
+For a discrete-time periodic system `psys = (A(t), B(t), C(t), D(t))` of period `T` determine a periodic output feedback gain matrix 
+`Fstab(t)` of the same period,  
+such that the characteristic exponents `Λ` of the closed-loop state-matrix `A(t)+B(t)*Fstab(t)*inv(I-D(t)*Fstab(t))*C(t)` are stable. 
+The matrices of the system `psys` are of type `HarmonicArray`. 
+
+The resulting output feedback gain `Fstab(t)` is of type `PeriodicMatrix` and is
+computed as `Fstab(t) = inv(I+F(t)D(t))*F(t)`, with `F(t)`, of type `PeriodicMatrix`,
+built by sampling, with the sample time `Δ = abs(psys.Ts)`, the harmonic representation form 
+
+                  nh
+    Fh(t) = F0 +  ∑ ( Fc_i*cos(i*t*2*π/T)+Fs_i*sin(i*2*π*t/T) ) ,
+                 i=1 
+
+where `F0` is the constant term, `Fc_i` is the `i`-th cosinus coefficient matrix and `Fs_i` is the `i`-th sinus coefficient matrix. 
+`F(t)` is defined as  `F(t) = Fh((Δ(i-1))`)' for t ∈ [Δ(i-1), Δi), i = 1, ..., T/Δ. 
+By default, the number of harmonics is `nh = 0` (i.e., constant output feedback is used). 
+The corresponding closed-loop periodic system can be obtained using the function [`psfeedback`](@ref).
+
+For the determination of the optimal feedback gains `F0`, `Fc_i` and `Fs_i` for `i = 1, ...., nh` 
+an optimization-based approach is employed using using 
+tools available in the optimization package [`Optim.jl`](https://github.com/JuliaNLSolvers/Optim.jl). 
+By default, the gradient-free _Nelder-Mead_ local search method for unconstrained minimizations 
+is employed using the keyword argument setting `optimizer = Optim.NelderMead()`.   
+The alternative gradient-free _Simulated Annealing_ global search method can be selected, 
+`optimizer = Optim.SimulatedAnnealing()`. 
+
+For a system with `m` inputs and `p` outputs, 
+an internal optimization variable `v` is used, formed as an `m*p*(2*nh+1)` dimensional vector 
+`v := [vec(F0); vec(Fc_1); vec(Fs_1), ... ; vec(Fc_nh); vec(Fs_nh)]'. 
+The performance index to be minimized is `J := sdeg(v)`, 
+where `sdeg(v)` is the stability degree defined as the largest modulus of the 
+characteristic exponents 
+of `Af(t) := A(t)+B(t)*F(t)*C(t)`. 
+By default, `v` is initialized as `v = 0` (i.e., a zero array of appropriate dimensions). 
+The keyword argument `vinit = v0` can be used to initialize `v` with an arbitrary `m×p×ns` array `v0`.  
+
+The optimization process is controlled using several keyword parameters. 
+The keyword parameter `maxiter = maxit` can be used to specify the maximum number of iterations to be performed (default: `maxit = 1000`).
+The keyword argument `vtol` can be used to specify the absolute tolerance in 
+the changes of the optimization variable `v` (default: `vtol = 0`). The keyword argument `Jtol` can be used to specify the
+relative tolerance in the changes of the optimization criterion `J` (default: `Jtol = 0`), 
+while `gtol` is the method specific main convergence tolerance (default: `gtol = 1e-3`). 
+With the keyword argument `show_trace = true`,  a trace of the optimization algorithm's state is shown on `stdout` (default `show_trace = false`).   
+(see the documentation of the [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl) package for additional information). 
+
+The returned named tuple `info` contains `(fopt, sdeg0, sdeg, vopt, optres)`, where:
+
+`info.fopt` is the resulting value of the optimal performance `J`;
+
+`info.sdeg0` is the initial stability degree of the closed-loop characteristic exponents;
+
+`info.sdeg` is the resulting stability degree of the closed-loop characteristic exponents;
+
+`info.vopt` is the resulting value of the optimization variable `v`; 
+
+`info.optres` is the result returned by the `Optim.optimize(...)` function of the 
+[`Optim.jl`](https://github.com/JuliaNLSolvers/Optim.jl) package; 
+several functions provided by this package
+can be used to inquire various information related to the optimization results
+(see the documention of this package). 
+"""
+function pdpofstab_hr(psys::PeriodicStateSpace{PM}, nh::Int = 0; vinit::Union{AbstractVector{<:Real},Missing} = missing, 
+                      optimizer = NelderMead(), maxit = 1000, vtol = 0., Jtol = 0., gtol = 1e-3, show_trace = false) where {PM <: PeriodicMatrix}
+   period = psys.period
+   p, m = size(psys)
+
+   A = psys.A; B = psys.B; C = psys.C; 
+   T = eltype(A)
+ 
+   # nh1 = nh+1
+   # pt = p*(2nh+1)
+
+   lx = m*p*(2nh+1)
+   if ismissing(vinit) 
+      x = zeros(lx)
+   else
+      length(vinit) == lx || throw(ArgumentError("length of vinit must be $lx")) 
+      x = copy(vinit)
+   end
+
+
+   smarg = 1-sqrt(eps()); 
+   sdeg0 = pssdeg_hr(x,psys,nh)
+   show_trace && println("initial stability degree = $sdeg0")
+
+   result = optimize(x->pssdeg_hr(x,psys,nh), x, optimizer, 
+       Optim.Options(x_tol = vtol, f_tol = Jtol, g_tol = gtol, iterations = maxit, show_trace=show_trace))
+   xopt = result.minimizer
+   fopt = minimum(result)
+   fopt >= sdeg0  && (@warn "no improvement of stability degree achieved")
+      
+   info = (vopt = xopt, fopt = fopt, sdeg0 = sdeg0, sdeg = fopt, optres = result)
+   Fopt = Kbuild_hr(xopt,psys,nh)
+   fopt < smarg || @warn "no stabilization achieved: increase the number of time values"
+
+   return Fopt, info
+
+end
+function pssdeg_hr(x::AbstractVector{T}, psys::PeriodicStateSpace{PM}, nh::Int) where {T <: Real, PM <: PeriodicMatrix}
+   period = psys.period
+   p, m = size(psys); pm = p*m
+   Ts = abs(psys.Ts)
+   ns = Int(round(period/Ts))
+   ahr = Array{Complex{T},3}(undef, m, p, nh+1)
+   copyto!(view(ahr,1:m,1:p,1),complex.(reshape(view(x,1:pm),p,m)))
+   for i in 1:nh
+      copyto!(view(ahr,1:m,1:p,i+1),complex.(reshape(view(x,i*pm+1:(i+1)*pm),m,p),reshape(view(x,(i+1)*pm+1:(i+2)*pm),m,p)))
+   end
+   K = HarmonicArray{:c,T}(ahr, period, 1)
+   Kt = PeriodicMatrix([tpmeval(K,(i-1)*Ts) for i in 1:ns],period)
+   ptemp = psys.A+psys.B*Kt*psys.C
+   return maximum(abs.(psceig(ptemp)))
+end
+function Kbuild_hr(x::AbstractVector{T}, psys::PeriodicStateSpace{PM}, nh::Int) where {T <: Real, PM <: PeriodicMatrix}
+   period = psys.period
+   p, m = size(psys); pm = p*m
+   Ts = abs(psys.Ts)
+   ns = Int(round(period/Ts))
+   ahr = Array{Complex{T},3}(undef, m, p, nh+1)
+   copyto!(view(ahr,1:m,1:p,1:1),complex.(reshape(view(x,1:pm),p,m)))
+   [copyto!(view(ahr,1:m,1:p,i+1), complex.(view(x,i*pm+1:(i+1)*pm),view(x,(i+1)*pm+1:(i+2)*pm))) for i in 1:nh]
+   K = HarmonicArray{:c,T}(ahr, period, 1)
+   K = PeriodicMatrix([tpmeval(K,(i-1)*Ts) for i in 1:ns],period)
+
+   if iszero(psys.D)
+      return K
+   else
+      temp = inv(I+K*psys.D)*K
+      norm(K) < sqrt(eps(T))*norm(temp) && (@warn "possible unbounded feedback gain")
+      return temp
+   end
+end
+
+
+# function Kbuild_sw(x::AbstractVector{<:Real}, sys::DS, period::Real, ts::AbstractVector{<:Real}) where {DS <: DescriptorStateSpace}
+#    p, m = size(sys); pm = p*m
+#    Ts = abs(sys.Ts)
+#    if iszero(Ts) 
+#       K = PeriodicSwitchingMatrix([reshape(x[i:i+pm-1],m,p) for i in 1:pm:length(x)], ts[1:end], period) 
+#    else
+#       # temp = PeriodicSwitchingMatrix([reshape(x[i:i+pm-1],m,p) for i in 1:pm:length(x)], ts[1:end], period) 
+#       # ns = Int(round(period/Ts))
+#       # K = PeriodicMatrix([tpmeval(temp,(i-1)*Ts) for i in 1:ns],period)
+#       #temp = PeriodicSwitchingMatrix([reshape(x[i:i+pm-1],m,p) for i in 1:pm:length(x)], ts[1:end], period) 
+#       ns = Int.(round.(ts[2:end]/Ts))
+#       ns = [ns; Int(round(period/Ts))]
+#       K = SwitchingPeriodicMatrix([reshape(x[i:i+pm-1],m,p) for i in 1:pm:length(x)],ns,period)
+#    end
+#    return iszero(sys.D) ? K : inv(I+K*sys.D)*K
+# end
 
 

@@ -160,7 +160,7 @@ end
 function psc2d(PMT::Type, psysc::PeriodicStateSpace{PM}, Ts::Real; kwargs...) where {PM <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}} 
     PMT ∈ (PeriodicMatrix, PeriodicArray, SwitchingPeriodicMatrix, SwitchingPeriodicArray) ||
            error("only discrete periodic matrix types allowed")
-    convert(PeriodicStateSpace{PMT}, psc2da(psysc, Ts; kwargs...))
+    convert(PeriodicStateSpace{PMT}, psc2d(psysc, Ts; kwargs...))
 end
 # psc2d(psysc::PeriodicStateSpace{PeriodicTimeSeriesMatrix{:c,T}}, Ts::Real; kwargs...) where {T} = 
 #       psc2d(convert(PeriodicStateSpace{PeriodicFunctionMatrix},psysc), Ts; kwargs...)

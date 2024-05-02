@@ -318,9 +318,9 @@ function pssfeedback(psys::PeriodicStateSpace{PM}, F::PM1, inds = Colon(); negat
    return ps(psys.A+psys.B[:,u1]*FT, psys.B, psys.C + psys.D[:,u1]*FT, psys.D)
 end
 """
-     psyscl = pssofeedback(psys, F, K, inp; negative = false)
+     psyscl = pssofeedback(psys, F, K, (inp, out); negative = false)
 
-Build for a given periodic system `psys` with input vector `u` and output vector `y` and 
+Build for a given periodic system `psys`, with input vector `u` and output vector `y`, 
 a periodic state feedback gain `F(t)` and a periodic Kalman gain `K(t)` the closed-loop periodic system `psyscl`
 corresponding to the memoryless state feedback `u[inp] = F(t)*xe + v` and 
 a full state estimator with state `xe` and inputs `[u[inp]; y[out]]`, where `inp` and `out` 

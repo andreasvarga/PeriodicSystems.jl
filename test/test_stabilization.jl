@@ -15,8 +15,152 @@ using QuadGK
 
 println("Test_stabilization")
 
+@testset "Test_output_feedback_stabilization" begin
 
-@testset "Test_output_feedback_stabilization (discrete-time)" begin
+# Example 1.2 Bittanti-Colaneri
+@variables t
+A = [-1+sin(t) 0; 1-cos(t) -3];
+B = [-1-cos(t); 2-sin(t)];
+C = [0 1];
+D = [0;;]
+Ap = PeriodicSymbolicMatrix(A,2*pi);
+Bp = PeriodicSymbolicMatrix(B,2*pi);
+Cp = PeriodicSymbolicMatrix(C,2*pi);
+Dp = PeriodicSymbolicMatrix(D,2*pi);
+#k = 1; R = PeriodicSymbolicMatrix([−1+sin(t) −k−k*cos(t); 1-cos(t) −3+2k−k*sin(t)],2pi)
+
+
+psys = convert(PeriodicStateSpace{PeriodicFunctionMatrix},ps(Ap,Bp,Cp,Dp))
+
+@time Kopt, info = pcpofstab_sw(psys)
+psyscl = psfeedback(psys, Kopt; negative=false);
+@test maximum(real(pspole(psyscl,100))) ≈ info.sdeg
+
+@time Kopt, info = pcpofstab_sw(psys, optimizer = SimulatedAnnealing())
+psyscl = psfeedback(psys, Kopt; negative=false);
+@test maximum(real(pspole(psyscl,100))) ≈ info.sdeg
+
+@time Kopt, info = pcpofstab_sw(psys,gtol = 1.e-5, vinit = info.vopt)
+psyscl = psfeedback(psys, Kopt; negative=false);
+@test maximum(real(pspole(psyscl,100))) ≈ info.sdeg
+
+
+@time Kopt, info = pcpofstab_sw(psys,[0.,pi],K=200)
+psyscl = psfeedback(psys, Kopt; negative=false);
+@test maximum(real(pspole(psyscl,200))) ≈ info.sdeg
+
+
+psys = convert(PeriodicStateSpace{HarmonicArray},ps(Ap,Bp,Cp,Dp))
+@time Kopt, info = pcpofstab_hr(psys)
+psyscl = psfeedback(psys, Kopt; negative=false);
+@test maximum(real(pspole(psyscl,100))) ≈ info.sdeg
+
+@time Kopt, info = pcpofstab_hr(psys, optimizer = SimulatedAnnealing())
+psyscl = psfeedback(psys, Kopt; negative=false);
+@test maximum(real(pspole(psyscl,100))) ≈ info.sdeg
+
+@time Kopt, info = pcpofstab_hr(psys,gtol = 1.e-5, vinit = info.vopt)
+psyscl = psfeedback(psys, Kopt; negative=false);
+@test maximum(real(pspole(psyscl,100))) ≈ info.sdeg
+
+
+@time Kopt, info = pcpofstab_hr(psys,1,K=200)
+psyscl = psfeedback(psys, Kopt; negative=false);
+@test maximum(real(psceig(psyscl.A,200))) ≈ info.sdeg
+# @test maximum(real(pspole(psyscl,20))) ≈ info.sdeg # this fails to compute correct poles!!
+
+
+psysd = psc2d(psys,psys.period*0.01)
+psysd1 = psc2d(PeriodicMatrix,psys,psys.period*0.01)
+
+@time Kdopt, infod = pdpofstab_sw(psysd; gtol = 1.e-4,optimizer = SimulatedAnnealing())
+psyscld = psfeedback(psysd, Kdopt; negative=false)
+@test abs(maximum(abs.(pspole(psyscld)))-infod.sdeg) < 1.e-5
+
+@time Kdopt, infod = pdpofstab_sw(psysd; gtol = 1.e-6)
+psyscld = psfeedback(psysd, Kdopt; negative=false)
+@test abs(maximum(abs.(pspole(psyscld)))-infod.sdeg) < 1.e-5
+
+@time Kdopthr, infodhr = pdpofstab_hr(psysd1; gtol = 1.e-6)
+psyscld = psfeedback(psysd1, Kdopthr; negative=false)
+@test abs(maximum(abs.(pspole(psyscld)))-infodhr.sdeg) < 1.e-5 && infod.sdeg ≈ infodhr.sdeg
+
+@time Kdopt2, infod2 = pdpofstab_sw(psysd,[50,100]; gtol = 1.e-6)
+psyscld = psfeedback(psysd, Kdopt2; negative=false)
+@test abs(maximum(abs.(pspole(psyscld)))-infod2.sdeg) < 1.e-5 && infod2.sdeg < infod.sdeg
+
+@time Kdopthr1, infodhr1 = pdpofstab_hr(psysd1,1; gtol = 1.e-6)
+psyscld = psfeedback(psysd1, Kdopthr1; negative=false)
+@test abs(maximum(abs.(pspole(psyscld)))-infodhr1.sdeg) < 1.e-5 && infodhr1.sdeg < infodhr.sdeg
+
+
+# Belgian chocolate problem  
+# Bittanti-Colaneri, p. 35-38 
+δ = 0.9
+a = [0 1; -1 2δ]; b = [0;1;;]; c = [-2 2δ]; d = [1;;]
+sys = dss(a,b,c,d)
+#sysd = c2d(sys,0.01)[1]
+# sys0 = dss(a,b,c,0*d)
+
+
+K1 = -4.22; K2 = 2.12; K = PeriodicSwitchingMatrix([[K1],[K2]],[0.,1.],2)
+K0 = inv(I+K)*K
+
+psyscl = psfeedback(sys, K0; negative=false)
+eig = pspole(psyscl)
+@test maximum(real.(eig)) < 0
+
+psys = ps(sys,2)
+@time Kopt, info = pcpofstab_sw(psys,[0.,1.]; optimizer = SimulatedAnnealing())
+psyscl = psfeedback(psys, Kopt; negative=false)
+@test maximum(real(pspole(psyscl,100))) ≈ info.sdeg
+
+@time Kopt, info = pcpofstab_sw(psys,[0.,1.]; vinit = reshape([K1;K2],1,1,2))
+psyscl = psfeedback(psys, Kopt; negative=false)
+@test maximum(real(pspole(psyscl,100))) ≈ info.sdeg
+
+sys0 = dss(a,b,c,0*d)
+sys01 = dss(a,b,c,0.1*d)
+psyshr = ps(HarmonicArray,sys,2)
+psyshr0 = ps(HarmonicArray,sys0,2)
+psyshr01 = ps(HarmonicArray,sys01,2)
+
+# not stabilizable with constant feedback
+@time Fhr, infohr = pcpofstab_hr(psyshr0, K = 100, Jtol = 0.001, gtol = 1.e-4);
+@test infohr.sdeg > 0
+
+# stabilization with first order harmonic gain possible if D = 0
+@time Fhr, infohr = pcpofstab_hr(psyshr0, 1; K = 100, Jtol = 0.001, gtol = 1.e-4);
+psyscl = psfeedback(psyshr0, Fhr; negative=false)
+eig = pspole(psyscl,20)
+@test maximum(real(eig)) ≈ infohr.sdeg
+
+# stabilization with first order harmonic gain not possible if D = 1, because unbounded gain
+@time Fhr, infohr = pcpofstab_hr(psyshr, 1; K = 100, Jtol = 0.001, gtol = 1.e-8)
+K = PeriodicSystems.Kbuild_hr(infohr.vopt,psyshr.D,1;PFM = true) # determine gain as a periodic function matrix
+@test norm(K(1.3793564585209916)) > 1.e5
+
+# stabilization of a discretized system
+sysd = c2d(sys,0.01)[1]
+psysd = ps(PeriodicMatrix,sysd,2)
+#sysd = rss(3,2,2;disc = true,Ts = 0.01)  # needs DescriptorSystems v1.3.8
+@time Kdopt, infod = pdpofstab_hr(psysd,1; gtol = 1.e-5,optimizer = SimulatedAnnealing())
+psyscld = psfeedback(psysd, Kdopt; negative=false)
+@test abs(maximum(abs.(pspole(psyscld)))-infod.sdeg) < 1.e-5
+@time Kdopt, infod = pdpofstab_hr(psysd,1,vinit = infod.vopt, gtol = 1.e-6)
+psyscld = psfeedback(psysd, Kdopt; negative=false)
+@test abs(maximum(abs.(pspole(psyscld)))-infod.sdeg) < 1.e-5
+
+sysd = c2d(sys,0.01)[1]
+psysda = ps(PeriodicArray,sysd,2)
+#sysd = rss(3,2,2;disc = true,Ts = 0.01)  # needs DescriptorSystems v1.3.8
+@time Kdoptsw, infodsw = pdpofstab_sw(psysda,[100,200]; gtol = 1.e-4,optimizer = SimulatedAnnealing())
+psyscld = psfeedback(psysda, Kdoptsw; negative=false)
+@test abs(maximum(abs.(pspole(psyscld)))-infodsw.sdeg) < 1.e-5
+
+end
+
+@testset "Test_optimal_output_feedback_stabilization (discrete-time)" begin
 
 
 # Pitelkau's example

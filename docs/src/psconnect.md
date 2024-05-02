@@ -7,6 +7,8 @@
 * **[`psvertcat`](@ref)**  Vertical concatenation of periodic systems.
 * **[`psinv`](@ref)**  Inversion of periodic systems.
 * **[`psfeedback`](@ref)**  Periodic output feedback connections.
+* **[`pssfeedback`](@ref)**  Periodic state feedback connection.
+* **[`pssofeedback`](@ref)**  Periodic state feedback with state estimator connection.
 
 
 ```@docs
@@ -17,4 +19,6 @@ pshorzcat
 psvertcat
 psinv
 psfeedback
+pssfeedback
+pssofeedback
 ```

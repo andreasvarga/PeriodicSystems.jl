@@ -21,6 +21,7 @@ pspole(psys::PeriodicStateSpace{<: PeriodicTimeSeriesMatrix}, N::Int = 10; metho
 pspole(psys::PeriodicStateSpace{<: PeriodicSwitchingMatrix}) = psceig(psys.A)
 pspole(psys::PeriodicStateSpace{<: SwitchingPeriodicMatrix}) = psceig(convert(PeriodicMatrix,psys.A))
 pspole(psys::PeriodicStateSpace{<: HarmonicArray}, N::Int = 10; kwargs...) = psceighr(psys.A, N; kwargs...)
+#pspole(psys::PeriodicStateSpace{<: HarmonicArray}, N::Int = 10; kwargs...) = psceig(psys.A, N; kwargs...)  # fallback version
 pspole(psys::PeriodicStateSpace{<: FourierFunctionMatrix}, N::Int = 10; kwargs...)  = psceigfr(psys.A, N; kwargs...)
 """
     pszero(psys::PeriodicStateSpace{HarmonicArray}[, N]; P, atol, rtol, fast) -> val
