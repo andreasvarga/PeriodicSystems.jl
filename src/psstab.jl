@@ -338,7 +338,6 @@ function pdkegw(psys::PeriodicStateSpace{PM}, Qw, Rv, Sn = missing; kwargs...) w
       Sb = Bw*(Qt'+Sn)
    end
 
-
    _, EVALS, L = pfdric(psys.A, psys.C, Rb, Qb, Sb; kwargs...)
    EVALS = complex(EVALS).^(1/L.dperiod)
    return L, EVALS
@@ -602,7 +601,7 @@ function pdlqofc(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, R::
    ismissing(vinit) ? x = zeros(mu,p,N) : x = copy(vinit)
    A = psys.A; Bu = psys.B[:,1:mu]; C = psys.C; 
    F0 = PeriodicArray(x, A.period)
-   stlim = 1-sqrt(eps()); 
+   stlim = 1-sqrt(eps())
    sdeg0 = maximum(abs.(pseig(A+Bu*F0*C)))
    if sdeg < 1 
       scal = 1/(sdeg^(1/N)); A = psys.A*scal; Bu = Bu*scal
@@ -636,16 +635,14 @@ function pdlqofc(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, R::
             Matrix{Float64}(undef,4*N,4), Vector{Float64}(undef,4*N), Matrix{Float64}(undef,8,8),
             qr_ws, QROrmWs(zeros(4), qr_ws.τ))
 
-   evs = sd
    Bu = psys.B[:,1:mu]
    if sd >= stlim
       nit = 10
       it = 1
-      evs = sd
+      evs =  max(sd,1)
       while it <= nit && evs >= 1 
-           #scal0 = max(evs*1.01,0.99)
-           scal0 = evs*1.01
-         #@show it, evs
+            #scal0 = max(evs*1.01,0.99)
+            scal0 = evs*1.01
             scal = 1/(scal0^(1/N)); 
             As = scal*A; Bsu = scal*Bu; 
             par = (As, Bsu, C, R, Q, S, GR, WORK, WORK1, WORK2)
@@ -663,7 +660,6 @@ function pdlqofc(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, R::
             evs = maximum(abs.(pseig(psys.A+Bu*KK*C)))
       end
       it <= nit || error("no stable initial feedback gain could be determined: Aborting")
-      #show_trace && println("initial stability degree = $sdeg0")
    end
    if isnothing(optimizer)
       xopt = x
@@ -910,12 +906,12 @@ function pdlqofc_sw(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
             Matrix{Float64}(undef,4*N,4), Vector{Float64}(undef,4*N), Matrix{Float64}(undef,8,8),
             qr_ws, QROrmWs(zeros(4), qr_ws.τ))
 
-   evs = sd
+   #evs = sd
    Bu = psys.B[:,1:mu]
    if sd >= stlim
       nit = 10
       it = 1
-      evs = sd
+      evs = max(sd,1)
       while it <= nit && evs >= 1 
             scal0 = evs*1.01
             scal = 1/(scal0^(1/N)); 
@@ -1343,15 +1339,10 @@ function pclqofcswfungrad!(Fun,Grad,x,par)
 end
 
 function fungradsw!(Fun, Grad, K, x, A::PM, B::PM, C::PM, R, Q, ts, X0, options) where {PM <: PeriodicFunctionMatrix}
-   #@show Fun, Grad, x
    period = A.period
    F = convert(PeriodicFunctionMatrix,PeriodicSwitchingMatrix(x, ts, period))
    FC = F*C
    Ar = A+B*FC
-   # perform preliminary fast stability check on the averaged matrix 
-   #@show maximum(real(eigvals(pmaverage(Ar))))
-   #@show psceig(Ar,100)
-   #maximum(real(eigvals(pmaverage(Ar)))) > 0 && (return 1.e20)
    RFC = R*FC
    QR = pmmultraddsym(Q,FC,RFC)  
    quad = options.quad
@@ -1369,12 +1360,10 @@ function fungradsw!(Fun, Grad, K, x, A::PM, B::PM, C::PM, R, Q, ts, X0, options)
    end
    Z, Y = try
       pgclyap2(Ar, X0, QR, K; solver = options.solver, reltol = options.reltol, abstol = options.abstol, dt = options.dt, stability_check = true)
-      #X = pclyap(Ar, QR; K, adj = true, solver = "non-stiff", reltol = 1e-7, abstol = 1e-7, dt = 0, stability_check = true)
    catch te
       isnothing(findfirst("stability",te.msg)) && (@show te; error("unknown error"))
       return 1.e20
    end
-   #@show tr(Y(0)*X0)
    if !isnothing(Grad)
       #   Grad = 2*(B'*pmshift(X)*Ar + RFC + ST)*Y*C'
       if K >= 32
@@ -1403,13 +1392,10 @@ function fungradsw!(Fun, Grad, K, x, A::PM, B::PM, C::PM, R, Q, ts, X0, options)
       for i = 1:Ns
           t0 = ts[i]; tf = i < Ns ? ts[i+1] : A.period   
           if quad
-            #@showtime t,err,nr = QuadGK.quadgk_count(t-> 2*(B(t)'*P(t)+RFC(t))*X(t)*C(t)', t0, tf, rtol=1e-5);  Grad[:,:,i] .= t
-            #@show err, nr
-             Grad[:,:,i] .= QuadGK.quadgk(t-> 2*(B(t)'*P(t)+RFC(t))*X(t)*C(t)', t0, tf, rtol=1e-5)[1]
+            Grad[:,:,i] .= QuadGK.quadgk(t-> 2*(B(t)'*P(t)+RFC(t))*X(t)*C(t)', t0, tf, rtol=1e-5)[1]
           else    
              Grad[:,:,i] = tvgrad!(V, Ar, B, C, RFC, P, tf, t0; solver = options.solver, reltol = options.reltol, abstol = options.abstol, dt = options.dt) 
           end
-          #Grad[:,:,i] .= tvgrad!(V, Ar, B, C, R, F, P, tf, t0; solver = options.solver, reltol = options.reltol, abstol = options.abstol, dt = options.dt) 
       end
   end
 
@@ -1422,27 +1408,27 @@ function Kbuild_sw(x::AbstractArray{T,3}, D::PM, ts) where {T, PM <: PeriodicFun
    return iszero(D) ? K : inv(I+K*convert(PeriodicSwitchingMatrix,D[:,1:mu]))*K
 end
 
-"""
-       tvgrad(A, B, C, R, F, P, V, tf, to; solver, reltol, abstol, dt) ->  G 
- 
-Cmpute the gradient of the objective function for a linear-quadratic problem for a closed-loop system (A(t),B(t),C(t),0) with output feedback. 
-by integrating for tf > t0, jointly the differential matrix Lyapunov equation
-
-            . 
-            X(t) = A(t)*X(t)+X(t)*A'(t), X(t0) = V
-
-    and
-
-            .
-            G(t) = 2*(B'(t)*P(t)+R(t)*F*C(t))*X(t)*C'(t),  G(t0) = 0;
-   
-
-The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
-together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt' (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
-"""
 function tvgrad!(V, A::PM, B::PM, C::PM, RFC::PM, P::PFM, tf, t0; solver = options.solver, reltol = options.reltol, abstol = options.atol, dt = options.dt) where 
    {PM <: Union{PeriodicFunctionMatrix,HarmonicArray}, PFM <: PeriodicFunctionMatrix}
+   """
+   tvgrad!(A, B, C, R, F, P, V, tf, to; solver, reltol, abstol, dt) ->  G 
+
+   Compute the gradient of the objective function for a linear-quadratic problem for a closed-loop system (A(t),B(t),C(t),0) with output feedback. 
+   by integrating for tf > t0, jointly the differential matrix Lyapunov equation
+      
+              . 
+              X(t) = A(t)*X(t)+X(t)*A'(t), X(t0) = V
+      
+   and
+      
+              .
+              G(t) = 2*(B'(t)*P(t)+R(t)*F*C(t))*X(t)*C'(t),  G(t0) = 0;
+      
+      
+   The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
+   together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
+   absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt' (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+   """    
     n = size(A,1)   
     n == size(A,2) || error("the periodic matrix A must be square")
     n == size(C,2) || error("the periodic matrix C must have same number of columns as A")
@@ -1711,16 +1697,14 @@ function pclqofc_hr(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
    #          Matrix{Float64}(undef,4*N,4), Vector{Float64}(undef,4*N), Matrix{Float64}(undef,8,8),
    #          qr_ws, QROrmWs(zeros(4), qr_ws.τ))
    
-   evs = sd
    if sd >= stlim
       shift = min(-sd*1.01,-0.001)
       options = (solver = solver, reltol = reltol, abstol = abstol, N = 128, dt = dt, intpolmeth = "cubic", quad = true)
       nit = 10
       it = 1
-      evs = sd
+      evs = max(sd,0)
       while it <= nit && evs >= 0 
             shift = min(-evs*1.01,-0.001)
-            #@show it, evs
             At = A+shift*I
             par = (K, At, Bu, C, R, Q, X0, options)
             result = optimize(Optim.only_fg!((F,G,x) -> pclqofchrfungrad!(F, G, x, par)), x, stabilizer,
@@ -1744,7 +1728,7 @@ function pclqofc_hr(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
       #fopt = nothing
       fopt = pclqofchrfungrad!(true, nothing, x, par)
       result = nothing
-      Fopt = Kbuild_hr(xopt,psys.D,nh)
+      Fopt = Fbuild_hr(xopt,psys.D,nh)
    else
       maxit = maxiter 
 
@@ -1757,7 +1741,7 @@ function pclqofc_hr(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
       KK = HarmonicArray(reshape(xopt,mu,pt),period)
       sd = maximum(real.(psceig(psys.A+Bu*KK*C,100)))
       fopt = minimum(result)
-      Fopt = Kbuild_hr(xopt,psys.D,nh)
+      Fopt = Fbuild_hr(xopt,psys.D,nh)
    end
       
    info = (vopt = xopt, fopt = fopt, sdeg0 = sdeg0, sdeg = sd, optres = result)
@@ -1772,22 +1756,16 @@ function pclqofchrfungrad!(Fun,Grad,x,par)
 end
 
 function fungradhr!(Fun, Grad, K, x, A::PM, B::PM, C::PM, R, Q, X0, options) where {PM <: HarmonicArray}
-   #@show Fun, Grad, x
    n, m, pt = size(A,1), size(B,2), size(C,1)
    period = A.period
    F = HarmonicArray(reshape(x,m,pt),period)
    FC = F*C
    Ar = A+B*FC
-   # perform preliminary fast stability check on the averaged matrix 
-   #@show maximum(real(eigvals(pmaverage(Ar))))
-   #@show psceig(Ar,100)
-   #maximum(real(eigvals(pmaverage(Ar)))) > 0 && (return 1.e20)
    RFC = R*FC
    QR = pmmultraddsym(Q,FC,RFC)  
    quad = options.quad
 
    #(WSGrad, X, Y, At, xt, QW, pschur_ws) = WORK1
-   #K = 100
    if isnothing(Grad)
       try
          P = pgclyap(Ar, QR, K; adj = true, solver = "options.solver", reltol = options.reltol, abstol = options.abstol, dt = options.dt, stability_check = true)
@@ -1799,23 +1777,19 @@ function fungradhr!(Fun, Grad, K, x, A::PM, B::PM, C::PM, R, Q, X0, options) whe
    end
    Z, Y = try
       pgclyap2(Ar, X0, QR, K; solver = options.solver, reltol = options.reltol, abstol = options.abstol, dt = options.dt, stability_check = true)
-      #X = pclyap(Ar, QR; K, adj = true, solver = "non-stiff", reltol = 1e-7, abstol = 1e-7, dt = 0, stability_check = true)
    catch te
       isnothing(findfirst("stability",te.msg)) && (@show te; error("unknown error"))
       return 1.e20
    end
-   #@show tr(Y(0)*X0)
    if !isnothing(Grad)
       #   Grad = 2*(B'*pmshift(X)*Ar + RFC + ST)*Y*C'
       if K >= 32
          P = convert(PeriodicFunctionMatrix, Y, method = options.intpolmeth)
          if quad 
-            #X = convert(PeriodicFunctionMatrix, Z, method = options.intpolmeth)
             Xts = Z.values
             Xts = [Xts; [Xts[1]-X0]]
             X = PeriodicSystems.ts2fm(Xts, period; method = options.intpolmeth)
          end
-         #@show X(0), X(2pi), X.(collect(0.:period/10:period))
       else
          N = max(options.N,32)
          Yt = PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, Y, Ar, QR; adj = true, solver = options.solver, reltol = options.reltol, abstol = options.abstol, dt = options.dt),period)
@@ -1838,8 +1812,8 @@ function fungradhr!(Fun, Grad, K, x, A::PM, B::PM, C::PM, R, Q, X0, options) whe
 
    isnothing(Fun) ? (return nothing) : (tr(P(0)*X0))
 end
-Kbuild_hr(x::AbstractVector{T}, psys::PeriodicStateSpace{PM}, nh::Int; PFM = false) where {T <: Real, PM <: HarmonicArray} = Kbuild_hr(x,psys.D,nh;PFM)
-function Kbuild_hr(x::AbstractVector{T}, D::PM, nh::Int; PFM = false) where {T <: Real, PM <: HarmonicArray}
+Fbuild_hr(x::AbstractVector{T}, psys::PeriodicStateSpace{PM}, nh::Int; PFM = false) where {T <: Real, PM <: HarmonicArray} = Fbuild_hr(x,psys.D,nh;PFM)
+function Fbuild_hr(x::AbstractVector{T}, D::PM, nh::Int; PFM = false) where {T <: Real, PM <: HarmonicArray}
    period = D.period
    p = size(D,1)
    mu = div(length(x),p*(2nh+1))
@@ -1875,7 +1849,7 @@ end
     pcpofstab_sw(psys, ts = missing; K = 100, vinit, optimizer, maxit, vtol, Jtol, gtol, show_trace) -> (Fstab,info)
 
 For a continuoous-time periodic system `psys = (A(t), B(t), C(t), D(t))` of period `T` determine a periodic output feedback gain matrix 
-`Fstab(t)` of the same period and and switching times `ts`,  
+`Fstab(t)` of the same period and switching times `ts`,  
 such that the characteristic exponents `Λ` of the closed-loop state-matrix `A(t)+B(t)*Fstab(t)*inv(I-D(t)*Fstab(t))*C(t)` are stable. 
 The matrices of the system `psys` are of type `PeriodicFunctionMatrix`. 
 The `ns` switching times contained in the vector `ts` must satisfy `0 = ts[1] < ts[2] < ... < ts[ns] < T`. 
@@ -1895,7 +1869,7 @@ For the determination of the optimal feedback gains `F_i` for `i = 1, ...., ns` 
 tools available in the optimization package [`Optim.jl`](https://github.com/JuliaNLSolvers/Optim.jl). 
 By default, the gradient-free _Nelder-Mead_ local search method for unconstrained minimizations 
 is employed using the keyword argument setting `optimizer = Optim.NelderMead()`.   
-The alternative gradient-free _Simulated Annealing_ global search method can be selected, 
+The alternative gradient-free _Simulated Annealing_ global search method can be selected with
 `optimizer = Optim.SimulatedAnnealing()`. 
 
 For a system with `m` inputs and `p` outputs, 
@@ -2009,18 +1983,18 @@ an optimization-based approach is employed using using
 tools available in the optimization package [`Optim.jl`](https://github.com/JuliaNLSolvers/Optim.jl). 
 By default, the gradient-free _Nelder-Mead_ local search method for unconstrained minimizations 
 is employed using the keyword argument setting `optimizer = Optim.NelderMead()`.   
-The alternative gradient-free _Simulated Annealing_ global search method can be selected, 
+The alternative gradient-free _Simulated Annealing_ global search method can be selected with 
 `optimizer = Optim.SimulatedAnnealing()`. 
 
 For a system with `m` inputs and `p` outputs, 
 an internal optimization variable `v` is used, formed as an `m*p*(2*nh+1)` dimensional vector 
-`v := [vec(F0); vec(Fc_1); vec(Fs_1), ... ; vec(Fc_nh); vec(Fs_nh)]'. 
+`v := [vec(F0); vec(Fc_1); vec(Fs_1), ... ; vec(Fc_nh); vec(Fs_nh)]`. 
 The performance index to be minimized is `J := sdeg(v)`, 
 where `sdeg(v)` is the stability degree defined as the largest real part of the characteristic exponents 
 of `Af(t) := A(t)+B(t)*F(t)*C(t)`. The keyword argument `K` is the number of factors used to express the monodromy matrix of `Af(t)` (default: `K = 100`), 
 when evaluating the characteristic exponents.   
 By default, `v` is initialized as `v = 0` (i.e., a zero array of appropriate dimensions). 
-The keyword argument `vinit = v0` can be used to initialize `v` with an arbitrary `m×p×ns` array `v0`.  
+The keyword argument `vinit = v0` can be used to initialize `v` with an arbitrary `m*p*(2*nh+1)` array `v0`.  
 
 The optimization process is controlled using several keyword parameters. 
 The keyword parameter `maxiter = maxit` can be used to specify the maximum number of iterations to be performed (default: `maxit = 1000`).
@@ -2078,7 +2052,7 @@ function pcpofstab_hr(psys::PeriodicStateSpace{PM}, nh::Int = 0; K = 100, vinit:
    fopt >= sdeg0  && (@warn "no improvement of stability degree achieved")
       
    info = (vopt = xopt, fopt = fopt, sdeg0 = sdeg0, sdeg = fopt, optres = result)
-   Fopt = Kbuild_hr(xopt,psys.D,nh)
+   Fopt = Fbuild_hr(xopt,psys.D,nh)
    fopt < smarg || @warn "no stabilization achieved: increase the number of time values"
 
    return Fopt, info
@@ -2122,7 +2096,7 @@ an optimization-based approach is employed using using
 tools available in the optimization package [`Optim.jl`](https://github.com/JuliaNLSolvers/Optim.jl). 
 By default, the gradient-free _Nelder-Mead_ local search method for unconstrained minimizations 
 is employed using the keyword argument setting `optimizer = Optim.NelderMead()`.   
-The alternative gradient-free _Simulated Annealing_ global search method can be selected, 
+The alternative gradient-free _Simulated Annealing_ global search method can be selected with
 `optimizer = Optim.SimulatedAnnealing()`. 
 
 For a system with `m` inputs and `p` outputs, 
@@ -2197,8 +2171,7 @@ function pdpofstab_sw(psys::PeriodicStateSpace{PM}, ns::Union{AbstractVector{<:I
    return Fopt, info
 end
 function pssdeg_sw(x::AbstractArray{<:Real,3},psys::PeriodicStateSpace{PM}, ns::AbstractVector{<:Int}) where {PM <: PeriodicArray}
-    F = convert(PeriodicArray,SwitchingPeriodicArray(x, ns, psys.period))
-   #@show F
+   F = convert(PeriodicArray,SwitchingPeriodicArray(x, ns, psys.period))
    temp = psys.A+psys.B*F*psys.C
    return maximum(abs.(psceig(temp)))
 end
@@ -2228,7 +2201,7 @@ an optimization-based approach is employed using using
 tools available in the optimization package [`Optim.jl`](https://github.com/JuliaNLSolvers/Optim.jl). 
 By default, the gradient-free _Nelder-Mead_ local search method for unconstrained minimizations 
 is employed using the keyword argument setting `optimizer = Optim.NelderMead()`.   
-The alternative gradient-free _Simulated Annealing_ global search method can be selected, 
+The alternative gradient-free _Simulated Annealing_ global search method can be selected with 
 `optimizer = Optim.SimulatedAnnealing()`. 
 
 For a system with `m` inputs and `p` outputs, 
@@ -2239,7 +2212,7 @@ where `sdeg(v)` is the stability degree defined as the largest modulus of the
 characteristic exponents 
 of `Af(t) := A(t)+B(t)*F(t)*C(t)`. 
 By default, `v` is initialized as `v = 0` (i.e., a zero array of appropriate dimensions). 
-The keyword argument `vinit = v0` can be used to initialize `v` with an arbitrary `m×p×ns` array `v0`.  
+The keyword argument `vinit = v0` can be used to initialize `v` with an arbitrary `m*p*(2*nh+1)` array `v0`.  
 
 The optimization process is controlled using several keyword parameters. 
 The keyword parameter `maxiter = maxit` can be used to specify the maximum number of iterations to be performed (default: `maxit = 1000`).
@@ -2274,9 +2247,6 @@ function pdpofstab_hr(psys::PeriodicStateSpace{PM}, nh::Int = 0; vinit::Union{Ab
    A = psys.A; B = psys.B; C = psys.C; 
    T = eltype(A)
  
-   # nh1 = nh+1
-   # pt = p*(2nh+1)
-
    lx = m*p*(2nh+1)
    if ismissing(vinit) 
       x = zeros(lx)
@@ -2297,9 +2267,8 @@ function pdpofstab_hr(psys::PeriodicStateSpace{PM}, nh::Int = 0; vinit::Union{Ab
    fopt >= sdeg0  && (@warn "no improvement of stability degree achieved")
       
    info = (vopt = xopt, fopt = fopt, sdeg0 = sdeg0, sdeg = fopt, optres = result)
-   Fopt = Kbuild_hr(xopt,psys,nh)
+   Fopt = Fbuild_hr(xopt,psys,nh)
    fopt < smarg || @warn "no stabilization achieved: increase the number of time values"
-
    return Fopt, info
 
 end
@@ -2308,52 +2277,34 @@ function pssdeg_hr(x::AbstractVector{T}, psys::PeriodicStateSpace{PM}, nh::Int) 
    p, m = size(psys); pm = p*m
    Ts = abs(psys.Ts)
    ns = Int(round(period/Ts))
-   ahr = Array{Complex{T},3}(undef, m, p, nh+1)
-   copyto!(view(ahr,1:m,1:p,1),complex.(reshape(view(x,1:pm),p,m)))
+   fhr = Array{Complex{T},3}(undef, m, p, nh+1)
+   copyto!(view(fhr,1:m,1:p,1),complex.(reshape(view(x,1:pm),p,m)))
    for i in 1:nh
-      copyto!(view(ahr,1:m,1:p,i+1),complex.(reshape(view(x,i*pm+1:(i+1)*pm),m,p),reshape(view(x,(i+1)*pm+1:(i+2)*pm),m,p)))
+      copyto!(view(fhr,1:m,1:p,i+1),complex.(reshape(view(x,i*pm+1:(i+1)*pm),m,p),reshape(view(x,(i+1)*pm+1:(i+2)*pm),m,p)))
    end
-   K = HarmonicArray{:c,T}(ahr, period, 1)
-   Kt = PeriodicMatrix([tpmeval(K,(i-1)*Ts) for i in 1:ns],period)
-   ptemp = psys.A+psys.B*Kt*psys.C
+   Fhr = HarmonicArray{:c,T}(fhr, period, 1)
+   Fp = PeriodicMatrix([tpmeval(Fhr,(i-1)*Ts) for i in 1:ns],period)
+   ptemp = psys.A+psys.B*Fp*psys.C
    return maximum(abs.(psceig(ptemp)))
 end
-function Kbuild_hr(x::AbstractVector{T}, psys::PeriodicStateSpace{PM}, nh::Int) where {T <: Real, PM <: PeriodicMatrix}
+function Fbuild_hr(x::AbstractVector{T}, psys::PeriodicStateSpace{PM}, nh::Int) where {T <: Real, PM <: PeriodicMatrix}
    period = psys.period
    p, m = size(psys); pm = p*m
    Ts = abs(psys.Ts)
    ns = Int(round(period/Ts))
-   ahr = Array{Complex{T},3}(undef, m, p, nh+1)
-   copyto!(view(ahr,1:m,1:p,1:1),complex.(reshape(view(x,1:pm),p,m)))
-   [copyto!(view(ahr,1:m,1:p,i+1), complex.(view(x,i*pm+1:(i+1)*pm),view(x,(i+1)*pm+1:(i+2)*pm))) for i in 1:nh]
-   K = HarmonicArray{:c,T}(ahr, period, 1)
-   K = PeriodicMatrix([tpmeval(K,(i-1)*Ts) for i in 1:ns],period)
+   fhr = Array{Complex{T},3}(undef, m, p, nh+1)
+   copyto!(view(fhr,1:m,1:p,1:1),complex.(reshape(view(x,1:pm),p,m)))
+   [copyto!(view(fhr,1:m,1:p,i+1), complex.(view(x,i*pm+1:(i+1)*pm),view(x,(i+1)*pm+1:(i+2)*pm))) for i in 1:nh]
+   Fhr = HarmonicArray{:c,T}(fhr, period, 1)
+   Fp = PeriodicMatrix([tpmeval(Fhr,(i-1)*Ts) for i in 1:ns],period)
 
    if iszero(psys.D)
-      return K
+      return Fp
    else
-      temp = inv(I+K*psys.D)*K
-      norm(K) < sqrt(eps(T))*norm(temp) && (@warn "possible unbounded feedback gain")
+      temp = inv(I+Fp*psys.D)*Fp
+      norm(Fp) < sqrt(eps(T))*norm(temp) && (@warn "possible unbounded feedback gain")
       return temp
    end
 end
-
-
-# function Kbuild_sw(x::AbstractVector{<:Real}, sys::DS, period::Real, ts::AbstractVector{<:Real}) where {DS <: DescriptorStateSpace}
-#    p, m = size(sys); pm = p*m
-#    Ts = abs(sys.Ts)
-#    if iszero(Ts) 
-#       K = PeriodicSwitchingMatrix([reshape(x[i:i+pm-1],m,p) for i in 1:pm:length(x)], ts[1:end], period) 
-#    else
-#       # temp = PeriodicSwitchingMatrix([reshape(x[i:i+pm-1],m,p) for i in 1:pm:length(x)], ts[1:end], period) 
-#       # ns = Int(round(period/Ts))
-#       # K = PeriodicMatrix([tpmeval(temp,(i-1)*Ts) for i in 1:ns],period)
-#       #temp = PeriodicSwitchingMatrix([reshape(x[i:i+pm-1],m,p) for i in 1:pm:length(x)], ts[1:end], period) 
-#       ns = Int.(round.(ts[2:end]/Ts))
-#       ns = [ns; Int(round(period/Ts))]
-#       K = SwitchingPeriodicMatrix([reshape(x[i:i+pm-1],m,p) for i in 1:pm:length(x)],ns,period)
-#    end
-#    return iszero(sys.D) ? K : inv(I+K*sys.D)*K
-# end
 
 

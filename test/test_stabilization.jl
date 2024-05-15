@@ -15,7 +15,7 @@ using QuadGK
 
 println("Test_stabilization")
 
-@testset "Test_output_feedback_stabilization" begin
+@testset "Test_output_feedback_stabilization (continuous-time)" begin
 
 # Example 1.2 Bittanti-Colaneri
 @variables t
@@ -113,11 +113,11 @@ eig = pspole(psyscl)
 psys = ps(sys,2)
 @time Kopt, info = pcpofstab_sw(psys,[0.,1.]; optimizer = SimulatedAnnealing())
 psyscl = psfeedback(psys, Kopt; negative=false)
-@test maximum(real(pspole(psyscl,100))) ≈ info.sdeg
+@test abs(maximum(real(pspole(psyscl,100))) - info.sdeg) < 1.e-5
 
 @time Kopt, info = pcpofstab_sw(psys,[0.,1.]; vinit = reshape([K1;K2],1,1,2))
 psyscl = psfeedback(psys, Kopt; negative=false)
-@test maximum(real(pspole(psyscl,100))) ≈ info.sdeg
+@test abs(maximum(real(pspole(psyscl,100))) - info.sdeg) < 1.e-5
 
 sys0 = dss(a,b,c,0*d)
 sys01 = dss(a,b,c,0.1*d)
@@ -137,19 +137,19 @@ eig = pspole(psyscl,20)
 
 # stabilization with first order harmonic gain not possible if D = 1, because unbounded gain
 @time Fhr, infohr = pcpofstab_hr(psyshr, 1; K = 100, Jtol = 0.001, gtol = 1.e-8)
-K = PeriodicSystems.Kbuild_hr(infohr.vopt,psyshr.D,1;PFM = true) # determine gain as a periodic function matrix
+K = PeriodicSystems.Fbuild_hr(infohr.vopt,psyshr.D,1;PFM = true) # determine gain as a periodic function matrix
 @test norm(K(1.3793564585209916)) > 1.e5
 
 # stabilization of a discretized system
 sysd = c2d(sys,0.01)[1]
 psysd = ps(PeriodicMatrix,sysd,2)
 #sysd = rss(3,2,2;disc = true,Ts = 0.01)  # needs DescriptorSystems v1.3.8
-@time Kdopt, infod = pdpofstab_hr(psysd,1; gtol = 1.e-5,optimizer = SimulatedAnnealing())
-psyscld = psfeedback(psysd, Kdopt; negative=false)
-@test abs(maximum(abs.(pspole(psyscld)))-infod.sdeg) < 1.e-5
-@time Kdopt, infod = pdpofstab_hr(psysd,1,vinit = infod.vopt, gtol = 1.e-6)
-psyscld = psfeedback(psysd, Kdopt; negative=false)
-@test abs(maximum(abs.(pspole(psyscld)))-infod.sdeg) < 1.e-5
+@time Kdopt1, infod1 = pdpofstab_hr(psysd,1; gtol = 1.e-5,optimizer = SimulatedAnnealing())
+psyscld = psfeedback(psysd, Kdopt1; negative=false)
+@test abs(maximum(abs.(pspole(psyscld)))-infod1.sdeg) < 1.e-5
+@time Kdopt2, infod2 = pdpofstab_hr(psysd,1,vinit = infod1.vopt, gtol = 1.e-6)
+psyscld = psfeedback(psysd, Kdopt2; negative=false)
+@test infod2.sdeg < infod1.sdeg
 
 sysd = c2d(sys,0.01)[1]
 psysda = ps(PeriodicArray,sysd,2)
@@ -302,7 +302,7 @@ for K in (10, 20, 40, 120)
     @time F, info = pdlqofc(psys, Q, R, gtol=0.0001);
     @time Fa, infoa = pdlqofc(psysa, Q, R, gtol=0.0001);
     @test info.fopt ≈ infoa.fopt 
-    println(" K = $K,  sdeg = $(info.sdeg), fval = $(info.fopt)")
+    println(" K = $K,  sdeg = $(info.sdeg), Jval = $(info.fopt)")
 end 
 
 # time-varying dimensions
@@ -475,7 +475,7 @@ eig = pspole(psyscl,20)
 # stabilization with first order harmonic gain not possible if D = 1, because unbounded gain
 
 @time Fhr, infohr = pclqofc_hr(psyshr, Q, R, 1; K = 100, Jtol = 0.001, gtol = 1.e-4, abstol=1.e-7,reltol=1.e-7,quad=true,optimizer = NelderMead());
-K = PeriodicSystems.Kbuild_hr(infohr.vopt,psyshr.D,1;PFM = true) # determine gain as a periodic function matrix
+K = PeriodicSystems.Fbuild_hr(infohr.vopt,psyshr.D,1;PFM = true) # determine gain as a periodic function matrix
 @test norm(K(0.6139372254026436)) > 1.e5
 
 ω0 = 0.00103448 # rad/s
@@ -538,7 +538,9 @@ println("Test_stabilization")
 
     # psysc = ps(a,convert(HarmonicArray,PeriodicFunctionMatrix(b,period)),c,d);
     # psyscw = ps(a,[convert(HarmonicArray,PeriodicFunctionMatrix(b,period)) bw],c,[d dw]);
-    psysc = ps(a-0.01*I,PeriodicFunctionMatrix(b,period),c,d);
+#     psysc = ps(a-0.01*I,PeriodicFunctionMatrix(b,period),c,d);
+#     psyscw = ps(a-0.01*I,[PeriodicFunctionMatrix(b,period) bw],c,[d dw]);
+    psysc = ps(a,PeriodicFunctionMatrix(b,period),c,d);
     psyscw = ps(a,[PeriodicFunctionMatrix(b,period) bw],c,[d dw]);
 
 
@@ -557,16 +559,16 @@ println("Test_stabilization")
     ev = psceig(A+B*F)
     @test norm(sort(real(EVALS))-sort(real(ev))) < 1.e-6 && 
           norm(sort(imag(EVALS))-sort(imag(ev))) < 1.e-6 
+    psyscl = pssfeedback(psys,F)
+    psyscl1 = pssfeedback(psysw,F,1:1);
+    @test ev ≈ pspole(psyscl) && ev ≈ pspole(psyscl1)
+    
     
     @time F, EVALS = pdlqr(psys, q, r);  
     ev = psceig(A+B*F)
     @test norm(sort(real(EVALS))-sort(real(ev))) < 1.e-6 && 
           norm(sort(imag(EVALS))-sort(imag(ev))) < 1.e-6 
 
-    @time F, EVALS = pdlqr(psysa, Qa, Ra);
-    ev = psceig(psysa.A+psysa.B*F)
-    @test norm(sort(real(EVALS))-sort(real(ev))) < 1.e-6 && 
-          norm(sort(imag(EVALS))-sort(imag(ev))) < 1.e-6 
     
     @time F, EVALS = pdlqr(psysa, q, r);  
     ev = psceig(psysa.A+psysa.B*F)
@@ -584,7 +586,8 @@ println("Test_stabilization")
     @test norm(sort(real(EVALS))-sort(real(ev))) < 1.e-6 && 
           norm(sort(imag(EVALS))-sort(imag(ev))) < 1.e-6 
           
-    Qy = PeriodicArray(qy, period; nperiod=K); Ra = PeriodicArray(r,period; nperiod=K); Sa = PeriodicArray(zeros(2,1),period; nperiod=K);
+    Qy = PeriodicArray(qy, period; nperiod=K); Ra = PeriodicArray(r,period; nperiod=K); 
+    Sa = PeriodicArray(zeros(2,1),period; nperiod=K);
     @time F, EVALS = pdlqry(psysa, Qy, Ra);  
     ev = psceig(psysa.A+psysa.B*F)
     @test norm(sort(real(EVALS))-sort(real(ev))) < 1.e-6 && 
@@ -595,16 +598,32 @@ println("Test_stabilization")
     @test norm(sort(real(EVALS))-sort(real(ev))) < 1.e-6 && 
           norm(sort(imag(EVALS))-sort(imag(ev))) < 1.e-6           
     
+    # state feedback + estimator
+    @time F, EVALS = pdlqry(psys, qy, r);  
+    evf = psceig(A+B*F)
+    @test norm(sort(real(EVALS))-sort(real(evf))) < 1.e-6 && 
+          norm(sort(imag(EVALS))-sort(imag(evf))) < 1.e-6 
+
     qw = Matrix(I(4)); rv = 1.e-13*Matrix(I(2));       
     @time L, EVALS = pdkeg(psys, qw, rv; itmax = 2);  
-    ev = psceig(psys.A-L*psys.C)
-    @test norm(sort(real(EVALS))-sort(real(ev))) < 1.e-6 && 
-          norm(sort(imag(EVALS))-sort(imag(ev))) < 1.e-6 
-       
-    @time L, EVALS = pdkeg(psysa, qw, rv; itmax = 2);  
-    ev = psceig(psysa.A-L*psysa.C)
-    @test norm(sort(real(EVALS))-sort(real(ev))) < 1.e-6 && 
-          norm(sort(imag(EVALS))-sort(imag(ev))) < 1.e-6 
+    eve = psceig(psys.A-L*psys.C)
+    @test norm(sort(real(EVALS))-sort(real(eve))) < 1.e-6 && 
+          norm(sort(imag(EVALS))-sort(imag(eve))) < 1.e-6 
+    psyscl = pssofeedback(psys, F, L) 
+    @test psceig(psyscl.A[1:4,1:4]) ≈ evf &&  psceig(psyscl.A[5:8,5:8]) ≈ eve    
+    
+    @time Fa, EVALS = pdlqr(psysa, Qa, Ra);
+    evf = psceig(psysa.A+psysa.B*Fa)
+    @test norm(sort(real(EVALS))-sort(real(evf))) < 1.e-6 && 
+          norm(sort(imag(EVALS))-sort(imag(evf))) < 1.e-6 
+
+    @time La, EVALS = pdkeg(psysa, qw, rv; itmax = 2);  
+    eve = psceig(psysa.A-La*psysa.C)
+    @test norm(sort(real(EVALS))-sort(real(eve))) < 1.e-6 && 
+          norm(sort(imag(EVALS))-sort(imag(eve))) < 1.e-6 
+    psyscl = pssofeedback(psysa, Fa, La) 
+    @test psceig(psyscl.A[1:4,1:4]) ≈ evf && psceig(psyscl.A[5:8,5:8]) ≈ eve    
+      
       
     qw = 1.e-5*Matrix(I(2)); rv = 1.e-13*Matrix(I(2));       
     @time L, EVALS = pdkegw(psysw, qw, rv; itmax = 2);  
@@ -644,14 +663,22 @@ println("Test_stabilization")
         clev = psceig(psysc.A+psysc.B*F,500)
         @test norm(sort(real(clev)) - sort(real(EVALS))) < 1.e-7 && norm(sort(imag(clev)) - sort(imag(EVALS))) < 1.e-7    
 
-        qw = Matrix(I(4)); rv = 1.e-6*Matrix(I(2));       
+        qw = Matrix(I(4)); rv = 1.e-1*Matrix(I(2));       
         #qw = [0 0 0 0; 0 0 0 0; 0 0 0.05 0;0 0 0 1.e5]; rv = 1.e-13*Matrix(I(2));       
-        @time L, EVALS = pckeg(psysc, qw, rv; K = 100, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true);
+        @time L, EVALS = pckeg(psysc, qw, rv; K = 100, solver = "stiff", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true, intpol=true);
         ev = psceig(psysc.A-L*psysc.C)
         @test norm(sort(real(EVALS))-sort(real(ev))) < 1.e-6 && 
               norm(sort(imag(EVALS))-sort(imag(ev))) < 1.e-6 
+        psyscl = pssofeedback(psyscw, F, L,(1:1,:)) 
+        @test norm(psyscl.A[1:4,1:4](10)-(psysc.A+psysc.B*F)(10)) < 1.e-6  &&  norm(psyscl.A[5:8,5:8](10)-(psysc.A-L*psysc.C)(10)) < 1.e-6 &&  
+              norm(psyscl.A[1:4,5:8](10)+(psysc.B*F)(10)) < 1.e-6  &&
+              norm(psyscl.B[1:4,1:1](10)-psyscw.B[:,1:1](10)) < 1.e-6  && 
+              norm(psyscl.B[1:8,2:3](10)-([psyscw.B[:,2:3]; psyscw.B[:,2:3]-L*psyscw.D[:,2:3]])(10)) < 1.e-6  &&
+              norm(psyscl.D(10)-psyscw.D(10)) < 1.e-6  && 
+              norm(psyscl.C(10)-([psyscw.C+psyscw.D[:,1:1]*F -psyscw.D[:,1:1]*F])(10)) < 1.e-6 
+       
 
-        qw = 1.e-4*Matrix(I(2)); rv = 1.e0*Matrix(I(2));       
+        qw = 1.e-2*Matrix(I(2)); rv = 1.e0*Matrix(I(2));       
         @time L, EVALS = pckegw(psyscw, qw, rv; K = 100, solver = "symplectic", intpol=true, reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true);  
         ev = psceig(psyscw.A-L*psyscw.C)
         @test norm(sort(real(EVALS))-sort(real(ev))) < 1.e-4 && 

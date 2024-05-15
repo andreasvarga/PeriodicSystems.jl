@@ -270,7 +270,7 @@ function Base.getproperty(A::PeriodicArray, d::Symbol)
    end
 end
 Base.propertynames(A::PeriodicArray) = (:dperiod, :Ts, fieldnames(typeof(A))...)
-isconstant(A::PeriodicArray) = (A.dperiod == 1)
+isconstant(A::PeriodicArray) = (A.dperiod == 1) || all([A.M[:,:,1] == A.M[:,:,i] for i in 2:A.dperiod])
 Base.size(A::PeriodicArray) = (size(A.M,1),size(A.M,2))
 Base.size(A::PeriodicArray, d::Integer) = size(A.M,d)
 Base.length(A::PeriodicArray) = A.dperiod
