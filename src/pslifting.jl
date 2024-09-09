@@ -14,9 +14,8 @@ only the input and output vectors are defined over time intervals of length `T`.
 The determination of the standard lifted representation involves forming matrix products 
 (e.g., by explicitly forming the monodromy matrix) and therefore is potentially less suited for numerical computations.  
 
-If cyclic = true, the cyclic reformulation of [3] is used to build a lifted standard system with 
+If `cyclic = true`, the cyclic reformulation of [3] is used to build a lifted standard system with 
 the input, state and output vectors defined over time intervals of length `T`.
-
 
 _References_
 
@@ -114,32 +113,146 @@ function ps2ls(psys::PeriodicStateSpace{<:AbstractPeriodicArray{:d,T}}, kstart::
     end
     cyclic && (return dss(A, B, C, D; Ts))
     if ss 
-       # generate the standard lifted system using residualization formulas for E = [I 0; 0 0]
-       i1 = 1:n; i2 = n+1:N
-       A11 = view(A,i1,i1)
-       A12 = view(A,i1,i2)
-       A21 = view(A,i2,i1)
-       A22 = LowerTriangular(view(A,i2,i2))
-       B1 = view(B,i1,:)
-       B2 = view(B,i2,:)
-       C1 = view(C,:,i1)
-       C2 = view(C,:,i2)
-       # make A22 = I
-       ldiv!(A22,A21)
-       ldiv!(A22,B2)
-       # apply simplified residualization formulas
-       mul!(D, C2, B2, -1, 1)
-       mul!(B1, A12, B2, -1, 1)
-       mul!(C1, C2, A21, -1, 1)
-       mul!(A11, A12, A21, -1, 1)
-       return dss(A11, B1, C1, D; Ts)
-    else
-       # generate the stacked lifted descriptor system of (Grasselli and Longhi, 1991)
-       E = zeros(T, N, N) 
-       copyto!(view(E,1:n,1:n),I)
-       return dss(A, E, B, C, D; Ts)
-    end
+        # generate the standard lifted system using residualization formulas for E = [I 0; 0 0]
+        i1 = 1:n; i2 = n+1:N
+        A11 = view(A,i1,i1)
+        A12 = view(A,i1,i2)
+        A21 = view(A,i2,i1)
+        A22 = LowerTriangular(view(A,i2,i2))
+        B1 = view(B,i1,:)
+        B2 = view(B,i2,:)
+        C1 = view(C,:,i1)
+        C2 = view(C,:,i2)
+        # make A22 = I
+        ldiv!(A22,A21)
+        ldiv!(A22,B2)
+        # apply simplified residualization formulas
+        mul!(D, C2, B2, -1, 1)
+        mul!(B1, A12, B2, -1, 1)
+        mul!(C1, C2, A21, -1, 1)
+        mul!(A11, A12, A21, -1, 1)
+        return dss(A11, B1, C1, D; Ts)
+     else
+        # generate the stacked lifted descriptor system of (Grasselli and Longhi, 1991)
+        E = zeros(T, N, N) 
+        copyto!(view(E,1:n,1:n),I)
+        return dss(A, E, B, C, D; Ts)
+     end
 end
+"""
+     ps2spls(psys::PeriodicStateSpace[, kstart]; cyclic = false) -> sys::DescriptorStateSpace 
+
+Build the discrete-time lifted LTI system equivalent to a discrete-time periodic system. 
+
+For a discrete-time periodic system `psys = (A(t),B(t),C(t),D(t))` with period `T` and sample time `Ts`, 
+the equivalent stacked (see [1]) LTI descriptor state-space representation 
+`sys = (As-λEs,Bs,Cs,Ds)` is built, with the input, state and output vectors defined over time intervals of length `T` (instead `Ts`).  
+The optional argument `kstart` specifies a desired time to start the sequence of periodic matrices (default: `kstart = 1`).
+The matrices `As`, `Es`, `Bs`, `Cs` and `Ds` are sparce matrices as defined within the 
+[SparseArrays.jl](https://github.com/JuliaSparse/SparseArrays.jl) package. 
+
+If `cyclic = true`, the cyclic reformulation of [2] is used to build a lifted standard system with 
+the input, state and output vectors defined over time intervals of length `T`.
+
+_References_
+
+[1] O. M. Grasselli and S. Longhi. Finite zero structure of linear periodic discrete-time systems. 
+    Int. J. Systems Sci., 22:1785–1806,  1991.
+
+[2] D. S. Flamm. A new shift-invariant representation for periodic systems, 
+    Systems and Control Letters, 17:9–14, 1991.
+"""
+function ps2spls(psys::PeriodicStateSpace{<:AbstractPeriodicArray{:d,T}}, kstart::Int = 1; cyclic::Bool = false) where {T}
+    (pa, pb, pc, pd) = (psys.A.dperiod, psys.B.dperiod, psys.C.dperiod, psys.D.dperiod)
+    (na, nb, nc, nd) = (psys.A.nperiod, psys.B.nperiod, psys.C.nperiod, psys.D.nperiod)
+    ndx, nx = size(psys.A)
+    p, m = size(psys)
+    patype = length(nx) == 1 
+    Ts = psys.A.Ts
+    K = pa*na  # number of blocks
+    N = patype ? nx[1]*pa*na : sum(nx)*na  # dimension of lifted state vector 
+    M = K*m
+    P = K*p
+    B = SparseArrays.spzeros(T, N, M) 
+    # n = patype ? ndx[1] : ndx[mod(kstart+pb-2,pb)+1]
+    # copyto!(view(B,1:n,M-m+1:M),getpm(psys.B,kstart+pb-1,pb))
+    n = patype ? ndx[1] : ndx[mod(kstart-2,pa)+1]
+    copyto!(view(B,1:n,M-m+1:M),getpm(psys.B,kstart-1,pb))
+    i1 = n+1
+    j1 = 1
+    pbc = pb
+    for i = 1:nb
+        k = kstart
+        i == nb && (pbc = pb-1)
+        for j = 1:pbc
+            jj = patype ? 1 : mod(k-1,pa)+1
+            i2 = i1+ndx[jj]-1 
+            j2 = j1+m-1
+            copyto!(view(B,i1:i2,j1:j2),getpm(psys.B,k,pb))
+            k += 1
+            i1 = i2+1
+            j1 = j2+1 
+        end
+    end
+    C = SparseArrays.spzeros(T, P, N) 
+    i1 = 1
+    j1 = 1
+    for i = 1:nc
+        k = kstart
+        for j = 1:pc
+            jj = patype ? 1 : mod(k-1,pa)+1
+            i2 = i1+p-1
+            j2 = j1+nx[jj]-1
+            copyto!(view(C,i1:i2,j1:j2),getpm(psys.C,k,pc)) 
+            k += 1
+            i1 = i2+1
+            j1 = j2+1 
+        end
+    end
+    D = SparseArrays.spzeros(T, P, M) 
+    i1 = 1
+    j1 = 1
+    for i = 1:nd
+        k = kstart
+        for j = 1:pd
+            i2 = i1+p-1
+            j2 = j1+m-1
+            copyto!(view(D,i1:i2,j1:j2),getpm(psys.D,k,pd))
+            k += 1
+            i1 = i2+1
+            j1 = j2+1 
+        end
+    end
+    A = SparseArrays.spzeros(T, N, N) 
+    nf = patype ? nx[1] : nx[mod(kstart-2,pa)+1]   
+    copyto!(view(A,1:n,N-nf+1:N),getpm(psys.A,kstart-1,pa))
+    i1 = n+1
+    j1 = 1
+    pac = pa
+    U = -I
+    for i = 1:na
+        k = kstart
+        i == na && (pac = pa-1)
+        for j = 1:pac
+            jj = patype ? 1 : mod(k-1,pa)+1
+            jj1 = patype ? 1 : mod(k,pa)+1
+            i2 = i1+ndx[jj]-1
+            j2 = j1+nx[jj]-1
+            copyto!(view(A,i1:i2,j1:j2),getpm(psys.A,k,pa))
+            cyclic || copyto!(view(A,i1:i2,j2+1:j2+nx[jj1]),U)
+            k += 1
+            i1 = i2+1
+            j1 = j2+1 
+        end
+    end
+    cyclic && (return dss(A, B, C, D; Ts))
+    # cyclic && (return A, I, B, C, D)
+    # generate the stacked lifted descriptor system of (Grasselli and Longhi, 1991)
+    E = SparseArrays.spzeros(T, N, N) 
+    copyto!(view(E,1:n,1:n),I)
+    return dss(A, E, B, C, D; Ts)
+end
+
 function ps2ls1(psys::PeriodicStateSpace{PeriodicMatrix{:d,T}}, kstart::Int = 1; ss::Bool = false, cyclic::Bool = false) where {T}
     pa = psys.A.dperiod
     na = psys.A.nperiod
@@ -373,14 +486,16 @@ Generally, for given `P ≥ 1` and  `nperiod ≥ 1`, the block Toeplitz matrix `
 with `np = P*nperiod`, such that each `A_i` is preceeded in its column by `np-1` zero blocks, 
 each `A_{-i}` is preceeded in its row by `np-1` zero blocks and all diagonal blocks are equal to`A_0`.   
 """
-function hr2bt(A::HarmonicArray, N::Int; P::Int = 1, nperiod::Int = A.nperiod)
+function hr2bt(A::HarmonicArray, N::Int; P::Int = 1, nperiod::Int = A.nperiod, nh::Int = size(A.values,3)-1)
     N > 0 || error("the number of harmonic components must be nonnegative, got $N")
     #(nperiod < 1 || nperiod > A.nperiod) && error("number of subperiods must be between 1 and $(A.nperiod), got $nperiod")
-    nperiod < 1  && error("number of subperiods must be between 1 and $(A.nperiod), got $nperiod")
-    P < 1 && error("number of period must be at least 1, got $P")
+    nperiod < 1  && throw(ArgumentError("number of subperiods must be between 1 and $(A.nperiod), got $nperiod"))
+    P < 1 && throw(ArgumentError("number of periods must be at least 1, got $P"))
+    nh < 0 && throw(ArgumentError("number of harmonics must be non-negative, got $nh"))
     T = promote_type(Float64,eltype(A))
-    p = size(A.values,3)-1
-    p < 0 && (return zeros(complex(T),0,0))
+    # p = size(A.values,3)-1
+    # p < 0 && (return zeros(complex(T),0,0))
+    p = min(nh,size(A.values,3)-1)
     m, n = size(A)
     np = P*nperiod
     nb = 2*N*np+1
@@ -421,6 +536,100 @@ function hr2bt(A::HarmonicArray, N::Int; P::Int = 1, nperiod::Int = A.nperiod)
     end
     return BT
 end
+function hrc2bt(C::HarmonicArray, N::Int; P::Int = 1, nperiod::Int = C.nperiod, nh::Int = size(C.values,3)-1)
+    N > 0 || error("the number of harmonic components must be nonnegative, got $N")
+    #(nperiod < 1 || nperiod > A.nperiod) && error("number of subperiods must be between 1 and $(A.nperiod), got $nperiod")
+    nperiod < 1  && throw(ArgumentError("number of subperiods must be between 1 and $(A.nperiod), got $nperiod"))
+    P < 1 && throw(ArgumentError("number of periods must be at least 1, got $P"))
+    nh < 0 && throw(ArgumentError("number of harmonics must be non-negative, got $nh"))
+    T = promote_type(Float64,eltype(C))
+    # p = size(A.values,3)-1
+    # p < 0 && (return zeros(complex(T),0,0))
+    p = nh
+    m, n = size(C)
+    np = P*nperiod
+    nb1 = 4*N*np+1
+    nb2 = 2*N+1
+    CT = zeros(complex(T),nb1*m,nb2*n)
+    i1 = p*m*np+1
+    i2 = i1+m-1
+    j1, j2 = 1, n
+    CT[i1:i2,j1:j2] = C.values[:,:,1] # the diagonal A0
+    kim1 = i1-m*np
+    kim2 = kim1+m-1
+    ki1 = i1+m*np
+    ki2 = ki1+m-1
+    for k = 1:p
+        CT[kim1:kim2,j1:j2] = C.values[:,:,k+1]/2           # this is A_{-k} := (Ac_k+im*As_k)/2 
+        CT[ki1:ki2,j1:j2] = conj(view(CT,kim1:kim2,j1:j2))  # this is A_k    := (Ac_k-im*As_k)/2 
+        kim1 -= m*np
+        kim2 -= m*np
+        ki1 += m*np
+        ki2 += m*np
+    end
+    CN = zeros(complex(T),nb1*m,nb2*n)
+    ki1 = m*np+1
+    ki2 = ki1 + nb2*m-1
+    for i = 2:nb2 
+        j1 += n
+        j2 += n
+        copyto!(view(CT,ki1:ki2,j1:j2),view(CT,1:nb2*m,1:n))
+        ki1 += m*np
+        ki2 += m*np
+    end
+    return CT
+end
+function hrb2bt(B::HarmonicArray, N::Int; P::Int = 1, nperiod::Int = B.nperiod, nh::Int = size(B.values,3)-1)
+    N > 0 || error("the number of harmonic components must be nonnegative, got $N")
+    #(nperiod < 1 || nperiod > A.nperiod) && error("number of subperiods must be between 1 and $(A.nperiod), got $nperiod")
+    nperiod < 1  && throw(ArgumentError("number of subperiods must be between 1 and $(A.nperiod), got $nperiod"))
+    P < 1 && throw(ArgumentError("number of periods must be at least 1, got $P"))
+    nh < 0 && throw(ArgumentError("number of harmonics must be non-negative, got $nh"))
+    T = promote_type(Float64,eltype(B))
+    # p = size(A.values,3)-1
+    # p < 0 && (return zeros(complex(T),0,0))
+    p = nh
+    n, m = size(B)
+    np = P*nperiod
+    nb = 2*N*np+1
+    BT = zeros(complex(T),nb*n,np*m)
+    i1 = p*n*np+1
+    i2 = i1+n-1
+    j1, j2 = np*m-m+1, np*m
+    BT[i1:i2,j1:j2] = B.values[:,:,1] # the diagonal A0
+    kim1 = i1-n*np
+    kim2 = kim1+n-1
+    ki1 = i1+n*np
+    ki2 = ki1+n-1
+    for k = 1:p
+        BT[kim1:kim2,j1:j2] = B.values[:,:,k+1]/2           # this is A_{-k} := (Ac_k+im*As_k)/2 
+        BT[ki1:ki2,j1:j2] = conj(view(BT,kim1:kim2,j1:j2))  # this is A_k    := (Ac_k-im*As_k)/2 
+        kim1 -= n*np
+        kim2 -= n*np
+        ki1 += n*np
+        ki2 += n*np
+    end
+    return BT
+end
+function ps2fsls(psysc::PeriodicStateSpace{PM}, N::Int; P::Int= 1) where {T,PM <: AbstractPeriodicArray{:c,T}}
+    psyshr = typeof(psysc) <: PeriodicStateSpace{HarmonicArray} ? psysc :
+             convert(PeriodicStateSpace{HarmonicArray},psysc)
+    N >= 0 || error("number of selected harmonics must be nonnegative, got $N")         
+    P >= 1 || error("period multiplicator must be at least 1, got $P")         
+    (PA, PB, PC, PD ) = (psyshr.A.nperiod, psyshr.B.nperiod, psyshr.C.nperiod, psyshr.D.nperiod)
+    K = lcm(PA,PB,PC,PD)
+    #println("K = $K PA = $PA PB = $PB PC = $PC PD = $PD")
+     # sys = dss(hr2btupd(psyshr.A, N*div(K,PA); P = P*PA), hr2bt(psyshr.B,N*div(K,PB); P = P*PB),
+    #           hr2bt(psyshr.C,N*div(K,PC); P = P*PC),hr2bt(psyshr.D,N*div(K,PD); P = P*PD)) 
+    # sys = dss(hr2btupd(psyshr.A, N; P = P*PA, nperiod = div(K,PA)), hr2bt(psyshr.B, N; P = P*PB, nperiod = div(K,PB)),
+    #           hr2bt(psyshr.C, N; P = P*PC, nperiod = div(K,PC)),hr2bt(psyshr.D, N; P = P*PD, nperiod = div(K,PD))) 
+    @show size(hr2btupd(psyshr.A, N; P, nperiod = K)), size(hrc2bt(psyshr.C, N; P, nperiod = K))
+    sys = dss(hr2btupd(psyshr.A, N; P, nperiod = K), hrb2bt(psyshr.B, N; P, nperiod = K),
+              hrc2bt(psyshr.C, N; P, nperiod = K), hrc2bt(psyshr.D, N; P, nperiod = K)[:,1:P*K*size(psyshr.B,2)]) 
+    return sys  
+end      
+
+
 """
      hr2btupd(Ahr::HarmonicArray, N; P, nperiod, shift]) -> Ab::Matrix 
 

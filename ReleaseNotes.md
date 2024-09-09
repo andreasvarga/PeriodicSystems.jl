@@ -1,5 +1,19 @@
 # Release Notes
 
+## Version 0.8
+
+This version uses the latest version of the `DescriptorSystems` package, 
+with a new, enhanced definition of the `DescriptorStateSpace` object. 
+
+This is a breaking release, which uses an enhanced definition of the `PeridicFunctionMatrix` object allowing arbitrary 
+functions to be used over a given period. 
+
+The following new functions have been implemented:
+
+- `ps2spls` Computation of a sparse time-lifted LTI representation of a discrete-time periodic system
+- `pseval` Evaluation of the value of the transfer function matrix of the lifted discrete-time periodic system 
+- `pslinfnorm`,`pshinfnorm`  Evaluation of the L∞/H∞-norms of continuous- and discrete-time periodic system
+
 ## Version 0.7 
 
 The following new functions have been implemented:
@@ -10,7 +24,7 @@ The following new functions have been implemented:
 - `pclqofc_sw`, `pclqofc_hr` LQ-optimal output feedback stabilization of continuopus-time periodic systems
 - `pdlqofc`, `pdlqofc_sw` LQ-optimal output feedback stabilization of discrete-time periodic systems
 - `pssfeedback` Periodic state feedback connection.
-- `pssofeedback` Periodic state feedback with state estimator connection.
+- `pssofeedback` Periodic state feedback with state estimator connection
 
 The following new supporting functions have been implemented:
 - `pclyap2` to solve solve a pair of periodic continuous-time Lyapunov equations

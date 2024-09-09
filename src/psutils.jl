@@ -744,7 +744,8 @@ The resulting harmonic approximation `Ahr(t)` is returned in the harmonic array 
 """
 function ffm2hr(A::FourierFunctionMatrix{:c,T}; atol::Real = 0, rtol::Real = 0, squeeze::Bool = true) where  {T}
    lens = length.(coefficients.(Matrix(A.M)))
-   n = max(div(maximum(lens)-1,2),0)
+   #n = max(div(maximum(lens)-1,2),0)
+   n = max(div(maximum(lens)-1,2),0)+1
    n1, n2 = size(A)
 
    ncur = n
@@ -1112,7 +1113,9 @@ function psreduc_reg(A::AbstractArray{T,3}, E::AbstractArray{T,3}) where T
      
     K = size(A,3) 
     n = size(A,1)
-    n == size(A,2) || error("A must have equal first and second dimensions")
+    n == size(A,2) || throw(ArgumentError("A must have equal first and second dimensions"))
+    (n, n, K) == size(E) || throw(ArgumentError("A and E must have the same dimensions"))
+
     if K == 1
        return A[:,:,1], E[:,:,1] 
     else   
@@ -1126,6 +1129,33 @@ function psreduc_reg(A::AbstractArray{T,3}, E::AbstractArray{T,3}) where T
        return si, -ti
     end
 end
+
+function psreduc_reg(A::AbstractVector{Matrix{T}}, E::AbstractVector{Matrix{T}}) where {T}
+     
+   K = length(A) 
+   K == length(E) || throw(ArgumentError("A and E must have the same lengths"))
+   nd = size.(A,1); n = size.(A,2)
+   # n == nd[mod.(-1:K-2,K).+1] || 
+   #    error("the number of columns of A[i] must be equal to the number of rows of A[i-1]")
+   # nde = size.(E,1); ne = size.(E,2)
+   # all(nde .== ne) || error("all E[i] must be square")
+   # all(ne .== nd) || error("the number of rows of A[i] must be equal to the order of E[i]")
+
+   if K == 1
+      return A[1], E[1] 
+   else   
+      si = A[1];  ti = -E[1]
+      for i = 1:K-1
+          F = qr([ ti ; A[i+1] ])   
+          ni1 = n[i+1] 
+          si = F.Q'*[si; zeros(T,nd[i+1],n[1])];  si = si[ni1+1:end,:] 
+          ip2 = i+2; ip2 > K && (ip2 = 1)
+          ti = F.Q'*[zeros(T,size(ti,1),n[ip2]); -E[i+1]]; ti = ti[ni1+1:end,:] 
+      end
+      return si, -ti
+   end
+end
+
 
 """
     psreduc_reg(A) -> (M, N)
@@ -1333,7 +1363,8 @@ Evaluate the time value of a continuous-time periodic matrix.
 For the periodic matrix `A(t)` and the time value `tval`, `Aval = A(tval)` is evaluated for the time value `t = tval`. 
 """
    #return (A.f).(t)
-   return reshape((A.f).(t),size(A,1),size(A,2))
+   return reshape((A.f).(mod(t,A.period/A.nperiod)),size(A,1),size(A,2))
+   #return reshape((A.f).(t),size(A,1),size(A,2))
 end
 tpmeval(A::FourierFunctionMatrix, t::Real ) = (A.M)(t)
 function tpmeval(A::PeriodicSymbolicMatrix, t::Real)
@@ -1390,8 +1421,8 @@ function kpmeval(A::SwitchingPeriodicArray, k::Int)
    ind = findfirst(A.ns .>= mod(k-1,A.dperiod)+1)
    return A.M[:,:,ind]
 end
-(F::PeriodicFunctionMatrix)(t) = (F.f).(t)
-#(F::PeriodicFunctionMatrix)(t) = tpmeval(F, t)
+#(F::PeriodicFunctionMatrix)(t) = (F.f).(t)
+(F::PeriodicFunctionMatrix)(t) = tpmeval.(Ref(F), t)
 (F::PeriodicSymbolicMatrix)(t) = tpmeval(F, t)
 (F::FourierFunctionMatrix)(t) = (F.M)(t) 
 (F::HarmonicArray)(t) = hreval(F, t; exact = true) 

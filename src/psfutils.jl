@@ -804,7 +804,7 @@ function pschur(A::AbstractArray{T,3}, E::AbstractArray{T,3}; rev::Bool = true, 
    S = trues(p2); [S[2*i] = false for i in 1:p]
    St, Zt, ev, sind, α, γ = pgschur(St, S; rev, withZ)
    
-   return St[:,:,1:2:p2], St[:,:,2:2:p2], Zt[:,:,(rev ? 2 : 1):2:p2], Zt[:,:,(rev ? 1 : 2):2:p2], ev, sind, α, γ 
+   return St[:,:,1:2:p2], St[:,:,2:2:p2], withZ ? Zt[:,:,(rev ? 2 : 1):2:p2] : nothing, withZ ? Zt[:,:,(rev ? 1 : 2):2:p2] : nothing, ev, sind, α, γ 
 end
 
  
@@ -890,7 +890,7 @@ function pschur(A::AbstractVector{Matrix{T}}, E::AbstractVector{Matrix{T}}; rev:
    S = trues(p2); [S[2*i] = false for i in 1:p]
    St, Zt, ev, sind, α, γ = pgschur(St, S; rev, withZ)
    
-   return St[1:2:p2], St[2:2:p2], Zt[(rev ? 2 : 1):2:p2], Zt[(rev ? 1 : 2):2:p2], ev, sind, α, γ 
+   return St[1:2:p2], St[2:2:p2], withZ ? Zt[(rev ? 2 : 1):2:p2] : nothing, withZ ? Zt[(rev ? 1 : 2):2:p2] : nothing, ev, sind, α, γ 
 end
 """
      pgschur(A::Vector{Matrix}, s::Union{Vector{Bool},BitVector}; rev = true, withQ = true) -> (S, Z, ev, ischur, α, γ)

@@ -34,7 +34,6 @@ Xdert = PeriodicFunctionMatrix(Xder,2*pi)
 @test norm(At*Xt+Xt*At'+Ct-derivative(Xt)) < 1.e-7
 @test norm(At'*Xt+Xt*At+Cdt+derivative(Xt)) < 1.e-7
 
-
 At = PeriodicFunctionMatrix(A,4*pi,nperiod=2)
 Ct = PeriodicFunctionMatrix(C,2*pi)
 Cdt = PeriodicFunctionMatrix(Cd,2*pi)

@@ -1364,27 +1364,47 @@ end
 
 
 # Operations with periodic function matrices
-function derivative(A::PeriodicFunctionMatrix{:c,T};  h::Union{Missing,Real} = missing,  method = "cd") where {T}
+function derivative(A::PeriodicFunctionMatrix{:c,T};  h::Union{Missing,Real} = missing,  method = "cd", discont = false) where {T}
     isconstant(A) && (return PeriodicFunctionMatrix{:c,T}(t -> zeros(T,A.dims...), A.period, A.dims, A.nperiod, true))
     # centered differences
+    tsub = A.period/A.nperiod
+    # try to avoid discontinuities at the end of the interval
     if method == "cd" 
-       ismissing(h) && (h = A.period*sqrt(eps(T)))
-       return PeriodicFunctionMatrix{:c,T}(t -> (A.f(t+h)-A.f(t-h))/(2*h), A.period, A.dims, A.nperiod, false)
+       ismissing(h) ? (h = tsub*sqrt(eps(float(T)))) : h = abs(h)
+       if discont 
+          return PeriodicFunctionMatrix{:c,T}(t -> t+h >= tsub ? (tpmeval(A,t)-tpmeval(A,t-h/4))/(h/4) : 
+              (t-h < 0 ? (tpmeval(A,t+h/4)-tpmeval(A,t))/(h/4) : (tpmeval(A,t+h)-tpmeval(A,t-h))/(2*h)), A.period, A.dims, A.nperiod, false)
+       else
+           return PeriodicFunctionMatrix{:c,T}(t -> (tpmeval(A,t+h)-tpmeval(A,t-h))/(2*h), A.period, A.dims, A.nperiod, false)
+       end
     end
     # fourth-order differences
     if method == "4d" 
-        ismissing(h) && (h = A.period*sqrt(sqrt(eps(T))))
-        return PeriodicFunctionMatrix{:c,T}(t -> (-A.f(t+2h) + A.f(t-2h)  + 8*(A.f(t+h) - A.f(t-h)))/(12h), A.period, A.dims, A.nperiod, false)
+        ismissing(h) ? (h = tsub*sqrt(sqrt(eps(float(T))))) : h = abs(h)
+        if discont 
+           return PeriodicFunctionMatrix{:c,T}(t -> t+h >= tsub ? (tpmeval(A,t)-tpmeval(A,t-h/4))/(h/4) : 
+                  (t-h < 0 ? (tpmeval(A,t+h/4)-tpmeval(A,t))/(h/4) : (-tpmeval(A,t+2h) + tpmeval(A,t-2h)  + 8*(tpmeval(A,t+h) - tpmeval(A,t-h)))/(12h)), A.period, A.dims, A.nperiod, false)
+        else
+           return PeriodicFunctionMatrix{:c,T}(t -> (-tpmeval(A,t+2h) + tpmeval(A,t-2h)  + 8*(tpmeval(A,t+h) - tpmeval(A,t-h)))/(12h), A.period, A.dims, A.nperiod, false)
+        end
     end
     # first-order differences 
-    ismissing(h) && (h = A.period*sqrt(eps(T)))
-    return PeriodicFunctionMatrix{:c,T}(t -> (A.f(t+h)-A.f(t))/h, A.period, A.dims, A.nperiod, false)
+    ismissing(h) && (h = tsub*sqrt(eps(float(T))))
+    if discont 
+       if h > 0
+          return PeriodicFunctionMatrix{:c,T}(t -> t+h >= tsub ? (tpmeval(A,t)-tpmeval(A,t-h))/h : (tpmeval(A,t+h)-tpmeval(A,t))/h, A.period, A.dims, A.nperiod, false)
+       else
+          return PeriodicFunctionMatrix{:c,T}(t -> t+h < 0 ? (tpmeval(A,t)-tpmeval(A,t-h))/h : (tpmeval(A,t+h)-tpmeval(A,t))/h, A.period, A.dims, A.nperiod, false)
+       end
+    else
+       return PeriodicFunctionMatrix{:c,T}(t -> (tpmeval(A,t+h)-tpmeval(A,t))/h, A.period, A.dims, A.nperiod, false)
+    end
 end
 function LinearAlgebra.inv(A::PeriodicFunctionMatrix{:c,T})  where {T}
-    return PeriodicFunctionMatrix{:c,T}(t -> inv(A.f(t)), A.period, A.dims, A.nperiod, A._isconstant)
+    return PeriodicFunctionMatrix{:c,T}(t -> inv(tpmeval(A,t)), A.period, A.dims, A.nperiod, A._isconstant)
 end
 function LinearAlgebra.tr(A::PeriodicFunctionMatrix{:c,T})  where {T}
-    return PeriodicFunctionMatrix{:c,T}(t -> [tr(A.f(t))], A.period, (1,1), A.nperiod, A._isconstant)
+    return PeriodicFunctionMatrix{:c,T}(t -> [tr(tpmeval(A,t))], A.period, (1,1), A.nperiod, A._isconstant)
 end
 function trace(A::PeriodicFunctionMatrix; K = 128) 
     isconstant(A) && (return tr(A.f(0)))
@@ -1392,22 +1412,22 @@ function trace(A::PeriodicFunctionMatrix; K = 128)
     Δ = A.period/A.nperiod/K
     tt = zero(eltype(Δ))
     for i = 1:K
-        tt += tr(A.f(t))*Δ
+        tt += tr(tpmeval(A,t))*Δ
         t += Δ
     end 
     return tt*A.nperiod/A.period
 end
 function LinearAlgebra.transpose(A::PeriodicFunctionMatrix{:c,T})  where {T}
-    return PeriodicFunctionMatrix{:c,T}(t -> transpose(A.f(t)), A.period, (A.dims[2],A.dims[1]), A.nperiod, A._isconstant)
+    return PeriodicFunctionMatrix{:c,T}(t -> transpose(tpmeval(A,t)), A.period, (A.dims[2],A.dims[1]), A.nperiod, A._isconstant)
 end
 function LinearAlgebra.adjoint(A::PeriodicFunctionMatrix{:c,T})  where {T}
-    return PeriodicFunctionMatrix{:c,T}(t -> adjoint(A.f(t)), A.period, (A.dims[2],A.dims[1]), A.nperiod, A._isconstant)
+    return PeriodicFunctionMatrix{:c,T}(t -> adjoint(tpmeval(A,t)), A.period, (A.dims[2],A.dims[1]), A.nperiod, A._isconstant)
 end
 function LinearAlgebra.opnorm(A::PeriodicFunctionMatrix, p::Union{Real, Missing} = missing) 
     if ismissing(p)
-       return PeriodicFunctionMatrix{:c,eltype(A)}(t -> [norm(A.f(t))], A.period, (1,1), A.nperiod, A._isconstant)
+       return PeriodicFunctionMatrix{:c,eltype(A)}(t -> [norm(tpmeval(A,t))], A.period, (1,1), A.nperiod, A._isconstant)
     else
-       return PeriodicFunctionMatrix{:c,eltype(A)}(t -> [opnorm(A.f(t),p)], A.period, (1,1), A.nperiod, A._isconstant)
+       return PeriodicFunctionMatrix{:c,eltype(A)}(t -> [opnorm(tpmeval(A,t),p)], A.period, (1,1), A.nperiod, A._isconstant)
     end
 end
 function norm(A::PeriodicFunctionMatrix, p::Real = 2; K = 128) 
@@ -1417,19 +1437,19 @@ function norm(A::PeriodicFunctionMatrix, p::Real = 2; K = 128)
     ts = zero(eltype(Δ))
     if p == 2
        for i = 1:K
-           nrm += norm(A.f(ts))^2*Δ
+           nrm += norm(tpmeval(A,ts))^2*Δ
            ts += Δ
        end 
        return sqrt(nrm*A.nperiod)
     elseif isinf(p)
         for i = 1:K
-            nrm = max(nrm,norm(A.f(ts)))
+            nrm = max(nrm,norm(tpmeval(A,ts)))
             ts += Δ
         end 
         return nrm
     elseif p == 1    
         for i = 1:K
-            nrm += norm(A.f(ts))*Δ
+            nrm += norm(tpmeval(A,ts))*Δ
             ts += Δ
         end 
         return nrm*A.nperiod
@@ -1445,7 +1465,7 @@ function +(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix)
     if isconstant(A) && isconstant(B)
        return PeriodicFunctionMatrix{:c,T}(t -> A.f(0)+B.f(0), period, A.dims, nperiod, true)
     else
-       return PeriodicFunctionMatrix{:c,T}(t -> A.f(t)+B.f(t), period, A.dims, nperiod, false)
+       return PeriodicFunctionMatrix{:c,T}(t -> tpmeval(A,t)+tpmeval(B,t), period, A.dims, nperiod, false)
     end
 end
 +(A::PeriodicFunctionMatrix, C::AbstractMatrix) = +(A, PeriodicFunctionMatrix(C, A.period))
@@ -1456,7 +1476,7 @@ end
 -(A::AbstractMatrix, C::PeriodicFunctionMatrix) = +(A, -C)
 function (+)(A::PeriodicFunctionMatrix, J::UniformScaling{<:Real})
     A.dims[1] == A.dims[2] || throw(DimensionMismatch("matrix is not square: dimensions are $(A.dims)"))
-    PeriodicFunctionMatrix{:c,eltype(A)}(t -> A.f(t)+J, A.period, A.dims, A.nperiod,A._isconstant)
+    PeriodicFunctionMatrix{:c,eltype(A)}(t -> tpmeval(A,t)+J, A.period, A.dims, A.nperiod,A._isconstant)
 end
 (+)(J::UniformScaling{<:Real}, A::PeriodicFunctionMatrix) = +(A,J)
 (-)(A::PeriodicFunctionMatrix, J::UniformScaling{<:Real}) = +(A,-J)
@@ -1470,13 +1490,13 @@ function *(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix)
     if isconstant(A) && isconstant(B)
         return PeriodicFunctionMatrix{:c,T}(t -> A.f(0)*B.f(0), period, (A.dims[1],B.dims[2]), nperiod, true)
      else
-        return PeriodicFunctionMatrix{:c,T}(t -> A.f(t)*B.f(t), period, (A.dims[1],B.dims[2]), nperiod, false)
+        return PeriodicFunctionMatrix{:c,T}(t -> tpmeval(A,t)*tpmeval(B,t), period, (A.dims[1],B.dims[2]), nperiod, false)
      end
 end
 *(A::PeriodicFunctionMatrix, C::AbstractMatrix) = *(A, PeriodicFunctionMatrix(C, A.period))
 *(A::AbstractMatrix, C::PeriodicFunctionMatrix) = *(PeriodicFunctionMatrix(A, C.period), C)
-*(A::PeriodicFunctionMatrix, C::Real) = PeriodicFunctionMatrix{:c,eltype(A)}(t -> C.*A.f(t), A.period, A.dims, A.nperiod,A._isconstant)
-*(A::Real, C::PeriodicFunctionMatrix) = PeriodicFunctionMatrix{:c,eltype(A)}(t -> A.*C.f(t), C.period, C.dims, C.nperiod,C._isconstant)
+*(A::PeriodicFunctionMatrix, C::Real) = PeriodicFunctionMatrix{:c,eltype(A)}(t -> C.*tpmeval(A,t), A.period, A.dims, A.nperiod,A._isconstant)
+*(A::Real, C::PeriodicFunctionMatrix) = PeriodicFunctionMatrix{:c,eltype(A)}(t -> A.*tpmeval(C,t), C.period, C.dims, C.nperiod,C._isconstant)
 /(A::PeriodicFunctionMatrix, C::Real) = *(A, 1/C)
 *(J::UniformScaling{<:Real}, A::PeriodicFunctionMatrix) = J.λ*A
 *(A::PeriodicFunctionMatrix, J::UniformScaling{<:Real}) = A*J.λ
@@ -1503,7 +1523,7 @@ for (PMF, MF) in ((:pmmuladdsym, :muladdsym!), (:pmmultraddsym, :multraddsym!), 
             if isconstant(A) && isconstant(B) && isconstant(C)
                return PeriodicFunctionMatrix{:c,T}(t -> $MF(T.(copy(A.f(0))),B.f(0),C.f(0),(α,β)), period, (A.dims[1],A.dims[2]), nperiod, true)
             else
-               return PeriodicFunctionMatrix{:c,T}(t -> $MF(T.(copy(A.f(t))),B.f(t),C.f(t),(α,β)), period, (A.dims[1],A.dims[2]), nperiod, false)
+               return PeriodicFunctionMatrix{:c,T}(t -> $MF(T.(copy(tpmeval(A,t))),tpmeval(B,t),tpmeval(C,t),(α,β)), period, (A.dims[1],A.dims[2]), nperiod, false)
             end
         end
     end
@@ -1612,7 +1632,7 @@ for (PMF, MF) in ((:pmmulsym, :mulsym), (:pmtrmulsym, :trmulsym), (:pmmultrsym,:
             if isconstant(B) && isconstant(C)
                return PeriodicFunctionMatrix{:c,T}(t -> $MF(B.f(0),C.f(0),β), period, (n,n), nperiod, true)
             else
-               return PeriodicFunctionMatrix{:c,T}(t -> $MF(B.f(t),C.f(t),β), period, (n,n), nperiod, false)
+               return PeriodicFunctionMatrix{:c,T}(t -> $MF(tpmeval(B,t),tpmeval(C,t),β), period, (n,n), nperiod, false)
             end
         end
     end
@@ -1688,7 +1708,7 @@ function horzcat(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix)
     if isconstant(A) && isconstant(B)
        return PeriodicFunctionMatrix{:c,T}(t -> [A.f(0) B.f(0)], period, (A.dims[1],A.dims[2]+B.dims[2]), nperiod, true)
     else
-       return PeriodicFunctionMatrix{:c,T}(t -> [A.f(t) B.f(t)], period, (A.dims[1],A.dims[2]+B.dims[2]), nperiod, false)
+       return PeriodicFunctionMatrix{:c,T}(t -> [tpmeval(A,t) tpmeval(B,t)], period, (A.dims[1],A.dims[2]+B.dims[2]), nperiod, false)
     end
 end
 horzcat(A::PeriodicFunctionMatrix, C::AbstractMatrix) = horzcat(A, PeriodicFunctionMatrix(C, A.period))
@@ -1705,7 +1725,7 @@ function vertcat(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix)
     if isconstant(A) && isconstant(B)
        return PeriodicFunctionMatrix{:c,T}(t -> [A.f(0); B.f(0)], period, (A.dims[1]+B.dims[1],A.dims[2]), nperiod, true)
     else
-       return PeriodicFunctionMatrix{:c,T}(t -> [A.f(t); B.f(t)], period, (A.dims[1]+B.dims[1],A.dims[2]), nperiod, false)
+       return PeriodicFunctionMatrix{:c,T}(t -> [tpmeval(A,t); tpmeval(B,t)], period, (A.dims[1]+B.dims[1],A.dims[2]), nperiod, false)
     end
 end
 Base.vcat(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix) = vertcat(A,B)
@@ -1717,7 +1737,7 @@ function blockdiag(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix)
     if isconstant(A) && isconstant(B)
        return PeriodicFunctionMatrix{:c,T}(t -> DescriptorSystems.blockdiag(A.f(0), B.f(0)), period, (A.dims[1]+B.dims[1],A.dims[2]+B.dims[2]), nperiod, true)
     else
-       return PeriodicFunctionMatrix{:c,T}(t -> DescriptorSystems.blockdiag(A.f(t),B.f(t)), period, (A.dims[1]+B.dims[1],A.dims[2]+B.dims[2]), nperiod, false)
+       return PeriodicFunctionMatrix{:c,T}(t -> DescriptorSystems.blockdiag(tpmeval(A,t),tpmeval(B,t)), period, (A.dims[1]+B.dims[1],A.dims[2]+B.dims[2]), nperiod, false)
     end
 end
 
@@ -1729,17 +1749,17 @@ LinearAlgebra.issymmetric(A::PeriodicFunctionMatrix) = issymmetric(A.f(rand()*A.
 function ==(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix)
     isconstant(A) && isconstant(B) && (return isequal(A.f(0), B.f(0)))
     ts = rand()*A.period
-    isequal(A.f(ts), B.f(ts)) && (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
+    isequal(tpmeval(A,ts), tpmeval(B,ts)) && (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
 end
 function Base.isapprox(A::PeriodicFunctionMatrix, B::PeriodicFunctionMatrix; kwargs...)
     isconstant(A) && isconstant(B) && (return isapprox(A.f(0), B.f(0); kwargs...))
     ts = rand()*A.period
-    isapprox(A.f(ts), B.f(ts); kwargs...) && (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
+    isapprox(tpmeval(A,ts), tpmeval(B,ts); kwargs...) && (A.period == B.period || A.period*B.nperiod == B.period*A.nperiod)
 end
 function Base.isapprox(A::PeriodicFunctionMatrix, J::UniformScaling{<:Real}; kwargs...)
     isconstant(A) && (return isapprox(A.f(0), J; kwargs...))
     ts = rand()*A.period
-    isapprox(A.f(ts), J; kwargs...) 
+    isapprox(tpmeval(A,ts), J; kwargs...) 
 end
 Base.isapprox(J::UniformScaling{<:Real}, A::PeriodicFunctionMatrix; kwargs...) = isapprox(A, J; kwargs...)
 
@@ -2279,7 +2299,7 @@ end
 
 
 function horzcat(A::FourierFunctionMatrix, B::FourierFunctionMatrix)
-    A.period == B.period && A.nperiod == B.nperiod && (return FourierFunctionMatrix(Fun(t->[A.M(t) B.M(t)]), A.period; nperiod = A.nperiod))
+    A.period == B.period && A.nperiod == B.nperiod && (return FourierFunctionMatrix(Fun(t->[A.M(t) B.M(t)],Fourier(0..A.period)), A.period; nperiod = A.nperiod))
     convert(FourierFunctionMatrix,[convert(PeriodicFunctionMatrix,A) convert(PeriodicFunctionMatrix,B)])
 end
 hcat(A::FourierFunctionMatrix, B::FourierFunctionMatrix) = horzcat(A,B)
@@ -2290,7 +2310,7 @@ horzcat(A::AbstractMatrix, C::FourierFunctionMatrix) = horzcat(FourierFunctionMa
 
 
 function vertcat(A::FourierFunctionMatrix, B::FourierFunctionMatrix)
-    A.period == B.period && A.nperiod == B.nperiod && (return FourierFunctionMatrix(Fun(t->[A.M(t); B.M(t)]), A.period; nperiod = A.nperiod))
+    A.period == B.period && A.nperiod == B.nperiod && (return FourierFunctionMatrix(Fun(t->[A.M(t); B.M(t)],Fourier(0..A.period)), A.period; nperiod = A.nperiod))
     convert(FourierFunctionMatrix,[convert(PeriodicFunctionMatrix,A); convert(PeriodicFunctionMatrix,B)])
 end
 vcat(A::FourierFunctionMatrix, B::FourierFunctionMatrix) = vertcat(A,B)
@@ -2301,7 +2321,7 @@ vertcat(A::AbstractMatrix, C::FourierFunctionMatrix) = vertcat(FourierFunctionMa
 
 
 function blockdiag(A::FourierFunctionMatrix, B::FourierFunctionMatrix)
-    A.period == B.period && A.nperiod == B.nperiod && (return FourierFunctionMatrix(Fun(t->DescriptorSystems.blockdiag(A.M(t), B.M(t))), A.period; nperiod = A.nperiod))
+    A.period == B.period && A.nperiod == B.nperiod && (return FourierFunctionMatrix(Fun(t->DescriptorSystems.blockdiag(A.M(t), B.M(t)),Fourier(0..A.period)), A.period; nperiod = A.nperiod))
     convert(FourierFunctionMatrix,DescriptorSystems.blockdiag(convert(PeriodicFunctionMatrix,A), convert(PeriodicFunctionMatrix,B)))
 end
 

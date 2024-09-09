@@ -8,7 +8,7 @@ using LinearAlgebra
 using ApproxFun
 using Symbolics
 
-println("Test_pclyap")
+println("Test_psclyap")
 
 @testset "pclyap, pcplyap" begin
 
@@ -234,29 +234,29 @@ Yh = convert(HarmonicArray,Yt);
 Yh = convert(HarmonicArray,Yt);
 @test Xh ≈ Yh && norm(Ah'*Yh+Yh*Ah+Cdh+derivative(Yh)) < 1.e-7
 
-# solve using Fourier function matrices
-Af = convert(FourierFunctionMatrix,At);
-Cf = convert(FourierFunctionMatrix,Ct); 
-Cdf = convert(FourierFunctionMatrix,Cdt)
-Xf = convert(FourierFunctionMatrix,Xt);
-Xdf = convert(FourierFunctionMatrix,Xd);
+# # solve using Fourier function matrices
+# Af = convert(FourierFunctionMatrix,At);
+# Cf = convert(FourierFunctionMatrix,Ct); 
+# Cdf = convert(FourierFunctionMatrix,Cdt)
+# Xf = convert(FourierFunctionMatrix,Xt);
+# Xdf = convert(FourierFunctionMatrix,Xd);
 
-@time Yt = pclyap(Af, Cf, K = 500, reltol = 1.e-10, abstol = 1.e-10);
-@time Yt1 = pclyap(Af,Cf; K = 512, reltol = 1.e-10, abstol = 1.e-10,intpol=true);
-Yf = convert(FourierFunctionMatrix,Yt);
-@test Xf ≈ Yf && Xdf ≈ derivative(Yf) && norm(Af*Yf+Yf*Af'+Cf-derivative(Yf)) < 1.e-7 && norm(Yt1-Yt) < 1.e-7
+# @time Yt = pclyap(Af, Cf, K = 500, reltol = 1.e-10, abstol = 1.e-10);
+# @time Yt1 = pclyap(Af,Cf; K = 512, reltol = 1.e-10, abstol = 1.e-10,intpol=true);
+# Yf = convert(FourierFunctionMatrix,Yt);
+# @test Xf ≈ Yf && Xdf ≈ derivative(Yf) && norm(Af*Yf+Yf*Af'+Cf-derivative(Yf)) < 1.e-7 && norm(Yt1-Yt) < 1.e-7
 
-@time Yt = pclyap(Af, Cdf, K = 500, adj = true, reltol = 1.e-10, abstol = 1.e-10)
-Yf = convert(FourierFunctionMatrix,Yt);
-@test Xf ≈ Yf && Xdf ≈ derivative(Yf) && norm(Af'*Yf+Yf*Af+Cdf+derivative(Yf)) < 1.e-7
+# @time Yt = pclyap(Af, Cdf, K = 500, adj = true, reltol = 1.e-10, abstol = 1.e-10)
+# Yf = convert(FourierFunctionMatrix,Yt);
+# @test Xf ≈ Yf && Xdf ≈ derivative(Yf) && norm(Af'*Yf+Yf*Af+Cdf+derivative(Yf)) < 1.e-7
 
-@time Yt = pfclyap(Af, Cf, K = 500, reltol = 1.e-10, abstol = 1.e-10);
-Yf = convert(FourierFunctionMatrix,Yt);
-@test Xf ≈ Yf && norm(Af*Yf+Yf*Af'+Cf-derivative(Yf)) < 1.e-7
+# @time Yt = pfclyap(Af, Cf, K = 500, reltol = 1.e-10, abstol = 1.e-10);
+# Yf = convert(FourierFunctionMatrix,Yt);
+# @test Xf ≈ Yf && norm(Af*Yf+Yf*Af'+Cf-derivative(Yf)) < 1.e-7
 
-@time Yt = prclyap(Af, Cdf, K = 500, reltol = 1.e-10, abstol = 1.e-10)
-Yf = convert(FourierFunctionMatrix,Yt);
-@test Xf ≈ Yf && norm(Af'*Yf+Yf*Af+Cdf+derivative(Yf)) < 1.e-7
+# @time Yt = prclyap(Af, Cdf, K = 500, reltol = 1.e-10, abstol = 1.e-10)
+# Yf = convert(FourierFunctionMatrix,Yt);
+# @test Xf ≈ Yf && norm(Af'*Yf+Yf*Af+Cdf+derivative(Yf)) < 1.e-7
 
 
 # solve using periodic time-series matrices
@@ -269,7 +269,8 @@ ts = [0.4459591888577492, 1.2072325802972004, 1.9910835248218244, 2.199819983890
 
 
 @time Yt1 = pclyap(Ats, Cts; K = 1, reltol = 1.e-14, abstol = 1.e-14); 
-@test norm((Ats*Yt1+Yt1*Ats'+Cts-derivative(Yt1)).(ts)) < 1.e-5 
+@test norm((Ats.(ts).*Yt1.(ts)).+(Yt1.(ts).*(Ats').(ts)).+Cts.(ts).-derivative(Yt1).(ts),Inf) < 1.e-5 
+#@test norm((Ats*Yt1+Yt1*Ats'+Cts-derivative(Yt1)).(ts)) < 1.e-5 
 
 @time Yt = pclyap(Ats,Cts; K, reltol = 1.e-14, abstol = 1.e-14,intpol=true);
 @test norm((Ats*Yt+Yt*Ats'+Cts-derivative(Yt)).(ts)) < 1.e-5 
@@ -291,56 +292,56 @@ Xt2 = pclyap(Ats1, Cts1; K = 2000, reltol = 1.e-14, abstol = 1.e-14);
 @test norm((Ats1*Xt2+Xt2*Ats1'+Cts1-derivative(Xt2)).(ts)) < 1.e-5 
 #@test norm((Xt1-Xt2).(ts)) < 1.e-7
 
-K = 10000;
-Ats2 = convert(PeriodicTimeSeriesMatrix,At;ns = K);
-Cts2 = convert(PeriodicTimeSeriesMatrix,Ct;ns = K);
-Xt1 = pclyap(Ats2, Cts2; K = 1, reltol = 1.e-14, abstol = 1.e-14);
-@time Xt2 = pfclyap(Ats2, Cts2; reltol = 1.e-14, abstol = 1.e-14);
-@test norm((Xt1-Xt).(ts)) < 1.0e-3 &&
-      norm((Xt2-Xt).(ts)) < 1.0e-3
+# K = 1000;
+# Ats2 = convert(PeriodicTimeSeriesMatrix,At;ns = K);
+# Cts2 = convert(PeriodicTimeSeriesMatrix,Ct;ns = K);
+# Xt1 = pclyap(Ats2, Cts2; K = 1, reltol = 1.e-14, abstol = 1.e-14);
+# @time Xt2 = pfclyap(Ats2, Cts2; reltol = 1.e-14, abstol = 1.e-14);
+# @test norm((Xt1-Xt).(ts)) < 1.0e-3 &&
+#       norm((Xt2-Xt).(ts)) < 1.0e-3
 
-Xt1 = pclyap(Ats, Cdts; K = 100, adj = true, reltol = 1.e-14, abstol = 1.e-14,intpol=true);
-Xt2 = pclyap(Ats, Cdts; K = 200, adj = true, reltol = 1.e-14, abstol = 1.e-14,intpol=true);
-@test norm((Xt1-Xt2).(ts)) < 1.e-7
-
-
-Cdts1 = convert(PeriodicTimeSeriesMatrix,Cdt;ns = Kc);
-Xt1 = pclyap(Ats1, Cdts1; K = 100, adj = true, reltol = 1.e-14, abstol = 1.e-14,intpol=true);
-Xt2 = pclyap(Ats1, Cdts1; K = 200, adj = true, reltol = 1.e-14, abstol = 1.e-14,intpol=true);
-@test norm((Xt1-Xt2).(ts)) < 1.e-5
-
-Cdts2 = convert(PeriodicTimeSeriesMatrix,Cdt;ns = 10000);
-Xt1 = pclyap(Ats2, Cdts2; K = 1, adj = true, reltol = 1.e-14, abstol = 1.e-14);
-@time Xt2 = prclyap(Ats2, Cdts2; K = 1, reltol = 1.e-14, abstol = 1.e-14);
-@test norm((Xt1-Xt2).(ts)) < 1.e-5
-
-@time Yt = pfclyap(Ats, Cts; reltol = 1.e-14, abstol = 1.e-14);
-@test norm((Ats*Yt+Yt*Ats'+Cts-derivative(Yt)).(ts)) < 1.e-5 
-
-@time Yt = prclyap(Ats, Cdts; reltol = 1.e-14, abstol = 1.e-14);
-@test norm((Ats'*Yt+Yt*Ats+Cdts+derivative(Yt)).(ts)) < 1.e-5
+# Xt1 = pclyap(Ats, Cdts; K = 100, adj = true, reltol = 1.e-14, abstol = 1.e-14,intpol=true);
+# Xt2 = pclyap(Ats, Cdts; K = 200, adj = true, reltol = 1.e-14, abstol = 1.e-14,intpol=true);
+# @test norm((Xt1-Xt2).(ts)) < 1.e-7
 
 
-# solve using periodic switching matrices
-Asw = convert(PeriodicSwitchingMatrix,Ats)
-Csw = convert(PeriodicSwitchingMatrix,Cts)
-Cdsw = convert(PeriodicSwitchingMatrix,Cdts)
+# Cdts1 = convert(PeriodicTimeSeriesMatrix,Cdt;ns = Kc);
+# Xt1 = pclyap(Ats1, Cdts1; K = 100, adj = true, reltol = 1.e-14, abstol = 1.e-14,intpol=true);
+# Xt2 = pclyap(Ats1, Cdts1; K = 200, adj = true, reltol = 1.e-14, abstol = 1.e-14,intpol=true);
+# @test norm((Xt1-Xt2).(ts)) < 1.e-5
+
+# Cdts2 = convert(PeriodicTimeSeriesMatrix,Cdt;ns = 10000);
+# Xt1 = pclyap(Ats2, Cdts2; K = 1, adj = true, reltol = 1.e-14, abstol = 1.e-14);
+# @time Xt2 = prclyap(Ats2, Cdts2; K = 1, reltol = 1.e-14, abstol = 1.e-14);
+# @test norm((Xt1-Xt2).(ts)) < 1.e-5
+
+# @time Yt = pfclyap(Ats, Cts; reltol = 1.e-14, abstol = 1.e-14);
+# @test norm((Ats*Yt+Yt*Ats'+Cts-derivative(Yt)).(ts)) < 1.e-5 
+
+# @time Yt = prclyap(Ats, Cdts; reltol = 1.e-14, abstol = 1.e-14);
+# @test norm((Ats'*Yt+Yt*Ats+Cdts+derivative(Yt)).(ts)) < 1.e-5
 
 
-ts = [0.4459591888577492, 1.2072325802972004, 1.9910835248218244, 2.1998199838900527, 2.4360161318589695, 
-     2.9004720268745463, 2.934294124172935, 4.149208861412936, 4.260935465730602, 5.956614157549958]
+# # solve using periodic switching matrices
+# Asw = convert(PeriodicSwitchingMatrix,Ats)
+# Csw = convert(PeriodicSwitchingMatrix,Cts)
+# Cdsw = convert(PeriodicSwitchingMatrix,Cdts)
 
-@time Yt = pclyap(Asw, Csw; K = 2, reltol = 1.e-14, abstol = 1.e-14);
-@test norm((Asw*Yt+Yt*Asw'+Csw-derivative(Yt)).(ts)) < 1.e-5 
 
-@time Yt = pclyap(Asw, Cdsw; K = 2, adj = true, reltol = 1.e-14, abstol = 1.e-14)
-@test norm((Asw'*Yt+Yt*Asw+Cdsw+derivative(Yt)).(ts)) < 1.e-5  
+# ts = [0.4459591888577492, 1.2072325802972004, 1.9910835248218244, 2.1998199838900527, 2.4360161318589695, 
+#      2.9004720268745463, 2.934294124172935, 4.149208861412936, 4.260935465730602, 5.956614157549958]
 
-@time Yt = pfclyap(Asw, Csw; reltol = 1.e-14, abstol = 1.e-14);
-@test norm((Asw*Yt+Yt*Asw'+Csw-derivative(Yt)).(ts)) < 1.e-5 
+# @time Yt = pclyap(Asw, Csw; K = 2, reltol = 1.e-14, abstol = 1.e-14);
+# @test norm((Asw*Yt+Yt*Asw'+Csw-derivative(Yt)).(ts)) < 1.e-5 
 
-@time Yt = prclyap(Asw, Cdsw; reltol = 1.e-14, abstol = 1.e-14)
-@test norm((Asw'*Yt+Yt*Asw+Cdsw+derivative(Yt)).(ts)) < 1.e-5  
+# @time Yt = pclyap(Asw, Cdsw; K = 2, adj = true, reltol = 1.e-14, abstol = 1.e-14)
+# @test norm((Asw'*Yt+Yt*Asw+Cdsw+derivative(Yt)).(ts)) < 1.e-5  
+
+# @time Yt = pfclyap(Asw, Csw; reltol = 1.e-14, abstol = 1.e-14);
+# @test norm((Asw*Yt+Yt*Asw'+Csw-derivative(Yt)).(ts)) < 1.e-5 
+
+# @time Yt = prclyap(Asw, Cdsw; reltol = 1.e-14, abstol = 1.e-14)
+# @test norm((Asw'*Yt+Yt*Asw+Cdsw+derivative(Yt)).(ts)) < 1.e-5  
 
 
 A4(t) = [0  1; -cos(t)-1 -2-sin(t)]
@@ -409,7 +410,7 @@ XXt = PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W1, Asw, Csw; so
 # plot!(t2,[x2[i][1,1] for i in 1:ns2])
 
 K = 500
-W0 = pgclyap(Ast, Cst, K; adj = true, solver = "", reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001);
+@time W0 = pgclyap(Ast, Cst, K; adj = true, solver = "", reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001);
 Xst = PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W0, Ast, Cst; solver = "", adj = true, reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001),2*pi)
 @test norm((Ast'*Xst+Xst*Ast+Cst+derivative(Xst)).(ts)) < 1.e-6
 

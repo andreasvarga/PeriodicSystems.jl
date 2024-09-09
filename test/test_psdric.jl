@@ -8,7 +8,7 @@ using Test
 using LinearAlgebra
 #using JLD
 
-println("Test_pdric")
+println("Test_psdric")
 
 @testset "prdric" begin
 

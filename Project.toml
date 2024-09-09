@@ -1,7 +1,7 @@
 name = "PeriodicSystems"
 uuid = "5decd0d0-8a5f-11ec-2edd-87b25cbcd17e"
 authors = ["Andreas Varga <varga.andreas@gmail.com>"]
-version = "0.7"
+version = "0.8"
 
 [deps]
 ApproxFun = "28f2ccd6-bb30-5033-b560-165f7b14dc2f"
@@ -22,11 +22,12 @@ Primes = "27ebfcd6-29c5-5fa9-bf4b-fb8fc14df3ae"
 QuadGK = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SLICOT_jll = "545525a2-e20e-568b-b87f-b40a06098995"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 
 [compat]
 ApproxFun = "0.13"
-DescriptorSystems = "1.3"
+DescriptorSystems = "1.4"
 FastLapackInterface = "2.0"
 FFTW = "1"
 IRKGaussLegendre = "0.2"
@@ -45,7 +46,7 @@ QuadGK = "2.9"
 Random = "1"
 SLICOT_jll = "5.8, 5.9"
 Symbolics = "4, 5"
-julia = "1.9"
+julia = "1.10"
 
 
 [extras]

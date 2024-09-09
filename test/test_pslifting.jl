@@ -9,15 +9,15 @@ using ApproxFun
 
 println("Test_liftings")
 
-# # selected sequence to illustrate failure of BlockMatrices.jl v0.16.16
-# using LinearAlgebra
-# using ApproxFun
-# Af = Fun(t -> [0 1; -10*cos(t) -24-10*sin(t)],Fourier(0..2π));
-# D = Derivative(domain(Af));
-# ND = [D 0I; 0I D];
-# Aop = Af - ND;
-# NA = 322
-# RW = Aop[1:NA,1:NA]
+# selected sequence to illustrate failure of BlockMatrices.jl v0.16.16
+using LinearAlgebra
+using ApproxFun
+Af = Fun(t -> [0 1; -10*cos(t) -24-10*sin(t)],Fourier(0..2π));
+D = Derivative(domain(Af));
+ND = [D 0I; 0I D];
+Aop = Af - ND;
+NA = 322
+RW = Aop[1:NA,1:NA]
 
 @testset "test_liftings" begin
 

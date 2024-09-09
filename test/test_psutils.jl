@@ -44,16 +44,15 @@ psys = ps(A,B,C,4*pi);
 psys = ps(HarmonicArray,A,B,C,D,4*pi);
 psys = ps(PeriodicSymbolicMatrix, A,B,C,4*pi);
 
-
 psys = ps(rss(4,3,2),10)
 @test islti(psys)
 @test lastindex(psys,1) == 3 && lastindex(psys,2) == 2
 @test iszero(psaverage(psys)[2:3,1]-psaverage(psys[2:3,1]))
 
+
 psys=ps(rand(2,2),rand(2),rand(3,2),rand(3),10)
 psys=ps(rand(2,2),rand(2),rand(3,2),rand(3),10;Ts = 1)
 psys=ps(rand(2,2),rand(2),rand(3,2),10;Ts = 1)
-
 
 psys = PeriodicStateSpace(convert(PeriodicFunctionMatrix,A), 
                           convert(PeriodicFunctionMatrix,B), 
@@ -89,6 +88,8 @@ convert(PeriodicStateSpace{PeriodicFunctionMatrix},psys);
 convert(PeriodicStateSpace{HarmonicArray},psys);
 convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys);
 convert(PeriodicStateSpace{FourierFunctionMatrix},psys);
+
+
 
 psys = ps(convert(PeriodicSymbolicMatrix,A), 
           convert(PeriodicSymbolicMatrix,B), 

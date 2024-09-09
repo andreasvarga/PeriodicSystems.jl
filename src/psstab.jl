@@ -659,7 +659,7 @@ function pdlqofc(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, R::
             KK = PeriodicArray(x, A.period)
             evs = maximum(abs.(pseig(psys.A+Bu*KK*C)))
       end
-      it <= nit || error("no stable initial feedback gain could be determined: Aborting")
+      it <= nit || error("no stabilizing initial feedback gain could be determined: Aborting")
    end
    if isnothing(optimizer)
       xopt = x
@@ -930,7 +930,7 @@ function pdlqofc_sw(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
             KK = convert(PeriodicArray,SwitchingPeriodicArray(x, ns, A.period))
             evs = maximum(abs.(pseig(psys.A+Bu*KK*C)))
       end
-      it <= nit || error("no stable initial feedback gain could be determined: Aborting")
+      it <= nit || error("no stabilizing initial feedback gain could be determined: Aborting")
       #show_trace && println("initial stability degree = $sdeg0")
    end
    if isnothing(optimizer)
@@ -1292,7 +1292,7 @@ function pclqofc_sw(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
             KK = PeriodicSwitchingMatrix(x, ts, period)
             evs = maximum(real.(psceig(A+Bu*convert(PeriodicFunctionMatrix,KK)*C,100)))
       end
-      it <= nit || error("no stable initial feedback gain could be determined: Aborting")
+      it <= nit || error("no stabilizing initial feedback gain could be determined: Aborting")
       #show_trace && println("initial stability degree = $sdeg0")
    end
    if isnothing(optimizer)
@@ -1715,7 +1715,7 @@ function pclqofc_hr(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
             KK = HarmonicArray(reshape(x,mu,pt),period)
             evs = maximum(real.(psceig(A+Bu*KK*C,100)))
       end
-      it <= nit || error("no stable initial feedback gain could be determined: Aborting")
+      it <= nit || error("no stabilizing initial feedback gain could be determined: Aborting")
       show_trace && println("initial stability degree = $sdeg0")
    end
    if isnothing(optimizer)

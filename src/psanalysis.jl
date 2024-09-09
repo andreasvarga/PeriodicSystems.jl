@@ -55,18 +55,18 @@ working machine epsilon.
 """
 function pszero(psys::PeriodicStateSpace{<: HarmonicArray}, N::Union{Int,Missing} = missing; P::Int= 1, fast::Bool = true, atol::Real = 0, rtol::Real = 0) 
     ismissing(N) && (N = max(20, max(size(psys.A.values,3),size(psys.B.values,3),size(psys.C.values,3),size(psys.D.values,3))-1))
-    (N == 0 || islti(psys) ) && (return spzeros(dssdata(psaverage(psys))...; fast, atol1 = atol, atol2 = atol, rtol)[1])
+    (N == 0 || islti(psys) ) && (return MatrixPencils.spzeros(dssdata(psaverage(psys))...; fast, atol1 = atol, atol2 = atol, rtol)[1])
     period = psys.A.period
     ωhp2 = pi/P/period
     n = size(psys.A,1)
     T = promote_type(Float64, eltype(psys.A))
     # employ heuristics to determine fix finite zeros by comparing two sets of computed zeros
-    z = spzeros(dssdata(ps2fls(psys, N; P))...; fast, atol1 = atol, atol2 = atol, rtol)[1] 
+    z = MatrixPencils.spzeros(dssdata(ps2fls(psys, N; P))...; fast, atol1 = atol, atol2 = atol, rtol)[1] 
     zf = z[isfinite.(z)]
     ind = sortperm(imag(zf),by=abs); 
     nf = count(abs.(imag(zf[ind[1:min(4*n,length(ind))]])) .<=  ωhp2*(1+sqrt(eps(T))))
     zf = zf[ind[1:nf]]
-    z2 = spzeros(dssdata(ps2fls(psys, N+2; P))...; fast, atol1 = atol, atol2 = atol, rtol)[1] 
+    z2 = MatrixPencils.spzeros(dssdata(ps2fls(psys, N+2; P))...; fast, atol1 = atol, atol2 = atol, rtol)[1] 
     zf2 = z2[isfinite.(z2)]
     ind = sortperm(imag(zf2),by=abs); 
     nf2 = count(abs.(imag(zf2[ind[1:min(4*n,length(ind))]])) .<=  ωhp2*(1+sqrt(eps(T))))
@@ -81,7 +81,7 @@ function pszero(psys::PeriodicStateSpace{<: HarmonicArray}, N::Union{Int,Missing
     isreal(σf) && (σf = real(σf))
     if any(isinf.(z)) 
        # Conjecture: The number of infinite zeros is the same as that of the time-evaluated system! 
-       zm = spzeros(dssdata(psteval(psys, period*rand()))...; fast, atol1 = atol, atol2 = atol, rtol)[1] 
+       zm = MatrixPencils.spzeros(dssdata(psteval(psys, period*rand()))...; fast, atol1 = atol, atol2 = atol, rtol)[1] 
        return [σf; zm[isinf.(zm)]]
     else
        return σf
@@ -116,10 +116,10 @@ working machine epsilon.
 function pszero(psys::PeriodicStateSpace{<: FourierFunctionMatrix}, N::Union{Int,Missing} = missing; P::Int= 1, fast::Bool = true, atol::Real = 0, rtol::Real = 0) 
     ismissing(N) && (N = max(20, maximum(ncoefficients.(Matrix(psys.A.M))), maximum(ncoefficients.(Matrix(psys.B.M))),
                                    maximum(ncoefficients.(Matrix(psys.C.M))), maximum(ncoefficients.(Matrix(psys.A.M)))))
-    (N == 0 || islti(psys) ) && (return spzeros(dssdata(psaverage(psys))...; fast, atol1 = atol, atol2 = atol, rtol)[1])
+    (N == 0 || islti(psys) ) && (return MatrixPencils.spzeros(dssdata(psaverage(psys))...; fast, atol1 = atol, atol2 = atol, rtol)[1])
 
     # employ heuristics to determine fix finite zeros by comparing two sets of computed zeros
-    z = spzeros(dssdata(ps2frls(psys, N; P))...; fast, atol1 = atol, atol2 = atol, rtol)[1] 
+    z = MatrixPencils.spzeros(dssdata(ps2frls(psys, N; P))...; fast, atol1 = atol, atol2 = atol, rtol)[1] 
 
     period = psys.A.period
     ωhp2 = pi/P/period
@@ -130,7 +130,7 @@ function pszero(psys::PeriodicStateSpace{<: FourierFunctionMatrix}, N::Union{Int
     nf = count(abs.(imag(zf[ind[1:min(4*n,length(ind))]])) .<=  ωhp2*(1+sqrt(eps(T))))
     zf = zf[ind[1:nf]]
 
-    z2 = spzeros(dssdata(ps2frls(psys, N+2; P))...; fast, atol1 = atol, atol2 = atol, rtol)[1] 
+    z2 = MatrixPencils.spzeros(dssdata(ps2frls(psys, N+2; P))...; fast, atol1 = atol, atol2 = atol, rtol)[1] 
     zf2 = z2[isfinite.(z2)]
     ind = sortperm(imag(zf2),by=abs); 
     nf2 = count(abs.(imag(zf2[ind[1:min(4*n,length(ind))]])) .<=  ωhp2*(1+sqrt(eps(T))))
@@ -146,7 +146,7 @@ function pszero(psys::PeriodicStateSpace{<: FourierFunctionMatrix}, N::Union{Int
 
     if any(isinf.(z)) 
        # Conjecture: The number of infinite zeros is the same as that of the time-evaluated system! 
-       zm = spzeros(dssdata(psteval(psys, period*rand()))...; fast, atol1 = atol, atol2 = atol, rtol)[1] 
+       zm = MatrixPencils.spzeros(dssdata(psteval(psys, period*rand()))...; fast, atol1 = atol, atol2 = atol, rtol)[1] 
        zf = [σf; zm[isinf.(zm)]]
     end
     nz = length(zf)
@@ -179,7 +179,7 @@ _References_
     Systems & Control Letters 50:371–381, 2003.
 """
 function pszero(psys::PeriodicStateSpace{<: AbstractPeriodicArray{:d,T}}, K::Int = 1; fast::Bool = true, atol::Real = 0, rtol::Real = 0) where {T}
-    islti(psys)  && (return spzeros(psys.A.M[1], I, psys.B.M[1], psys.C.M[1], psys.D.M[1]; fast, atol1 = atol, atol2 = atol, rtol)[1])
+    islti(psys)  && (return MatrixPencils.spzeros(psys.A.M[1], I, psys.B.M[1], psys.C.M[1], psys.D.M[1]; fast, atol1 = atol, atol2 = atol, rtol)[1])
 
     (na, nb, nc, nd) = (psys.A.dperiod, psys.B.dperiod, psys.C.dperiod, psys.D.dperiod)
     N = na*psys.A.nperiod
@@ -376,7 +376,7 @@ while if `fast = true` the stability is checked using a lifting-based approach.
 The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
 together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
 absolute accuracy `abstol` (default: `abstol = 1.e-7`) and 
-stepsize `dt' (default: `dt = 0`). The value stepsize is relevant only if `solver = "symplectic", in which case
+stepsize `dt` (default: `dt = 0`). The value stepsize is relevant only if `solver = "symplectic", in which case
 an adaptive stepsize strategy is used if `dt = 0` and a fixed stepsize is used if `dt > 0`. (see also [`tvstm`](@ref)). 
 
 
@@ -431,7 +431,6 @@ function psh2norm(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix, Harm
            @inbounds μ[i]  = tvh2norm(psys.A, psys.B, psys.C, P.values[ip], i*Ts, (i-1)*Ts; adj, solver, reltol, abstol, dt) 
        end
     end
-    #@show μ
     return sqrt(sum(μ)*P.nperiod/psys.period)
 end
 function psh2norm(psys::PeriodicStateSpace{<:PeriodicSymbolicMatrix}, K::Int = 1; adj::Bool = false, smarg::Real = 1, fast::Bool = false, 
@@ -475,7 +474,7 @@ function tvh2norm(A::PM1, B::PM2, C::PM3, P::AbstractMatrix, tf, t0; adj = false
 
     The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
     together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-    absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt' (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+    absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
     """
     n = size(A,1)
     n == size(A,2) || error("the periodic matrix A must be square")
@@ -646,7 +645,7 @@ of eigenvalues. The default value used for `β` is `sqrt(ϵ)`, where `ϵ` is the
 The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
 together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
 absolute accuracy `abstol` (default: `abstol = 1.e-7`) and 
-stepsize `dt' (default: `dt = 0`). The value stepsize is relevant only if `solver = "symplectic", in which case
+stepsize `dt` (default: `dt = 0`). The value stepsize is relevant only if `solver = "symplectic", in which case
 an adaptive stepsize strategy is used if `dt = 0` and a fixed stepsize is used if `dt > 0`. (see also [`tvstm`](@ref)). 
 
 
@@ -669,4 +668,470 @@ end
 function pshanorm(psys::PeriodicStateSpace{<:PeriodicTimeSeriesMatrix}, K::Int = 1; smarg::Real = 1, 
                   offset::Real = sqrt(eps()), solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) 
     pshanorm(convert(PeriodicStateSpace{HarmonicArray},psys), K; smarg, offset, solver, reltol, abstol, dt) 
+end
+"""
+    pslinfnorm(psys, hinfnorm = false, rtolinf = 0.001, fast = true, offset = sqrt(ϵ)) -> (linfnorm, fpeak)
+    pshinfnorm(psys, rtolinf = 0.001, fast = true, offset = sqrt(ϵ)) -> (hinfnorm, fpeak)
+
+Compute for a discrete-time periodic system `psys = (A(t),B(t),C(t),D(t)` with the lifted transfer function  matrix `G(λ)` 
+the `L∞` norm `linfnorm` with ` pslinfnorm` or the `H∞` norm `hinfnorm` with ` pshinfnorm` (i.e.,  the peak gain of `G(λ)`) and 
+the corresponding peak frequency `fpeak`, where the peak gain is achieved.
+If `hinfnorm = true`, the `H∞` norm is computed with ` pslinfnorm`.
+
+The `L∞` norm is infinite if `psys` has poles on the stability domain boundary, 
+i.e., on the unit circle. The `H∞` norm is infinite if `psys` has unstable poles. 
+
+To check the lack of poles on the stability domain boundary, the poles of `psys` 
+must not have moduli within the interval `[1-β,1+β]`, where `β` is the stability domain boundary offset.  
+The offset  `β` to be used can be specified via the keyword parameter `offset = β`. 
+The default value used for `β` is `sqrt(ϵ)`, where `ϵ` is the working machine precision. 
+
+The keyword argument `rtolinf` specifies the relative accuracy for the computed infinity norm. 
+The  default value used for `rtolinf` is `0.001`.
+
+The computation of the `L∞` norm is based on the algorithm proposed in [1]. 
+The involved computations of characteristic multipliers are performed either with the fast reduction method of [2], 
+if `fast = true` or if time-varying dimensions are present, 
+or the generalized periodic Schur decomposition based method of [3], if `fast = false`.  
+
+_References_
+
+[1] A. Varga. "Computation of L∞-norm of linear discrete-time periodic systems." Proc. MTNS, Kyoto, 2007.
+
+[2] A. Varga and P. Van Dooren. Computing the zeros of periodic descriptor systems.
+    Systems & Control Letters 50:371–381, 2003.
+
+[3] Kressner, D.
+    An efficient and reliable implementation of the periodic QZ
+    algorithm. IFAC Workshop on Periodic Control Systems (PSYCO
+    2001), Como (Italy), August 27-28 2001. Periodic Control
+    Systems 2001 (IFAC Proceedings Volumes), Pergamon.
+"""   
+function pslinfnorm(psys::PeriodicStateSpace{<: AbstractPeriodicArray{:d,T}}; hinfnorm::Bool = false, rtolinf::Real = float(real(T))(0.001), fast::Bool = true, 
+                   offset::Real = sqrt(eps(float(real(T)))))  where {T} 
+    
+    T1 = T <: BlasFloat ? T : promote_type(Float64,T) 
+    ZERO = real(T1)(0)
+
+    # detect zero case
+    # iszero(sys, atol1 = atol1, atol2 = atol2, rtol = rtol) && (return ZERO, ZERO)
+
+    # quick exit for zero dimensions  
+    ny, nu = size(psys)
+    (nu == 0 || ny == 0) && (return ZERO, ZERO)
+
+    # quick exit in constant case  
+    size(psys.A,1) == 0 && (return opnorm(ps2ls(psys).D), ZERO)
+
+    β = abs(offset)
+    Ts = abs(psys.Ts)
+    
+    # check for poles on the boundary of the stability domain
+    ft = psceig(psys.A) 
+    hinfnorm && any(abs.(ft) .> 1-β) && (return Inf, NaN)
+    for i = 1:length(ft)
+        abs(ft[i]) >= 1-β && abs(ft[i]) <= 1+β && (return Inf, abs(log(complex(ft[i]))/Ts))
+    end
+    
+    # compute L∞-norm according to system type
+    return psnorminfd(psys, ft, Ts, rtolinf, fast)
+    # end PSLINFNORM
+end
+function psnorminfd(psys::PeriodicStateSpace{<: PeriodicMatrix}, ft0, Ts, tol, fast) 
+
+    T = eltype(psys)
+    ny, nu = size(psys)
+    min(ny, nu) == 0 && (return T(0), T(0))
+ 
+    # Discrete-time L∞ norm computation
+    # It is assumed that psys has no poles on the unit circle
+ 
+    # Tolerance for detection of unit circle modes
+    epsm = eps(T)
+    toluc1 = 100 * epsm       # for simple roots
+    toluc2 = 10 * sqrt(epsm)  # for double root
+    
+    # Problem dimensions
+    ndx, nx = size(psys.A)
+    ny, nu = size(psys)
+    
+    # Build a new vector TESTFRQ of test frequencies containing the peaking
+    # frequency for each mode (or an approximation thereof for non-resonant modes).
+    sr = log.(complex(ft0[(ft0 .!= 0) .& (abs.(ft0) .<= pi/Ts)]));   # equivalent jw-axis modes
+    #sr = ft0[(ft0 .!= 0) .& (abs.(ft0) .<= pi/Ts)];   # equivalent jw-axis modes
+    # asr2 = abs.(real(sr))   # magnitude of real parts
+    w0 = abs.(sr);           # fundamental frequencies
+ 
+    # ikeep = (imag.(sr) .>= 0) .& ( w0 .> 0)
+    # testfrq = w0[ikeep].*sqrt.(max.(0.25,1 .- 2 .*(asr2[ikeep]./w0[ikeep]).^2))
+    testfrq = [[0]; w0]
+    
+    # Back to unit circle, and add z = exp(0) and z = exp(pi)
+    testz = [exp.(im*testfrq); [-1] ]
+   
+    gmin = 0
+    fpeak = 0
+    sys = ps2spls(psys)    
+    T1 = promote_type(Float64, eltype(testz), T)        
+ 
+    # Compute lower estimate GMIN as max. gain over the selected frequencies
+    for i = 1:length(testz)
+        z = testz[i]
+        #gw = opnorm(pseval(psys,z))
+        gw = opnorm(sys.C*(lu!(T1(z)*sys.E-sys.A)\Matrix(sys.B))+sys.D)
+        gw > gmin && (gmin = gw;  fpeak = abs(angle(z)))
+    end
+    gmin == 0 && (return T(0), T(0))
+    (pa, pb, pc, pd) = (psys.A.dperiod, psys.B.dperiod, psys.C.dperiod, psys.D.dperiod)
+    p = lcm(pa,pb,pc,pd)
+    nx2 = nx+nx
+    H = Vector{Matrix{Float64}}(undef,p)
+    J = Vector{Matrix{Float64}}(undef,p)
+ 
+    # Modified gamma iterations (Bruinsma-Steinbuch algorithm) starts:
+    iter = 1;
+    while iter < 30
+       # Test if G = (1+TOL)*GMIN qualifies as upper bound
+       g = (1+tol) * gmin;
+       # Compute the finite eigenvalues of the symplectic pencil
+       # deflate nu+ny simple infinite eigenvalues
+       k = argmin(nx); #k = 1
+       iam1 = mod(pa+k-2,pa)+1
+       ii = 1
+       for i = k:p+k-1
+           ia = mod(i-1,pa)+1
+           #iam1 = mod(i-2,pa)+1
+           iap1 = mod(i,pa)+1
+           ib = mod(i-1,pb)+1
+           ic = mod(i-1,pc)+1
+           id = mod(i-1,pd)+1
+           ni = nx[ia]; nip1 = nx[iap1]
+           nui1 = ndx[ia]; nuim1 = ndx[iam1]
+           #nx2i = ni+nuim1
+           h1 = [psys.A.M[ia] zeros(T,nui1,ni); 
+                 zeros(T,ni,ni) I;
+                 zeros(nu,ni+ni); 
+                 psys.C.M[ic] zeros(T,ny,ni)]
+           h2 = [psys.B.M[ib] zeros(T,nui1,ny);
+                 zeros(T,ni,nu) psys.C.M[ic]';
+                 I psys.D.M[id]'; 
+                 psys.D.M[id] g^2*I]
+           j1 =  [I zeros(T,nip1,nip1); 
+                  zeros(T,ni,nip1) psys.A.M[ia]';
+                  zeros(T,nu,nip1) psys.B.M[ib]';
+                  zeros(T,ny,nip1+nip1) ]
+           _, tau = LinearAlgebra.LAPACK.geqrf!(h2)
+           LinearAlgebra.LAPACK.ormqr!('L','T',h2,tau,h1)
+           LinearAlgebra.LAPACK.ormqr!('L','T',h2,tau,j1)
+           i1 = nu+ny+1:nu+ny+nui1+ni
+           H[ii] = view(h1,i1,:)
+           J[ii] = view(j1,i1,:)
+           iam1 = ia 
+           ii = ii+1
+       end
+       if !fast && nx[k] !== maximum(nx)
+          @warn "only constant dimensions are supported: fast approach employed"
+          fast = true
+       end
+       heigs = fast ? eigvals!(psreduc_reg(H,J)...) : pschur(H, J, withZ = false)[5]
+       heigs =  heigs[abs.(heigs) .< 1/toluc2]
+ 
+       # Detect unit-circle eigenvalues
+       mag = abs.(heigs)
+       uceig = heigs[abs.(1 .- mag) .< toluc2 .+ toluc1*mag]
+    
+       # Compute frequencies where gain G is attained and
+       # generate new test frequencies
+       ang = sort(angle.(uceig));
+       ang = unique(max.(epsm,ang[ang .> 0]))
+       lan0 = length(ang);
+       if lan0 == 0
+          # No unit-circle eigenvalues for G = GMIN*(1+TOL): we're done
+          return gmin, fpeak/Ts
+        else
+          lan0 == 1 && (ang = [ang;ang])   # correct pairing
+          lan = length(ang)
+       end
+    
+       # Form the vector of mid-points and compute
+       # gain at new test frequencies
+       gmin0 = gmin;   # save current lower bound
+       #testz = exp.(im*((ang[1:lan-1]+ang[2:lan])/2))
+       # Compute lower estimate GMIN as max. gain over the selected frequencies
+       
+       for i = 1:lan-1
+           z = exp(im*((ang[i]+ang[i+1])/2))
+           #gw = opnorm(pseval(psys,z))
+           gw = opnorm(sys.C*(lu!(T1(z)*sys.E-sys.A)\Matrix(sys.B))+sys.D)
+           gw > gmin && (gmin = gw;  fpeak = abs(angle(z)))
+       end
+     
+       # If lower bound has not improved, exit (safeguard against undetected
+       # unit-circle eigenvalues).
+       (lan0 < 2 || gmin < gmin0*(1+tol/10)) && (return gmin, fpeak/Ts)
+       iter += 1
+    end
+end  
+function psnorminfd(psys::PeriodicStateSpace{<: PeriodicArray}, ft0, Ts, tol, fast) 
+
+   T = eltype(psys)
+   ny, nu = size(psys)
+   min(ny, nu) == 0 && (return T(0), T(0))
+
+   # Discrete-time L∞ norm computation
+   # It is assumed that psys has no poles on the unit circle
+
+   # Tolerance for detection of unit circle modes
+   epsm = eps(T)
+   toluc1 = 100 * epsm       # for simple roots
+   toluc2 = 10 * sqrt(epsm)  # for double root
+   
+   # Problem dimensions
+   nx = size(psys.A,1);
+   ny, nu = size(psys.D)
+   
+   # Build a new vector TESTFRQ of test frequencies containing the peaking
+   # frequency for each mode (or an approximation thereof for non-resonant modes).
+   sr = log.(complex(ft0[(ft0 .!= 0) .& (abs.(ft0) .<= pi/Ts)]));   # equivalent jw-axis modes
+   #sr = ft0[(ft0 .!= 0) .& (abs.(ft0) .<= pi/Ts)];   # equivalent jw-axis modes
+   # asr2 = abs.(real(sr))   # magnitude of real parts
+   w0 = abs.(sr);           # fundamental frequencies
+
+   # ikeep = (imag.(sr) .>= 0) .& ( w0 .> 0)
+   # testfrq = w0[ikeep].*sqrt.(max.(0.25,1 .- 2 .*(asr2[ikeep]./w0[ikeep]).^2))
+   testfrq = [[0]; w0]
+   
+   # Back to unit circle, and add z = exp(0) and z = exp(pi)
+   testz = [exp.(im*testfrq); [-1] ]
+  
+   gmin = 0
+   fpeak = 0
+   sys = ps2spls(psys)    
+   T1 = promote_type(Float64, eltype(testz), T)        
+
+   # Compute lower estimate GMIN as max. gain over the selected frequencies
+   for i = 1:length(testz)
+       z = testz[i]
+       #gw = opnorm(pseval(psys,z))
+       gw = opnorm(sys.C*(lu!(T1(z)*sys.E-sys.A)\Matrix(sys.B))+sys.D)
+       gw > gmin && (gmin = gw;  fpeak = abs(angle(z)))
+   end
+   gmin == 0 && (return T(0), T(0))
+   pa = size(psys.A.M,3)
+   pb = size(psys.B.M,3)
+   pc = size(psys.C.M,3)
+   pd = size(psys.D.M,3)
+   p = lcm(pa,pb,pc,pd)
+   nx2 = nx+nx
+   H = zeros(T,nx2,nx2,p)
+   J = zeros(T,nx2,nx2,p)
+   i1 = nu+ny+1:nu+ny+nx2
+   i2 = 1:nx2
+
+   # Modified gamma iterations (Bruinsma-Steinbuch algorithm) starts:
+   iter = 1;
+   while iter < 30
+      # Test if G = (1+TOL)*GMIN qualifies as upper bound
+      g = (1+tol) * gmin;
+      # Compute the finite eigenvalues of the symplectic pencil
+      # deflate nu+ny simple infinite eigenvalues
+      for i = 1:p
+          ia = mod(i-1,pa)+1
+          ib = mod(i-1,pb)+1
+          ic = mod(i-1,pc)+1
+          id = mod(i-1,pd)+1
+          h1 = [view(psys.A.M,:,:,ia) zeros(T,nx,nx); 
+                zeros(T,nx,nx) I;
+                zeros(nu,nx2); 
+                view(psys.C.M,:,:,ic) zeros(T,ny,nx)]
+          h2 = [view(psys.B.M,:,:,ib) zeros(T,nx,ny);
+                zeros(T,nx,nu) view(psys.C.M,:,:,ic)';
+                I view(psys.D.M,:,:,id)'; 
+                view(psys.D.M,:,:,id) g^2*I]
+          j1 =  [I zeros(T,nx,nx); 
+                 zeros(T,nx,nx) view(psys.A.M,:,:,ia)';
+                 zeros(T,nu,nx) view(psys.B.M,:,:,ib)';
+                 zeros(T,ny,nx2) ]
+          _, tau = LinearAlgebra.LAPACK.geqrf!(h2)
+          LinearAlgebra.LAPACK.ormqr!('L','T',h2,tau,h1)
+          LinearAlgebra.LAPACK.ormqr!('L','T',h2,tau,j1)
+          copyto!(view(H,:,:,i),view(h1,i1,i2))
+          copyto!(view(J,:,:,i),view(j1,i1,i2))
+      end
+      heigs = fast ? eigvals!(psreduc_reg(H,J)...) : pschur(H, J, withZ = false)[5]
+      heigs =  heigs[abs.(heigs) .< 1/toluc2]
+
+      # Detect unit-circle eigenvalues
+      mag = abs.(heigs)
+      uceig = heigs[abs.(1 .- mag) .< toluc2 .+ toluc1*mag]
+   
+      # Compute frequencies where gain G is attained and
+      # generate new test frequencies
+      ang = sort(angle.(uceig));
+      ang = unique(max.(epsm,ang[ang .> 0]))
+      lan0 = length(ang);
+      if lan0 == 0
+         # No unit-circle eigenvalues for G = GMIN*(1+TOL): we're done
+         return gmin, fpeak/Ts
+       else
+         lan0 == 1 && (ang = [ang;ang])   # correct pairing
+         lan = length(ang)
+      end
+   
+      # Form the vector of mid-points and compute
+      # gain at new test frequencies
+      gmin0 = gmin;   # save current lower bound
+      #testz = exp.(im*((ang[1:lan-1]+ang[2:lan])/2))
+      # Compute lower estimate GMIN as max. gain over the selected frequencies
+      for i = 1:lan-1
+          z = exp(im*((ang[i]+ang[i+1])/2))
+          #gw = opnorm(pseval(psys,z))
+          gw = opnorm(sys.C*(lu!(T1(z)*sys.E-sys.A)\Matrix(sys.B))+sys.D)
+          gw > gmin && (gmin = gw;  fpeak = abs(angle(z)))
+      end
+    
+      # If lower bound has not improved, exit (safeguard against undetected
+      # unit-circle eigenvalues).
+      (lan0 < 2 || gmin < gmin0*(1+tol/10)) && (return gmin, fpeak/Ts)
+      iter += 1
+   end
+end  
+function pshinfnorm(psys::PeriodicStateSpace{<: AbstractPeriodicArray{:d,T}}; 
+    rtolinf::Real = float(real(T))(0.001), fast::Bool = true, offset::Real = sqrt(eps(float(real(T)))))  where {T} 
+    return pslinfnorm(psys; hinfnorm = true, rtolinf, fast, offset)
+end
+"""
+    pseval(psys, val) -> Gval
+
+Evaluate for a finite `λ = val`, the value `Gval` of the transfer function matrix `G(λ)` of the 
+lifted system of the discrete-time periodic system `psys`. 
+`val` must not be a pole of `psys`.
+"""
+function pseval(psys::PeriodicStateSpace{<: AbstractPeriodicArray{:d,T}}, val::Number) where {T}
+    sys = ps2spls(psys)    
+    T1 = promote_type(Float64, typeof(val), T)        
+    return sys.C*(lu!(T1(val)*sys.E-sys.A)\Matrix(sys.B))+sys.D
+end
+"""
+    pslinfnorm(psys, K = 100; hinfnorm = false, rtolinf = 0.001, offset = sqrt(ϵ), reltol, abstol, dt) -> (linfnorm, fpeak)
+    pshinfnorm(psys, K = 100; rtolinf = 0.001, offset = sqrt(ϵ), reltol, abstol, dt) -> (linfnorm, fpeak)
+
+Compute for a continuous-time periodic system `psys = (A(t),B(t),C(t),D(t)` the `L∞` norm `linfnorm` with `pslinfnorm` or the 
+`H∞` norm `hinfnorm` with ` pshinfnorm` as defined in [1]. 
+If `hinfnorm = true`, the `H∞` norm is computed with ` pslinfnorm`.
+The corresponding peak frequency `fpeak`, where the peak gain is achieved, is usually not determined, excepting in some limiting cases.   
+The `L∞` norm is infinite if `psys` has poles on the imaginary axis. 
+
+To check the lack of poles on the imaginary axis, the characteristic exponents of `A(t)` 
+must not have real parts in the interval `[-β,β]`, where `β` is the stability domain boundary offset.  
+The offset  `β` to be used can be specified via the keyword parameter `offset = β`. 
+The default value used for `β` is `sqrt(ϵ)`, where `ϵ` is the working machine precision. 
+
+A bisection based algorith, as described in [2], is employed to approximate the `L∞` norm, and the keyword argument `rtolinf` specifies the relative accuracy for the computed infinity norm. 
+The  default value used for `rtolinf` is `0.001`.
+
+If `hinfnorm = true`, the `H∞` norm is computed. 
+In this case, the stability of the system is additionally checked and 
+the `H∞` norm is infinite for an unstable system.
+To check the stability, the characteristic exponents of `A(t)` must have real parts less than `-β`.
+
+The ODE solver to be employed to compute the characteristic multipliers of the system Hamiltonian can be specified using the keyword argument `solver` (default: `solver = "symplectic"`) 
+together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) and 
+stepsize `dt` (default: `dt = 0`). The value stepsize is relevant only if `solver = "symplectic", in which case
+an adaptive stepsize strategy is used if `dt = 0` and a fixed stepsize is used if `dt > 0`. (see also [`tvstm`](@ref)). 
+
+_References:_    
+
+[1] P. Colaneri. Continuous-time periodic systems in H2 and H∞: Part I: Theoretical Aspects.
+    Kybernetika, 36:211-242, 2000. 
+
+[2] A. Varga, On solving periodic differential matrix equations with applications to periodic system norms computation.
+    Proc. CDC/ECC, Seville, p.6545-6550, 2005.  
+"""   
+function pslinfnorm(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix{:c,T}, HarmonicArray{:c,T}, FourierFunctionMatrix{:c,T},PeriodicSymbolicMatrix{:c,T}}}, K::Int=100; hinfnorm::Bool = false, rtolinf::Real = float(real(T))(0.001), fast::Bool = true, 
+                   offset::Real = sqrt(eps(float(real(T)))), solver = "symplectic", reltol = 1e-6, abstol = 1e-7, dt = 0)  where {T} 
+    
+    islti(psys) && (return glinfnorm(psaverage(psys); hinfnorm, rtolinf))      
+
+    T1 = T <: BlasFloat ? T : (T <: Num ? Float64 : promote_type(Float64,T))
+    ZERO = real(T1)(0)
+
+    # detect zero case
+    # iszero(sys, atol1 = atol1, atol2 = atol2, rtol = rtol) && (return ZERO, ZERO)
+
+    # quick exit for zero dimensions  
+    ny, nu = size(psys)
+    (nu == 0 || ny == 0) && (return ZERO, ZERO)
+
+    # quick exit in constant case  
+    if isconstant(psys.D)
+       gd = opnorm(tpmeval(psys.D,0),2)
+    else
+       f = t-> -opnorm(tpmeval(psys.D,t),2)
+       gd = optimize(f,0,period,Optim.Brent(),rel_tol = eps()).minimum
+    end
+      
+    size(psys.A,1) == 0 && (return gd, ZERO)
+
+    β = abs(offset)
+    epsm = eps(T1)
+    toluc1 = 100 * epsm       # for simple roots
+    toluc2 = 10 * sqrt(epsm)  # for double root
+    
+    # check for poles on the boundary of the stability domain
+    ft = psceig(psys.A,K) 
+    stable = all(real.(ft) .< -β)
+    hinfnorm && !stable && (return Inf, NaN)
+    for i = 1:length(ft)
+        real(ft[i]) >= -β && real(ft[i]) <= β && (return Inf, T1 <: Complex ? imag(ft[i]) : abs(imag(ft[i])))
+    end
+    
+    zeroD = gd == 0
+
+    zeroD  && (iszero(psys.B) || iszero(psys.C)) && (return ZERO, ZERO)
+
+    if stable
+       gh = pshanorm(psys)
+       gl = max(gd,gh)
+       gu = gd + 2*gh
+    else
+       gl = gd; gu = glinfnorm(ps2fls(psys, 10); rtolinf)[1]
+    end
+    solver == "symplectic" && K < 10 && (K = 10; @warn "number of sampling values reset to K = $K")
+    iter = 1
+    while checkham1(psys,gu,K,toluc1, toluc2, solver, reltol, abstol, dt) && iter < 10
+          gu *= 2
+          iter += 1
+    end
+    # use bisection to determine    
+    g = (gl+gu)/2
+    while gu-gl > gu*rtolinf
+          checkham1(psys,g,K,toluc1, toluc2, solver, reltol, abstol, dt) ? gl = g : gu = g   
+          g = (gl+gu)/2
+    end
+    return g, nothing
+end
+function checkham1(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix{:c,T}, HarmonicArray{:c,T}, FourierFunctionMatrix{:c,T},PeriodicSymbolicMatrix{:c,T}}}, g::Real, K::Int,toluc1, toluc2, solver, reltol, abstol, dt)  where {T}
+    if iszero(psys.D) 
+       Ht = [[psys.A (psys.B*psys.B')/g^2]; [-psys.C'*psys.C -psys.A']]
+    else
+       Rti = inv(g^2*I-psys.D'*psys.D)
+       At = psys.A+psys.B*Rti*psys.D'*psys.C
+       Gt = psys.B*Rti*psys.B'
+       Qt = -psys.C'*(I+psys.D*Rti*psys.D')*psys.C
+       Ht = [[At Gt]; [Qt -At']]
+    end
+    heigs = pseig(Ht, K; solver, reltol, abstol, dt)
+    heigs =  heigs[abs.(heigs) .< 1/toluc2]
+
+    # detect unit-circle eigenvalues
+    mag = abs.(heigs)
+    uceig = heigs[abs.(1 .- mag) .< toluc2 .+ toluc1*mag]
+    return length(uceig) > 0
+end
+checkham1(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix{:c,T}, HarmonicArray{:c,T}, FourierFunctionMatrix{:c,T},PeriodicSymbolicMatrix{:c,T}}}, g::Real, K::Int)  where {T} = checkham1(psys,g,K,eps(), sqrt(eps()), "symplectic", 1.e-10,1.e-10,0)
+function pshinfnorm(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix{:c,T}, HarmonicArray{:c,T}, FourierFunctionMatrix{:c,T},PeriodicSymbolicMatrix{:c,T}}}; 
+    rtolinf::Real = float(real(T))(0.001), offset::Real = sqrt(eps(float(real(T)))), solver = "symplectic", reltol = 1e-6, abstol = 1e-7, dt = 0)  where {T} 
+    return pslinfnorm(psys; hinfnorm = true, rtolinf, solver, reltol, abstol, dt)
 end
