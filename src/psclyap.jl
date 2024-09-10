@@ -735,7 +735,7 @@ function tvclyap(A::PM1, C::PM2, tf, t0, W0::Union{AbstractMatrix,Missing} = mis
          sol = solve(prob, AutoVern9(Rodas5(),nonstifftol = 11/10); reltol, abstol, save_everystep = false)
       end
    end
-   return MatrixEquations.vec2triu(sol[end], her=true)     
+   return MatrixEquations.vec2triu(sol.u[end], her=true)     
 end
 function tvclyap(A::PM1, C::PM2, ts::AbstractVector, W0::AbstractMatrix; adj = false, solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) where
    {T1, T2, PM1 <: AbstractPeriodicArray{:c,T1}, PM2 <: AbstractPeriodicArray{:c,T2}} 

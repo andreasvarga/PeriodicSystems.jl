@@ -397,8 +397,7 @@ end
 
 Continuous-time periodic function matrix representation.
 
-The continuous-time periodic function matrix object `A` is built from a 
-time periodic real matrix function `f(t)` of real time variable `t`, 
+The continuous-time periodic real matrix function `f(t)` of real time variable `t`, 
 the associated time period `T` and the associated number of subperiods
 specified via the keyword argument `nperiod = k`. 
 It is assumed that  `f(t) = f(t+T/k)` for any real time value `t`.
@@ -520,7 +519,7 @@ index2range(ind::Colon) = ind
 Continuous-time periodic symbolic matrix representation.
  
 The continuous-time periodic symbolic matrix object `A` is built from `F`, a 
-symbolic periodic real matrix or vector of symbolic variable `t`, 
+symbolic real matrix or vector of symbolic variable `t`, 
 the associated time period `T` and the associated number of subperiods
 specified via the keyword argument `nperiod = k`. 
 It is assumed that  `F(t) = F(t+T/k)` for any real time value `t`.

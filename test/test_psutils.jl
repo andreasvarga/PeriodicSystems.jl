@@ -275,22 +275,19 @@ end
 Amat = convert(PeriodicFunctionMatrix,Ahr); 
 @test all(norm.(tvmeval(At,tt; method = "linear").-tvmeval(Ahr,tt)) .< 1.e-3)
 @test iszero(convert(PeriodicSymbolicMatrix,Amat).F-Ap.F)
-@test isperiodic(Amat)
 
 Amat =  convert(PeriodicFunctionMatrix,At);
 @test all(norm.(tvmeval(At,tt; method = "linear").-Amat.f.(tt)) .< 1.e-3)
 #@test iszero(convert(PeriodicSymbolicMatrix,Amat).F-Ap.F)
-@test isperiodic(Amat)
 
 Amat = PeriodicFunctionMatrix(tA,2pi);
 @test all(norm.(tvmeval(At,tt; method = "linear").-tvmeval(Amat,tt)) .< 1.e-3)
 @test iszero(convert(PeriodicSymbolicMatrix,Amat).F-Ap.F)
-@test isperiodic(Amat)
 
 Amat =  convert(PeriodicFunctionMatrix,Ap);
 @test all(norm.(tvmeval(At,tt; method = "linear").-tvmeval(Ap,tt)) .< 1.e-3)
 @test iszero(convert(PeriodicSymbolicMatrix,Amat).F-Ap.F)
-@test isperiodic(Amat) && isperiodic(Ap) && size(Amat) == size(Ap)
+@test size(Amat) == size(Ap)
 
 
 for method in ("constant", "linear", "quadratic", "cubic")

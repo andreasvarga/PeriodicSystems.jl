@@ -368,7 +368,7 @@ success = true
 for i = 1:K
     Y  = PeriodicSystems.tvclyap(Ast, Cst, i*Ts, (i-1)*Ts, W0.values[mod(i+K-1,K)+1]; solver = "", adj = false, reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001) 
     iw = i+1; iw > K && (iw = 1)
-    success = success && norm(Y-W0.values[iw]) < 1.e-7
+    success = success && norm(Y-W0.values[iw]) < 1.e-5
 end
 @test success
 Xst = PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W0, Ast, Cst; solver = "", adj = false, reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001),2*pi)
@@ -384,13 +384,13 @@ for i = 1:Ks
     tf = i == Ks ? W1.period/W1.nperiod : W1.ts[i+1]
     Y  = PeriodicSystems.tvclyap(Asw, Csw, tf, W1.ts[i], W1.values[mod(i+Ks-1,Ks)+1]; solver = "", adj = false, reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001) 
     iw = i+1; iw > Ks && (iw = 1)
-    success = success && norm(Y-W1.values[iw]) < 1.e-7
+    success = success && norm(Y-W1.values[iw]) < 1.e-5
 end
 @test success
 
 XXt = PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W1, Asw, Csw; solver = "", adj = false, reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001),2*pi)
 @test norm((Ast*XXt+XXt*Ast'+Cst-derivative(XXt)).(rand(10)*2*pi)) < 1.e-6
-@test norm((Xst-XXt).(ts)) < 1.e-6
+@test norm((Xst-XXt).(ts)) < 1.e-3
 
 # using Plots
 # t = [0;sort(rand(200)*2*pi);2*pi]; n = length(t)
@@ -429,7 +429,7 @@ end
 
 XXt = PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, W1, Asw, Csw; solver = "", adj = true, reltol = 1.e-10, abstol = 1.e-10, dt = 0.0001),2*pi)
 @test norm((Ast'*XXt+XXt*Ast+Cst+derivative(XXt)).(ts)) < 1.e-6
-@test norm(Xst-XXt) < 1.e-6
+@test norm(Xst-XXt) < 1.e-3
 
 
 

@@ -458,5 +458,5 @@ function tvtimeresp(A::PM, B::PM, tf, t0, u, x0::AbstractVector; solver = "", re
          sol = solve(prob, AutoVern9(Rodas5(),nonstifftol = 11/10); reltol, abstol, save_everystep = false)
       end
    end
-   return sol[end]    
+   return sol.u[end]    
 end
