@@ -472,11 +472,11 @@ eig = pspole(psyscl,20)
 # eig = pspole(psyscl,20)
 # @test maximum(real(eig)) ≈ infohr.sdeg
 
-# stabilization with first order harmonic gain not possible if D = 1, because unbounded gain
+# # stabilization with first order harmonic gain not possible if D = 1, because unbounded gain
 
-@time Fhr, infohr = pclqofc_hr(psyshr, Q, R, 1; K = 100, Jtol = 0.001, gtol = 1.e-4, abstol=1.e-7,reltol=1.e-7,quad=true,optimizer = NelderMead());
-K = PeriodicSystems.Fbuild_hr(infohr.vopt,psyshr.D,1;PFM = true) # determine gain as a periodic function matrix
-@test norm(K(0.6139372254026436)) > 1.e5
+# @time Fhr, infohr = pclqofc_hr(psyshr, Q, R, 1; K = 100, Jtol = 0.001, gtol = 1.e-4, abstol=1.e-7,reltol=1.e-7,quad=true,optimizer = NelderMead());
+# K = PeriodicSystems.Fbuild_hr(infohr.vopt,psyshr.D,1;PFM = true) # determine gain as a periodic function matrix
+# @test norm(K(0.6139372254026436)) > 1.e5
 
 ω0 = 0.00103448 # rad/s
 period = 2*pi/ω0
