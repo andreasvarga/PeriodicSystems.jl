@@ -50,7 +50,7 @@ abstract type AbstractPeriodicStateSpace <: AbstractLTVSystem end
 
 include("types/PeriodicStateSpace.jl")
 include("ps.jl")
-include("conversions.jl")
+include("psconversions.jl")
 include("pslifting.jl")
 include("pstimeresp.jl")
 include("psops.jl")

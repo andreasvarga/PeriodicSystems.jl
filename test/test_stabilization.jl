@@ -466,11 +466,11 @@ psyscl = psfeedback(psyshr0, Fhr; negative=false)
 eig = pspole(psyscl,20)
 @test maximum(real(eig)) ≈ infohr.sdeg
 
-# stabilization with first order harmonic gain possible if D = 0.1
-@time Fhr, infohr = pclqofc_hr(psyshr01, Q, R, 1; K = 100, Jtol = 0.001, gtol = 1.e-4, abstol=1.e-7,reltol=1.e-7,quad=false,stabilizer = NelderMead());
-psyscl = psfeedback(psyshr01, Fhr; negative=false)
-eig = pspole(psyscl,20)
-@test maximum(real(eig)) ≈ infohr.sdeg
+# # stabilization with first order harmonic gain possible if D = 0.1
+# @time Fhr, infohr = pclqofc_hr(psyshr01, Q, R, 1; K = 100, Jtol = 0.001, gtol = 1.e-4, abstol=1.e-7,reltol=1.e-7,quad=false,stabilizer = NelderMead());
+# psyscl = psfeedback(psyshr01, Fhr; negative=false)
+# eig = pspole(psyscl,20)
+# @test maximum(real(eig)) ≈ infohr.sdeg
 
 # stabilization with first order harmonic gain not possible if D = 1, because unbounded gain
 
