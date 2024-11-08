@@ -10,7 +10,6 @@ makedocs(warnonly = true,
       "Home"   => "index.md",
       "Library" => [ 
          "Data Types and Constructors" => [
-          "pstypes.md",
           "ps.md"
           ],
           "Basic connections and operations" => "psconnect.md",
@@ -26,10 +25,7 @@ makedocs(warnonly = true,
    #      "model_matching.md"
          ],
      "Utilities" => [
-      "pschur.md",
-      "pstools.md",
-      "psconv.md",
-      "slicot.md"
+      "pstools.md"
       ],
      "Index" => "makeindex.md"
   ]

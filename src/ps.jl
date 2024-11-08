@@ -26,10 +26,10 @@ numerators and denominators up to at most 4 decimal digits).
 The periodic matrix objects `A`, `B`, `C`, `D` can have different types `PM1`, `PM2`, `PM3`, `PM4`, respectively,
 where for a contiuous-time system 
 `PM1`, `PM2`, `PM3`, `PM4` must be one of the supported continuous-time periodic matrix types, i.e., 
-[`PeriodicFunctionMatrix`](@ref), [`PeriodicSymbolicMatrix`](@ref),
-[`HarmonicArray`](@ref), [`FourierFunctionMatrix`](@ref) or [`PeriodicTimeSeriesMatrix`](@ref),
+`PeriodicFunctionMatrix`, `PeriodicSymbolicMatrix`,
+`HarmonicArray`, `FourierFunctionMatrix` or `PeriodicTimeSeriesMatrix`,
 while for a discrete-time system  `PM1`, `PM2`, `PM3`, `PM4` must be one of the supported discrete-time periodic matrix types, i.e., 
-[`PeriodicMatrix`](@ref) or [`PeriodicArray`](@ref).  
+`PeriodicMatrix` or `PeriodicArray`.  
 Any of the objects `A`, `B`, `C`, `D` can be also specified as a real matrix or vector of appropriate size. 
 
 If `PMT` is not specified, the resulting `psys` has periodic matrices of the same type `PT`, such that `PT` is either the common type
@@ -77,7 +77,7 @@ function ps(A::APMorVM, B::APMorVM, C::APMorVM, D::APMorVM)
        end
    end
    all(PMTM) && error("period and sample time must be specified in the case of only matrix inputs")
-   period = promote_period(A,B,C,D)
+   period = PeriodicMatrices.promote_period(A,B,C,D)
    PMTS = cont ? promote_cpmtype(A,B,C,D) : promote_dpmtype(A,B,C,D)
    return PeriodicStateSpace(PMTM[1] ? PMTS(A,period) : (PMT[1] <: PMTS ? A : convert(PMTS,A)), 
                              PMTM[2] ? PMTS(B,period) : (PMT[2] <: PMTS ? B : convert(PMTS,B)),
@@ -86,7 +86,7 @@ function ps(A::APMorVM, B::APMorVM, C::APMorVM, D::APMorVM)
 
 end
 function ps(PMT::Type, A::APMorVM, B::APMorVM, C::APMorVM, D::APMorVM)
-    period = promote_period(A,B,C,D)
+    period = PeriodicMatrices.promote_period(A,B,C,D)
     ps(typeof(A) <: AbstractVecOrMat ? PMT(A,period) : convert(PMT,A), 
        typeof(B) <: AbstractVecOrMat ? PMT(B,period) : convert(PMT,B), 
        typeof(C) <: AbstractVecOrMat ? PMT(C,period) : convert(PMT,C), 
@@ -102,7 +102,7 @@ ps(PMT::Type, A::APMorVM, B::APMorVM, C::APMorVM, D::APMorVM, period::Real) =
 
 ps(A::APMorVM, B::APMorVM, C::APMorVM) = ps(A,B,C,zeros(Float64,size(C,1)[1],size(B,2)[1]))
 function ps(PMT::Type, A::APMorVM, B::APMorVM, C::APMorVM)
-   period = promote_period(A,B,C)
+   period = PeriodicMatrices.promote_period(A,B,C)
    ps(typeof(A) <: AbstractVecOrMat ? PMT(A,period) : convert(PMT,A), 
       typeof(B) <: AbstractVecOrMat ? PMT(B,period) : convert(PMT,B), 
       typeof(C) <: AbstractVecOrMat ? PMT(C,period) : convert(PMT,C),
@@ -116,12 +116,16 @@ ps(PMT::Type, A::APMorVM, B::APMorVM, C::APMorVM, period::Real) =
 function ps(D::PM) where {PM <: AbstractPeriodicArray}
     p, m = size(D,1), size(D,2)
     PMT = typeof(D).name.wrapper
-    ps(convert(PMT,PeriodicFunctionMatrix(zeros(0,0),D.period)),
-       convert(PMT,PeriodicFunctionMatrix(zeros(0,m),D.period)), 
-       convert(PMT,PeriodicFunctionMatrix(zeros(p,0),D.period)), D)
+    ps(convert(PMT,PeriodicMatrices.PeriodicFunctionMatrix(zeros(0,0),D.period)),
+       convert(PMT,PeriodicMatrices.PeriodicFunctionMatrix(zeros(0,m),D.period)), 
+       convert(PMT,PeriodicMatrices.PeriodicFunctionMatrix(zeros(p,0),D.period)), D)
 end
+
 function ps(sys::DST, period::Real; ns::Int = 1) where {DST <: DescriptorStateSpace}
     sys.E == I || error("only standard state-spece models supported")
+function ps1(A::T) where {T <: PeriodicFunctionMatrix}
+   return typeof(A)
+end
     Ts = sys.Ts
     if Ts == 0
        ps(PeriodicFunctionMatrix(sys.A,period), PeriodicFunctionMatrix(sys.B,period),
@@ -163,7 +167,8 @@ function ps(PMT::Type, sys::DST, period::Real; ns::Int = 1) where {DST <: Descri
 end
 
 
-islti(psys::PeriodicStateSpace) = isconstant(psys.A) && isconstant(psys.B) && isconstant(psys.C) && isconstant(psys.D) 
+islti(psys::PeriodicStateSpace) = PeriodicMatrices.isconstant(psys.A) && PeriodicMatrices.isconstant(psys.B) && 
+                                  PeriodicMatrices.isconstant(psys.C) && PeriodicMatrices.isconstant(psys.D) 
 
 function ps(A::AbstractVecOrMat, B::AbstractVecOrMat, C::AbstractVecOrMat, D::AbstractVecOrMat, period::Real; Ts::Union{Real,Missing} = missing) 
     if ismissing(Ts)
@@ -180,5 +185,5 @@ function ps(A::AbstractVecOrMat, B::AbstractVecOrMat, C::AbstractVecOrMat, D::Ab
 end
 ps(A::AbstractVecOrMat, B::AbstractVecOrMat, C::AbstractVecOrMat, period::Real; Ts::Union{Real,Missing} = missing) =
    ps(A, B, C, zeros(size(C,1),size(B,2)), period; Ts)
-isct(psys::PeriodicStateSpace) = iscontinuous(psys.A)
-isdt(psys::PeriodicStateSpace) = !iscontinuous(psys.A)
+isct(psys::PeriodicStateSpace) = PeriodicMatrices.iscontinuous(psys.A)
+isdt(psys::PeriodicStateSpace) = PeriodicMatrices.isdiscrete(psys.A)

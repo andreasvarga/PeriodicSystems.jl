@@ -193,7 +193,7 @@ function pslyapd(A::AbstractArray{T1, 3}, C::AbstractArray{T2, 3}; adj::Bool = t
    C1 = T2 == T ? C : C1 = convert(Array{T,3},C)
 
    # Reduce A to Schur form and transform C
-   AS, Q, ev, KSCHUR = pschur(A1)
+   AS, Q, ev, KSCHUR = PeriodicMatrices.pschur(A1)
    stability_check && maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")
    
    #X = Q'*C*Q
@@ -247,7 +247,7 @@ function pslyapd(A::AbstractVector{Matrix{T1}}, C::AbstractVector{Matrix{T2}}; a
          [copyto!(view(C1,1:mc[i],1:mc[i],i), T.(C[i])) for i in 1:pc] 
 
    # Reduce A to Schur form and transform C
-   AS, Q, ev, KSCHUR = pschur(A1)
+   AS, Q, ev, KSCHUR = PeriodicMatrices.pschur(A1)
    stability_check && maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")
    
    # if adj = true: X = Q'*C*Q; if adj = false: X = σQ'*C*σQ
@@ -334,7 +334,7 @@ function pslyapd2(A::AbstractVector{Matrix{T1}}, C::AbstractVector{Matrix{T2}}, 
    [copyto!(view(C1,1:mc[i],1:mc[i],i), T.(C[i])) for i in 1:pc] 
 
    # Reduce A to Schur form and transform C
-   AS, Q, ev, KSCHUR = pschur(A1)
+   AS, Q, ev, KSCHUR = PeriodicMatrices.pschur(A1)
    stability_check && maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")
    
    # Y = Q'*E*Q; X = σQ'*C*σQ
@@ -381,7 +381,7 @@ function pslyapd2(A::AbstractArray{T1, 3}, C::AbstractArray{T2, 3}, E::AbstractA
    E1 = T2 == T ? E : E1 = convert(Array{T,3},E)
 
    # Reduce A to Schur form and transform C and E
-   AS, Q, ev, KSCHUR = pschur(A1)
+   AS, Q, ev, KSCHUR = PeriodicMatrices.pschur(A1)
    stability_check && maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")
    
    # Y = Q'*E*Q; X = σQ'*C*σQ
@@ -418,7 +418,7 @@ function pslyapd!(X::AbstractArray{T, 3}, A::AbstractArray{T, 3}, C::AbstractArr
    p = lcm(pa,pc)
 
    # Reduce A to Schur form and transform C 
-   ev, KSCHUR = pschur!(A,Q)
+   ev, KSCHUR = PeriodicMatrices.pschur!(A,Q)
    stability_check && maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")
 
    for i = 1:p
@@ -469,7 +469,7 @@ function pslyapd2!(X::AbstractArray{T, 3}, Y::AbstractArray{T, 3}, A::AbstractAr
    p == size(X,3) == size(Y,3) || throw(DimensionMismatch("incompatible third dimensions of X and Y with A, C, and E"))
 
    # Reduce A to Schur form and transform C and E
-   ev, KSCHUR = pschur!(pschur_ws,A,Q)
+   ev, KSCHUR = PeriodicMatrices.pschur!(pschur_ws,A,Q)
    stability_check && maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")
 
    for i = 1:p

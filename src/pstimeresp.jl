@@ -32,7 +32,23 @@ The ODE solver to be employed can be
 specified using the keyword argument `solver`, together with
 the required relative accuracy `reltol` (default: `reltol = 1.e-4`), 
 absolute accuracy `abstol` (default: `abstol = 1.e-7`) and/or 
-the fixed step length `dt` (default: `dt = Ts/10`) (see [`tvstm`](@ref)). 
+the fixed step length `dt` (default: `dt = Ts/10`).
+Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
+which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
+higher order solvers are employed able to cope with high accuracy demands. 
+
+The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+
+`solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
+
+`solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
+
+`solver = "linear"` - use a special solver for linear ODEs (`MagnusGL6()`) with fixed time step `dt`;
+
+`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
+
+`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
+
 For large numbers of product terms, parallel computation of factors can be alternatively performed 
 by starting Julia with several execution threads. 
 The number of execution threads is controlled either by using the `-t/--threads` command line argument 
@@ -183,7 +199,23 @@ The ODE solver to be employed can be
 specified using the keyword argument `solver`, together with
 the required relative accuracy `reltol` (default: `reltol = 1.e-4`), 
 absolute accuracy `abstol` (default: `abstol = 1.e-7`) and/or 
-the fixed step length `dt` (default: `dt = Ts/10`) (see [`tvstm`](@ref)). 
+the fixed step length `dt` (default: `dt = Ts/10`). 
+Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
+which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
+higher order solvers are employed able to cope with high accuracy demands. 
+
+The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+
+`solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
+
+`solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
+
+`solver = "linear"` - use a special solver for linear ODEs (`MagnusGL6()`) with fixed time step `dt`;
+
+`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
+
+`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
+
 For large numbers of product terms, parallel computation of factors can be alternatively performed 
 by starting Julia with several execution threads. 
 The number of execution threads is controlled either by using the `-t/--threads` command line argument 
@@ -346,8 +378,7 @@ specified using the keyword argument `solver` (see below), together with
 the required relative accuracy `reltol` (default: `reltol = 1.e-4`), 
 absolute accuracy `abstol` (default: `abstol = 1.e-7`) and 
 the fixed step length `dt` (default: `dt = 0`), only used if `solver = "symplectic"`. 
-Depending on the desired relative accuracy `reltol`, 
-lower order solvers are employed for `reltol >= 1.e-4`, 
+Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
 which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
 higher order solvers are employed able to cope with high accuracy demands. 
 
@@ -357,10 +388,11 @@ The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/Ordi
 
 `solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
 
+`solver = "linear"` - use a special solver for linear ODEs (`MagnusGL6()`) with fixed time step `dt`;
+
 `solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
 
 `solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
-
 """
 function pstimeresp(psys::PeriodicStateSpace{PM}, u::Function, t::AbstractVector{<:Real},  
                     x0::AbstractVector{<:Number} = zeros(T,psys.nx[1]);  
@@ -404,7 +436,20 @@ function tvtimeresp(A::PM, B::PM, tf, t0, u, x0::AbstractVector; solver = "", re
 
    The ODE solver to be employed can be specified using the keyword argument `solver`, 
    together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-   absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt' (default: `dt = 0`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+   absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt' (default: `dt = 0`, only used if `solver = "symplectic"`). 
+   Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
+   which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
+   higher order solvers are employed able to cope with high accuracy demands. 
+
+   The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+
+   `solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
+
+   `solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
+
+   `solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
+
+   `solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
    """
    n = size(A,1)
    n == size(A,2) || error("the periodic matrix A must be square")

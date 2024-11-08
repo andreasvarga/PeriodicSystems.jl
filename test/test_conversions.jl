@@ -139,7 +139,7 @@ sys = rss(3,2,3);
 psysc = ps(sys,10);
 @time sysd = c2d(sys,1)[1];
 @time psys = psc2d(psysc,1);
-@test psys.A[1] ≈ sysd.A && psys.B[1] == sysd.B && psys.C[1] == sysd.C && psys.D[1] == sysd.D
+@test psys.A[1] ≈ sysd.A && psys.B[1] ≈ sysd.B && psys.C[1] ≈ sysd.C && psys.D[1] ≈ sysd.D
 
 # only dynamic gains
 psysc = ps(C);

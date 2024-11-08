@@ -32,12 +32,26 @@ the function value `X(t)` by integrating the appropriate ODE from the nearest gr
 To speedup function evaluations, interpolation based function evaluations can be used 
 by setting the keyword argument `intpol = true` (default: `intpol = false`). 
 In this case the interpolation method to be used can be specified via the keyword argument
-`intpolmeth = meth`. The allowable values for `meth` are: `"constant"`, `"linear"`, `"quadratic"` and `"cubic"` (default) (see also [`ts2pfm`](@ref)).
+`intpolmeth = meth`. The allowable values for `meth` are: `"constant"`, `"linear"`, `"quadratic"` and `"cubic"` (default).
 Interpolation is not possible if `A` and `C` are of type `PeriodicSwitchingMatrix`. 
 
 The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, together with
 the required relative accuracy `reltol` (default: `reltol = 1.e-4`) and 
-absolute accuracy `abstol` (default: `abstol = 1.e-7`) (see [`tvstm`](@ref)). 
+absolute accuracy `abstol` (default: `abstol = 1.e-7`). 
+Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
+which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
+higher order solvers are employed able to cope with high accuracy demands. 
+
+The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+
+`solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
+
+`solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
+
+`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
+
+`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
+
 Parallel computation of the matrices of the discrete-time problem can be alternatively performed 
 by starting Julia with several execution threads. 
 The number of execution threads is controlled either by using the `-t/--threads` command line argument 
@@ -207,7 +221,21 @@ equation using the periodic Schur method of [2].
 
 The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
 together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`). 
+Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
+which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
+higher order solvers are employed able to cope with high accuracy demands. 
+
+The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+
+`solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
+
+`solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
+
+`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
+
+`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
+
 
 Parallel computation of the matrices of the discrete-time problem can be alternatively performed 
 by starting Julia with several execution threads. 
@@ -236,21 +264,21 @@ function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", 
    
    T = promote_type(eltype(A),eltype(C),Float64)
    T == Num && (T = Float64)
-   if isconstant(A) && isconstant(C)
+   if PeriodicMatrices.isconstant(A) && PeriodicMatrices.isconstant(C)
       if stability_check
          ev = eigvals(tpmeval(A,0))
          maximum(real.(ev)) >= - sqrt(eps(T)) && error("system stability check failed")  
       end 
       X = adj ? lyapc(tpmeval(A,0)', tpmeval(C,0)) :  lyapc(tpmeval(A,0), tpmeval(C,0))
    else
-      Ka = isconstant(A) ? 1 : max(1,Int(round(A.period/A.nperiod/Ts)))
+      Ka = PeriodicMatrices.isconstant(A) ? 1 : max(1,Int(round(A.period/A.nperiod/Ts)))
       Ad = Array{T,3}(undef, n, n, Ka) 
       Cd = Array{T,3}(undef, n, n, K) 
       Threads.@threads for i = 1:Ka
          @inbounds Ad[:,:,i] = tvstm(A, i*Ts, (i-1)*Ts; solver, reltol, abstol) 
       end
       if stability_check
-         ev = pseig(Ad)
+         ev = pseig3(Ad)
          maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")  
       end 
       if adj
@@ -296,7 +324,20 @@ equations using the periodic Schur method of [2].
 
 The ODE solver to be employed to convert the continuous-time problems into discrete-time problems can be specified using the keyword argument `solver`, 
 together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`). 
+Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
+which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
+higher order solvers are employed able to cope with high accuracy demands. 
+
+The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+
+`solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
+
+`solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
+
+`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
+
+`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 
 Parallel computation of the matrices of the discrete-time problem can be alternatively performed 
 by starting Julia with several execution threads. 
@@ -323,7 +364,7 @@ function pgclyap2(A::PM1, C::PM2, E::PM3, K::Int = 1; solver = "non-stiff", relt
    Ts = period/K/nperiod
    solver == "symplectic" && dt == 0 && (dt = K >= 100 ? Ts : Ts*K/100/nperiod)
    
-   if isconstant(A) && isconstant(C) && isconstant(E)
+   if PeriodicMatrices.isconstant(A) && PeriodicMatrices.isconstant(C) && PeriodicMatrices.isconstant(E)
       if stability_check
          ev = eigvals(tpmeval(A,0))
          maximum(real.(ev)) >= - sqrt(eps(T)) && error("system stability check failed")  
@@ -334,10 +375,10 @@ function pgclyap2(A::PM1, C::PM2, E::PM3, K::Int = 1; solver = "non-stiff", relt
       T = promote_type(eltype(A),eltype(C),eltype(E),Float64)
       T == Num && (T = Float64)
       if stability_check
-         ev = K < 100 ? pseig(A,100) : pseig(A,K)
+         ev = K < 100 ? PeriodicMatrices.pseig(A,100) : PeriodicMatrices.pseig(A,K)
          maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")  
       end 
-      Ka = isconstant(A) ? 1 : max(1,Int(round(A.period/A.nperiod/Ts)))
+      Ka = PeriodicMatrices.isconstant(A) ? 1 : max(1,Int(round(A.period/A.nperiod/Ts)))
       Ad = Array{T,3}(undef, n, n, Ka) 
       Cd = Array{T,3}(undef, n, n, K) 
       Ed = Array{T,3}(undef, n, n, K) 
@@ -383,7 +424,20 @@ equation using the periodic Schur method of [2].
 
 The ODE solver to be employed to convert the continuous-time problems into discrete-time problems can be specified using the keyword argument `solver`, 
 together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`). 
+Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
+which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
+higher order solvers are employed able to cope with high accuracy demands. 
+
+The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+
+`solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
+
+`solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
+
+`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
+
+`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 
 Parallel computation of the matrices of the discrete-time problem can be alternatively performed 
 by starting Julia with several execution threads. 
@@ -409,7 +463,7 @@ function pgclyap2(A::PM1, C::AbstractMatrix, E::PM3, K::Int = 1; solver = "non-s
    Ts = period/K/nperiod
    solver == "symplectic" && dt == 0 && (dt = K >= 100 ? Ts : Ts*K/100/nperiod)
    
-   if isconstant(A) && isconstant(E)
+   if PeriodicMatrices.isconstant(A) && PeriodicMatrices.isconstant(E)
       A0 = tpmeval(A,0)
       if stability_check
          ev = eigvals(A0)
@@ -422,10 +476,10 @@ function pgclyap2(A::PM1, C::AbstractMatrix, E::PM3, K::Int = 1; solver = "non-s
       T = promote_type(eltype(A),eltype(C),eltype(E),Float64)
       T == Num && (T = Float64)
       if stability_check
-         ev = K < 100 ? pseig(A,100) : pseig(A,K)
+         ev = K < 100 ? PeriodicMatrices.pseig(A,100) : PeriodicMatrices.pseig(A,K)
          maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")  
       end 
-      Ka = isconstant(A) ? 1 : max(1,Int(round(A.period/A.nperiod/Ts)))
+      Ka = PeriodicMatrices.isconstant(A) ? 1 : max(1,Int(round(A.period/A.nperiod/Ts)))
       Ad = Array{T,3}(undef, n, n, Ka) 
       Cd = zeros(T, n, n, K)
       Ed = Array{T,3}(undef, n, n, K) 
@@ -455,7 +509,7 @@ function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", 
    ts = unique(sort([A.ts;C.ts]))
    Kc = length(ts)
   
-   if isconstant(A) && isconstant(C)
+   if PeriodicMatrices.isconstant(A) && PeriodicMatrices.isconstant(C)
       if stability_check
          ev = eigvals(tpmeval(A,0))
          maximum(real.(ev)) >= - sqrt(eps(T)) && error("system stability check failed")  
@@ -464,7 +518,7 @@ function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", 
       return PeriodicSwitchingMatrix([X], ts, period; nperiod)
    else
       T = promote_type(eltype(A),eltype(C),Float64)
-      Ka = isconstant(A) ? 1 : Kc
+      Ka = PeriodicMatrices.isconstant(A) ? 1 : Kc
       Kc1 = Kc*K
       Ad = Array{T,3}(undef, n, n, Ka*K) 
       Cd = Array{T,3}(undef, n, n, Kc1) 
@@ -475,7 +529,7 @@ function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", 
           K == 1 || [Ad[:,:,j] = Ad[:,:,k] for j in k+1:k+K-1]  
       end
       if stability_check
-         ev = pseig(Ad)
+         ev = pseig3(Ad)
          maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")  
       end 
       if adj
@@ -542,7 +596,7 @@ function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", 
    Tsd = Δ/K
    Ts = Δ
    δ = Tsd/2
-   if isconstant(A) && isconstant(C)
+   if PeriodicMatrices.isconstant(A) && PeriodicMatrices.isconstant(C)
       if stability_check
          ev = eigvals(tpmeval(A,0))
          maximum(real.(ev)) >= - sqrt(eps(T)) && error("system stability check failed")  
@@ -551,7 +605,7 @@ function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", 
       return PeriodicTimeSeriesMatrix([X], period; nperiod)
    else
       T = promote_type(eltype(A),eltype(C),Float64)
-      Ka = isconstant(A) ? 1 : Kc
+      Ka = PeriodicMatrices.isconstant(A) ? 1 : Kc
       Kc1 = Kc*K
       Ad = Array{T,3}(undef, n, n, Ka*K) 
       Cd = Array{T,3}(undef, n, n, Kc1) 
@@ -561,7 +615,7 @@ function pgclyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "non-stiff", 
           K == 1 || [Ad[:,:,j] = Ad[:,:,k] for j in k+1:k+K-1]  
       end
       if stability_check
-         ev = pseig(Ad)
+         ev = pseig3(Ad)
          maximum(abs.(ev)) >= one(T) - sqrt(eps(T)) && error("system stability check failed")  
       end 
       if adj
@@ -609,7 +663,21 @@ The initial time `t0` is the nearest time grid value to `t`, from below, if `adj
 
 The above ODE is solved by employing the integration method specified via the keyword argument `solver`, 
 together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`). 
+Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
+which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
+higher order solvers are employed able to cope with high accuracy demands. 
+
+The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+
+`solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
+
+`solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
+
+`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
+
+`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
+
 """
 function tvclyap_eval(t::Real,X::PeriodicTimeSeriesMatrix,A::PM1, C::PM2; adj = false, solver = "non-stiff", reltol = 1e-4, abstol = 1e-7, dt = 0) where
    {PM1 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicTimeSeriesMatrix}, PM2 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicTimeSeriesMatrix}} 
@@ -688,7 +756,7 @@ function tvclyap(A::PM1, C::PM2, tf, t0, W0::Union{AbstractMatrix,Missing} = mis
 
    The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
    together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-   absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+   absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`). 
    """
    n = size(A,1)
    n == size(A,2) || error("the periodic matrix A must be square")
@@ -753,7 +821,8 @@ function tvclyap(A::PM1, C::PM2, ts::AbstractVector, W0::AbstractMatrix; adj = f
 
    The ODE solver to be employed can be specified using the keyword argument `solver`, 
    together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-   absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+   absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`). 
+   
    """
    n = size(A,1)
    n == size(A,2) || error("the periodic matrix A must be square")
@@ -818,7 +887,20 @@ function tvclyap(A::PM1, C::PM2, W0::AbstractMatrix; adj = false, solver = "", r
 
    The ODE solver to be employed can be specified using the keyword argument `solver`, 
    together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-   absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+   absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`). 
+   Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
+   which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
+   higher order solvers are employed able to cope with high accuracy demands. 
+
+   The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+
+   `solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
+
+   `solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
+
+   `solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
+
+   `solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
    """
    n = size(A,1)
    n == size(A,2) || error("the periodic matrix A must be square")
@@ -923,12 +1005,25 @@ the function value `U(t)` by integrating the appropriate ODE from the nearest gr
 
 The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
 together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`) and  
-absolute accuracy `abstol` (default: `abstol = 1.e-7`) (see [`tvstm`](@ref)). 
+absolute accuracy `abstol` (default: `abstol = 1.e-7`). 
+Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
+which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
+higher order solvers are employed able to cope with high accuracy demands. 
+
+The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+
+`solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
+
+`solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
+
+`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
+
+`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 
 To speedup function evaluations, interpolation based function evaluations can be used 
 by setting the keyword argument `intpol = true` (default: `intpol = false`). 
 In this case the interpolation method to be used can be specified via the keyword argument
-`intpolmeth = meth`. The allowable values for `meth` are: `"constant"`, `"linear"`, `"quadratic"` and `"cubic"` (default) (see also [`ts2pfm`](@ref)).
+`intpolmeth = meth`. The allowable values for `meth` are: `"constant"`, `"linear"`, `"quadratic"` and `"cubic"` (default).
 Interpolation is not possible if `A` and `C` are of type `PeriodicSwitchingMatrix`. 
 
 Parallel computation of the matrices of the discrete-time problem can be alternatively performed 
@@ -1043,7 +1138,20 @@ equation using the iterative method (Algorithm 5) of [2].
 
 The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
 together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`).
+Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
+which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
+higher order solvers are employed able to cope with high accuracy demands. 
+
+The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+
+`solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
+
+`solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
+
+`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
+
+`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 
 For large values of `K`, parallel computation of the matrices of the discrete-time problem can be alternatively performed 
 by starting Julia with several execution threads. 
@@ -1068,12 +1176,12 @@ function pgcplyap(A::PM1, C::PM2, K::Int = 1; adj = false, solver = "", reltol =
    n = size(A,1)
    Ts = period/K/nperiod
    
-   if isconstant(A) && isconstant(C)
+   if PeriodicMatrices.isconstant(A) && PeriodicMatrices.isconstant(C)
       U = adj ? plyapc(tpmeval(A,0)', tpmeval(C,0)') :  plyapc(tpmeval(A,0), tpmeval(C,0))
    else
       T = promote_type(eltype(A),eltype(C),Float64)
       T == Num && (T = Float64)
-      Ka = isconstant(A) ? 1 : max(1,Int(round(A.period/A.nperiod/Ts)))
+      Ka = PeriodicMatrices.isconstant(A) ? 1 : max(1,Int(round(A.period/A.nperiod/Ts)))
       Ad = Array{T,3}(undef, n, n, Ka) 
       Cd = Array{T,3}(undef, n, n, K) 
       Threads.@threads for i = 1:Ka
@@ -1120,7 +1228,22 @@ The initial time `t0` is the nearest time grid value to `t`, from below, if `adj
 
 The above ODE is solved by employing the integration method specified via the keyword argument `solver`, 
 together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`). 
+Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
+which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
+higher order solvers are employed able to cope with high accuracy demands. 
+
+The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+
+`solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
+
+`solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
+
+`solver = "linear"` - use a special solver for linear ODEs (`MagnusGL6()`) with fixed time step `dt`;
+
+`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
+
+`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 """
 function tvcplyap_eval(t::Real,U::PeriodicTimeSeriesMatrix,A::PM1, C::PM2; adj = false, solver = "non-stiff", reltol = 1e-4, abstol = 1e-7, dt = 0) where
    {PM1 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicTimeSeriesMatrix}, PM2 <: Union{PeriodicFunctionMatrix,PeriodicSymbolicMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicTimeSeriesMatrix}} 
@@ -1169,4 +1292,26 @@ function makesp!(r; adj = true)
    end
    return r
 end
+function pseig3(A::Array{T,3}; rev::Bool = true, fast::Bool = false) where T
+   n = size(A,1)
+   n == size(A,2) || error("A must have equal first and second dimensions") 
+   p = size(A,3)
+   if fast 
+      if rev 
+         ev = eigvals(psreduc_reg(A)...)
+      else
+         imap = p:-1:1                     
+         ev = eigvals(psreduc_reg(view(A,imap))...)
+      end
+      isreal(ev) && (ev = real(ev))
+      sorteigvals!(ev)
+      return sort!(ev,by=abs,rev=true)
+   else
+      T1 = promote_type(Float64,T)
+      ev = PeriodicMatrices.pschur(T1.(A); rev, withZ = false)[3]
+      isreal(ev) && (ev = real(ev))
+      return ev
+   end
+end
+
     

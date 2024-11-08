@@ -104,7 +104,23 @@ The ODE solver to be employed can be
 specified using the keyword argument `solver`, together with
 the required relative accuracy `reltol` (default: `reltol = 1.e-3`), 
 absolute accuracy `abstol` (default: `abstol = 1.e-7`) and/or 
-the fixed step length `dt` (default: `dt = Ts/10`) (see [`tvstm`](@ref)). 
+the fixed step length `dt` (default: `dt = Ts/10`). 
+Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
+which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
+higher order solvers are employed able to cope with high accuracy demands. 
+
+The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+
+`solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
+
+`solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
+
+`solver = "linear"` - use a special solver for linear ODEs (`MagnusGL6()`) with fixed time step `dt`;
+
+`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
+
+`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
+
 For large values of `K`, parallel computation of factors can be alternatively performed 
 by starting Julia with several execution threads. 
 The number of execution threads is controlled either by using the `-t/--threads` command line argument 
@@ -127,20 +143,20 @@ function psc2d(psysc::PeriodicStateSpace{PM}, Ts::Real; solver::String  = "", re
     islti(psysc) && (return ps(PMT,c2d(psaverage(psysc),Ts)[1],psysc.period))
 
     kk = gcd(K,psysc.A.nperiod)
-    ka, na = isconstant(psysc.A) ? (1,K) :  (div(K,kk),kk)
+    ka, na = PeriodicMatrices.isconstant(psysc.A) ? (1,K) :  (div(K,kk),kk)
     kk = gcd(K,psysc.B.nperiod)
-    (kb, nb) = isconstant(psysc.B) ? (1,K) :  (div(K,kk),kk)
+    (kb, nb) = PeriodicMatrices.isconstant(psysc.B) ? (1,K) :  (div(K,kk),kk)
     kk = gcd(K,psysc.C.nperiod)
-    kc, nc = isconstant(psysc.C) ? (1,K) : (div(K,kk),kk)
+    kc, nc = PeriodicMatrices.isconstant(psysc.C) ? (1,K) : (div(K,kk),kk)
     kk = gcd(K,psysc.D.nperiod)
-    kd, nd = isconstant(psysc.D) ? (1,K) : (div(K,kk),kk)
+    kd, nd = PeriodicMatrices.isconstant(psysc.D) ? (1,K) : (div(K,kk),kk)
     Ap = Array{T,3}(undef,n,n,ka)
     Bp = Array{T,3}(undef,n,m,kb)
     Cp = Array{T,3}(undef,p,n,kc)
     Dp = Array{T,3}(undef,p,m,kd)
 
     i1 = 1:n; i2 = n+1:n+m
-    if isconstant(psysc.A) && isconstant(psysc.B)
+    if PeriodicMatrices.isconstant(psysc.A) && PeriodicMatrices.isconstant(psysc.B)
         G = exp([ rmul!(tpmeval(psysc.A,0),Ts) rmul!(tpmeval(psysc.B,0),Ts); zeros(T1,m,n+m)])
         Ap = view(G,i1,i1)
         Bp = view(G,i1,i2)
@@ -166,7 +182,7 @@ end
 #       psc2d(convert(PeriodicStateSpace{PeriodicFunctionMatrix},psysc), Ts; kwargs...)
 psc2d(psysc::PeriodicStateSpace{PeriodicTimeSeriesMatrix{:c,T}}, Ts::Real; kwargs...) where {T} = 
       psc2d(convert(PeriodicStateSpace{HarmonicArray},psysc), Ts; kwargs...)
-psc2d(psysc::PeriodicStateSpace{PeriodicSymbolicMatrix{:c,T}}, Ts::Real; kwargs...) where {T} = 
+psc2d(psysc::PeriodicStateSpace{<:PeriodicSymbolicMatrix}, Ts::Real; kwargs...) = 
       psc2d(convert(PeriodicStateSpace{PeriodicFunctionMatrix},psysc), Ts; kwargs...)
 # function psc2dpm(psysc::PeriodicStateSpace{PM}, Ts::Real; solver::String  = "", reltol = 1e-3, abstol = 1e-7, dt = Ts/10) where {PM <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}}
 
@@ -184,20 +200,20 @@ psc2d(psysc::PeriodicStateSpace{PeriodicSymbolicMatrix{:c,T}}, Ts::Real; kwargs.
 #     islti(psysc) && (return ps(c2d(psaverage(psysc),Ts)[1],psysc.period))
 
 #     kk = gcd(K,psysc.A.nperiod)
-#     ka, na = isconstant(psysc.A) ? (1,K) :  (div(K,kk),kk)
+#     ka, na = PeriodicMatrices.isconstant(psysc.A) ? (1,K) :  (div(K,kk),kk)
 #     kk = gcd(K,psysc.B.nperiod)
-#     (kb, nb) = isconstant(psysc.B) ? (1,K) :  (div(K,kk),kk)
+#     (kb, nb) = PeriodicMatrices.isconstant(psysc.B) ? (1,K) :  (div(K,kk),kk)
 #     kk = gcd(K,psysc.C.nperiod)
-#     kc, nc = isconstant(psysc.C) ? (1,K) : (div(K,kk),kk)
+#     kc, nc = PeriodicMatrices.isconstant(psysc.C) ? (1,K) : (div(K,kk),kk)
 #     kk = gcd(K,psysc.D.nperiod)
-#     kd, nd = isconstant(psysc.D) ? (1,K) : (div(K,kk),kk)
+#     kd, nd = PeriodicMatrices.isconstant(psysc.D) ? (1,K) : (div(K,kk),kk)
 #     Ap = similar(Vector{Matrix},ka)
 #     Bp = similar(Vector{Matrix},kb)
 #     Cp = similar(Vector{Matrix},kc)
 #     Dp = similar(Vector{Matrix},kd)
 
 #     i1 = 1:n; i2 = n+1:n+m
-#     if isconstant(psysc.A) && isconstant(psysc.B)
+#     if PeriodicMatrices.isconstant(psysc.A) && PeriodicMatrices.isconstant(psysc.B)
 #         G = exp([ rmul!(tpmeval(psysc.A,0),Ts) rmul!(tpmeval(psysc.B,0),Ts); zeros(T1,m,n+m)])
 #         Ap[1] = G[i1,i1]
 #         Bp[1] = G[i1,i2]

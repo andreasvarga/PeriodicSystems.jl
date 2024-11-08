@@ -1,5 +1,9 @@
 # Release Notes
 
+## Version 0.9
+
+This is a breaking release, which uses the `PeriodicMatrices` package for constructing and handling different periodic matrix types. This package has been built from the corresponding software available in the previous version of the `PeriodicSystems` package. 
+
 ## Version 0.8
 
 This version uses the latest version of the `DescriptorSystems` package, 

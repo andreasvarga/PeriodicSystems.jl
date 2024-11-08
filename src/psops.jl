@@ -1,7 +1,7 @@
 # sum psys1+psys2
 function +(psys1::PeriodicStateSpace{PM}, psys2::PeriodicStateSpace{PM}) where {PM <: AbstractPeriodicArray}
    size(psys1) == size(psys2) || error("The systems maps have different shapes.")
-   A = blockdiag(psys1.A,psys2.A)
+   A = PeriodicMatrices.blockdiag(psys1.A,psys2.A)
    B = [psys1.B ; psys2.B]
    C = [psys1.C psys2.C]
    D = psys1.D + psys2.D
@@ -19,7 +19,7 @@ end
 # difference psys1-psys2
 function -(psys1::PeriodicStateSpace{PM}, psys2::PeriodicStateSpace{PM}) where {PM <: AbstractPeriodicArray}
    size(psys1) == size(psys2) || error("The systems maps have different shapes.")
-   A = blockdiag(psys1.A,psys2.A)
+   A = PeriodicMatrices.blockdiag(psys1.A,psys2.A)
    B = [psys1.B; psys2.B]
    C = [psys1.C -psys2.C]
    D = psys1.D - psys2.D
@@ -49,7 +49,7 @@ function *(psys1::PeriodicStateSpace{PM}, psys2::PeriodicStateSpace{PM}) where {
    n2 = size(psys2.A,1)
    T = eltype(psys2.A)
    A = [[psys1.A  psys1.B*psys2.C];
-        [PeriodicMatrix{:d,T}(pmzeros(T,n2,n1),psys2.A.period) psys2.A]] 
+        [PeriodicMatrix{:d,T}(PeriodicMatrices.pmzeros(T,n2,n1),psys2.A.period) psys2.A]] 
    B = [psys1.B*psys2.D ; psys2.B]
    C = [psys1.C psys1.D*psys2.C]
    D = psys1.D*psys2.D
@@ -73,7 +73,7 @@ function *(psys1::PeriodicStateSpace{PM}, psys2::PeriodicStateSpace{PM}) where {
    n2 = size(psys2.A,1)
    T = eltype(psys2.A)
    A = [[psys1.A  psys1.B*psys2.C];
-        [convert(SwitchingPeriodicMatrix,PeriodicMatrix{:d,T}(pmzeros(T,n2,n1),psys2.A.period)) psys2.A]] 
+        [convert(SwitchingPeriodicMatrix,PeriodicMatrix{:d,T}(PeriodicMatrices.pmzeros(T,n2,n1),psys2.A.period)) psys2.A]] 
    B = [psys1.B*psys2.D ; psys2.B]
    C = [psys1.C psys1.D*psys2.C]
    D = psys1.D*psys2.D
@@ -105,10 +105,10 @@ Append the periodic systems `psys1` and `psys2` by concatenating their input and
 This corresponds to build `psys` as the block diagonal concatenation of their transfer maps. 
 """
 function psappend(psys1::PeriodicStateSpace{PM}, psys2::PeriodicStateSpace{PM}) where {PM <: AbstractPeriodicArray}
-   A = blockdiag(psys1.A, psys2.A)
-   B = blockdiag(psys1.B, psys2.B)
-   C = blockdiag(psys1.C, psys2.C)
-   D = blockdiag(psys1.D, psys2.D)
+   A = PeriodicMatrices.blockdiag(psys1.A, psys2.A)
+   B = PeriodicMatrices.blockdiag(psys1.B, psys2.B)
+   C = PeriodicMatrices.blockdiag(psys1.C, psys2.C)
+   D = PeriodicMatrices.blockdiag(psys1.D, psys2.D)
    return ps(A, B, C, D)
 end
 
@@ -124,8 +124,8 @@ function pshorzcat(psys1::PeriodicStateSpace{PM}, psys2::PeriodicStateSpace{PM})
    return [psys1 psys2]
 end
 function hcat(psys1::PeriodicStateSpace{PM}, psys2::PeriodicStateSpace{PM}) where {PM <: AbstractPeriodicArray}
-   A = blockdiag(psys1.A, psys2.A)
-   B = blockdiag(psys1.B, psys2.B)
+   A = PeriodicMatrices.blockdiag(psys1.A, psys2.A)
+   B = PeriodicMatrices.blockdiag(psys1.B, psys2.B)
    C = [psys1.C psys2.C]
    D = [psys1.D psys2.D]
    return ps(A, B, C, D)
@@ -142,9 +142,9 @@ function psvertcat(psys1::PeriodicStateSpace{PM}, psys2::PeriodicStateSpace{PM})
    return [psys1; psys2]
 end
 function vcat(psys1::PeriodicStateSpace{PM}, psys2::PeriodicStateSpace{PM}) where {PM <: AbstractPeriodicArray}
-   A = blockdiag(psys1.A, psys2.A)
+   A = PeriodicMatrices.blockdiag(psys1.A, psys2.A)
    B = [psys1.B; psys2.B]
-   C = blockdiag(psys1.C, psys2.C)
+   C = PeriodicMatrices.blockdiag(psys1.C, psys2.C)
    D = [psys1.D; psys2.D]
    return ps(A, B, C, D)
 end

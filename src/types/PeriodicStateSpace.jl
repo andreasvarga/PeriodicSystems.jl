@@ -1,47 +1,48 @@
 # Base.promote_rule(PeriodicFunctionMatrix, PeriodicSymbolicMatrix) = PeriodicFunctionMatrix{:c,T}
 # Base.promote_rule(PeriodicFunctionMatrix, HarmonicArray) = PeriodicFunctionMatrix
-function promote_period(PM1,args...; ndigits = 4)
-   nlim = 2^ndigits
-   if typeof(PM1) <: AbstractVecOrMat 
-      period = nothing 
-      isconst = true
-   else
-      period = PM1.period
-      isconst = isconstant(PM1)
-   end
-   for a in args
-       typeof(a) <: AbstractVecOrMat && continue
-       if isconstant(a)
-          if isconst
-             if isnothing(period) 
-                period = a.period
-             else
-                #period = max(period,a.period)
-                peri = a.period
-                r = rationalize(period/peri)
-                num = numerator(r)
-                den = denominator(r)
-                num <= nlim || den <= nlim || error("incommensurate periods")
-                period = period*den
-             end
-          end
-          continue
-       end
-       isconst && (isconst = false; period = a.period; continue)
-       peri = a.period
-       r = rationalize(period/peri)
-       num = numerator(r)
-       den = denominator(r)
-       num <= nlim || den <= nlim || error("incommensurate periods")
-       period = period*den
-   end
-   return period
-end
+# function promote_period(PM1,args...; ndigits = 4)
+#    nlim = 2^ndigits
+#    if typeof(PM1) <: AbstractVecOrMat 
+#       period = nothing 
+#       isconst = true
+#    else
+#       period = PM1.period
+#       isconst = isconstant(PM1)
+#    end
+#    for a in args
+#        typeof(a) <: AbstractVecOrMat && continue
+#        if isconstant(a)
+#           if isconst
+#              if isnothing(period) 
+#                 period = a.period
+#              else
+#                 #period = max(period,a.period)
+#                 peri = a.period
+#                 r = rationalize(period/peri)
+#                 num = numerator(r)
+#                 den = denominator(r)
+#                 num <= nlim || den <= nlim || error("incommensurate periods")
+#                 period = period*den
+#              end
+#           end
+#           continue
+#        end
+#        isconst && (isconst = false; period = a.period; continue)
+#        peri = a.period
+#        r = rationalize(period/peri)
+#        num = numerator(r)
+#        den = denominator(r)
+#        num <= nlim || den <= nlim || error("incommensurate periods")
+#        period = period*den
+#    end
+#    return period
+# end
+
 function promote_Ts(PM1,args...)
     Ts = PM1.Ts
-    isconst = isconstant(PM1)
+    isconst = PeriodicMatrices.isconstant(PM1)
     for a in args
-        isconstant(a) && continue
+        PeriodicMatrices.isconstant(a) && continue
         isconst && (isconst = false; Ts = a.Ts; continue)
         Ts ≈ a.Ts || error("incompatible sampling times")
     end
@@ -53,10 +54,10 @@ function promote_nperiod(PM1,args...)
       isconst = true
    else
       nperiod = PM1.nperiod
-      isconst = isconstant(PM1)
+      isconst = PeriodicMatrices.isconstant(PM1)
    end
    for a in args
-       (typeof(a) <: AbstractVecOrMat || isconstant(a)) && continue
+       (typeof(a) <: AbstractVecOrMat || PeriodicMatrices.isconstant(a)) && continue
        isconst && (isconst = false; period = a.nperiod; continue)
        nperiod = gcd(a.nperiod,nperiod)
        nperiod == 1 && break
@@ -70,12 +71,12 @@ function promote_cpmtype(PM1,args...)
       isconst = true
    else
       pmtype = typeof(PM1).name.wrapper
-      isconst = isconstant(PM1)
-      iscontinuous(PM1) || error("only continuous-time or constant matrices supported")
+      isconst = PeriodicMatrices.isconstant(PM1)
+      PeriodicMatrices.iscontinuous(PM1) || error("only continuous-time or constant matrices supported")
    end
    for a in args
-       (typeof(a) <: AbstractVecOrMat || isconstant(a)) && continue
-       iscontinuous(a) || error("only continuous-time or constant matrices supported")
+       (typeof(a) <: AbstractVecOrMat || PeriodicMatrices.isconstant(a)) && continue
+       PeriodicMatrices.iscontinuous(a) || error("only continuous-time or constant matrices supported")
        isconst && (isconst = false; pmtype = typeof(a).name.wrapper; continue)
        typeof(a).name.wrapper == pmtype && continue
        pmtype = PeriodicFunctionMatrix
@@ -90,12 +91,12 @@ function promote_dpmtype(PM1,args...)
       isconst = true
    else
       pmtype = typeof(PM1).name.wrapper
-      isconst = isconstant(PM1)
-      iscontinuous(PM1) && error("only discrete-time or constant matrices supported")
+      isconst = PeriodicMatrices.isconstant(PM1)
+      PeriodicMatrices.iscontinuous(PM1) && error("only discrete-time or constant matrices supported")
    end
    for a in args
-       (typeof(a) <: AbstractVecOrMat || isconstant(a)) && continue
-       iscontinuous(a) && error("only discrete-time or constant matrices supported")
+       (typeof(a) <: AbstractVecOrMat || PeriodicMatrices.isconstant(a)) && continue
+       PeriodicMatrices.iscontinuous(a) && error("only discrete-time or constant matrices supported")
        isconst && (isconst = false; pmtype = typeof(a).name.wrapper; continue)
        typeof(a).name.wrapper == pmtype && continue
        pmtype = PeriodicMatrix
@@ -138,8 +139,8 @@ The different periods must be commensurate (i.e., their ratios must be rational 
 numerators and denominators up to at most 4 decimal digits). 
 All periodic matrix objects must have the same type `PM`, where
 `PM` stays for one of the supported periodic matrix types, i.e., 
-[`PeriodicMatrix`](@ref), [`PeriodicArray`](@ref), [`PeriodicFunctionMatrix`](@ref), [`PeriodicSymbolicMatrix`](@ref),
-[`HarmonicArray`](@ref), [`FourierFunctionMatrix`](@ref) or [`PeriodicTimeSeriesMatrix`](@ref). 
+`PeriodicMatrix`, `PeriodicArray`, `PeriodicFunctionMatrix`, `PeriodicSymbolicMatrix`,
+`HarmonicArray`, `FourierFunctionMatrix` or `PeriodicTimeSeriesMatrix`. 
 """
 function PeriodicStateSpace(A::PFM1, B::PFM2, C::PFM3, D::PFM4) where {PFM1 <: PeriodicFunctionMatrix, PFM2 <: PeriodicFunctionMatrix, PFM3 <: PeriodicFunctionMatrix, PFM4 <: PeriodicFunctionMatrix}
     period = ps_validation(A, B, C, D)
@@ -160,13 +161,13 @@ function PeriodicStateSpace(A::FFM1, B::FFM2, C::FFM3, D::FFM4) where {FFM1 <: F
                                                      Float64(period))
 end
 
-function PeriodicStateSpace(A::PSM, B::PSM, C::PSM, D::PSM) where {T,PSM <: PeriodicSymbolicMatrix{:c,T}}
-    period = ps_validation(A, B, C, D)
-    PeriodicStateSpace{PSM}(period == A.period ? A : PeriodicSymbolicMatrix{:c,T}(A,period), 
-                            period == B.period ? B : PeriodicSymbolicMatrix{:c,T}(B,period), 
-                            period == C.period ? C : PeriodicSymbolicMatrix{:c,T}(C,period), 
-                            period == D.period ? D : PeriodicSymbolicMatrix{:c,T}(D,period), 
-                            Float64(period))
+function PeriodicStateSpace(A::PSM, B::PSM, C::PSM, D::PSM) where {PSM <: PeriodicSymbolicMatrix}
+   period = ps_validation(A, B, C, D)
+   PeriodicStateSpace(period == A.period ? A : set_period(A,period), 
+                      period == B.period ? B : set_period(B,period), 
+                      period == C.period ? C : set_period(C,period), 
+                      period == D.period ? D : set_period(D,period), 
+                      Float64(period))
 end
 function PeriodicStateSpace(A::PHR1, B::PHR2, C::PHR3, D::PHR4) where {PHR1 <: HarmonicArray, PHR2 <: HarmonicArray, PHR3 <: HarmonicArray, PHR4 <: HarmonicArray}
     period = ps_validation(A, B, C, D)
@@ -224,9 +225,10 @@ function ps_validation(A::PM1, B::PM2, C::PM3, D::PM4) where {T1, T2, T3, T4, PM
     nu == size(B,2) ||  error("D(t) must have the same column size as B(t)")
     ny == size(C,1) ||  error("D(t) must have the same row size as C(t)")
     # validate sampling time
-    period = promote_period(A, B, C, D)
+    period = PeriodicMatrices.promote_period(A, B, C, D)
     return period
 end
+
 function PeriodicStateSpace(A::PM1, B::PM2, C::PM3, D::PM4) where {PM1 <: PeriodicMatrix, PM2 <: PeriodicMatrix, PM3 <: PeriodicMatrix, PM4 <: PeriodicMatrix}
     period = ps_validation(A, B, C, D)
     promote_Ts(A,B,C,D)
@@ -239,7 +241,7 @@ function PeriodicStateSpace(A::PM1, B::PM2, C::PM3, D::PM4) where {PM1 <: Period
 end
 
 function ps_validation(A::PM1, B::PM2, C::PM3, D::PM4) where {T1, T2, T3, T4, PM1 <: PeriodicMatrix{:d,T1}, PM2 <: PeriodicMatrix{:d,T2}, PM3 <: PeriodicMatrix{:d,T3}, PM4 <: PeriodicMatrix{:d,T4}}
-    period = promote_period(A, B, C, D)
+    period = PeriodicMatrices.promote_period(A, B, C, D)
     max(length(A),length(B),length(C),length(D)) == 0 && (return period)
 
     # Validate dimensions
@@ -281,7 +283,7 @@ function PeriodicStateSpace(A::PA1, B::PA2, C::PA3, D::PA4) where {PA1 <: Period
                                             Float64(period))
 end
 function ps_validation(A::PA1, B::PA2, C::PA3, D::PA4) where {T1, T2, T3, T4, PA1 <: PeriodicArray{:d,T1}, PA2 <: PeriodicArray{:d,T2}, PA3 <: PeriodicArray{:d,T3}, PA4 <: PeriodicArray{:d,T4}}
-    period = promote_period(A, B, C, D)
+    period = PeriodicMatrices.promote_period(A, B, C, D)
     max(length(A),length(B),length(C),length(D)) == 0 && (return period)
 
     # Validate dimensions
@@ -298,7 +300,7 @@ function ps_validation(A::PA1, B::PA2, C::PA3, D::PA4) where {T1, T2, T3, T4, PA
     return period
 end
 function ps_validation(A::PM1, B::PM2, C::PM3, D::PM4) where {T1, T2, T3, T4, PM1 <: SwitchingPeriodicMatrix{:d,T1}, PM2 <: SwitchingPeriodicMatrix{:d,T2}, PM3 <: SwitchingPeriodicMatrix{:d,T3}, PM4 <: SwitchingPeriodicMatrix{:d,T4}}
-   period = promote_period(A, B, C, D)
+   period = PeriodicMatrices.promote_period(A, B, C, D)
    max(length(A),length(B),length(C),length(D)) == 0 && (return period)
 
    # Validate dimensions
@@ -330,7 +332,7 @@ function ps_validation(A::PM1, B::PM2, C::PM3, D::PM4) where {T1, T2, T3, T4, PM
    return period
 end
 function ps_validation(A::PM1, B::PM2, C::PM3, D::PM4) where {T1, T2, T3, T4, PM1 <: SwitchingPeriodicArray{:d,T1}, PM2 <: SwitchingPeriodicArray{:d,T2}, PM3 <: SwitchingPeriodicArray{:d,T3}, PM4 <: SwitchingPeriodicArray{:d,T4}}
-   period = promote_period(A, B, C, D)
+   period = PeriodicMatrices.promote_period(A, B, C, D)
    max(length(A),length(B),length(C),length(D)) == 0 && (return period)
 
    # Validate dimensions
@@ -378,8 +380,8 @@ function Base.getproperty(sys::PeriodicStateSpace, d::Symbol)
 end
 Base.propertynames(sys::PeriodicStateSpace) =
     (:nx, :ny, :nu, fieldnames(typeof(sys))...)
-iscontinuous(sys::PeriodicStateSpace) = iscontinuous(sys.A)
-isdiscrete(sys::PeriodicStateSpace) = !iscontinuous(sys.A)
+PeriodicMatrices.iscontinuous(sys::PeriodicStateSpace) = PeriodicMatrices.iscontinuous(sys.A)
+PeriodicMatrices.isdiscrete(sys::PeriodicStateSpace) = !PeriodicMatrices.iscontinuous(sys.A)
 
 function Base.getindex(sys::PSS, inds...) where PSS <: PeriodicStateSpace
    size(inds, 1) != 2 &&
@@ -406,11 +408,11 @@ function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateS
     if n > 0
        nperiod = sys.A.nperiod
        println(io, "\nState matrix A::$T($n×$n): subperiod: $(sys.A.period/nperiod)    #subperiods: $nperiod ")
-       isconstant(sys.A) ? show(io, mime, sys.A.M(0)) : show(io, mime, sys.A.M)
+       PeriodicMatrices.isconstant(sys.A) ? show(io, mime, sys.A.M(0)) : show(io, mime, sys.A.M)
        if m > 0 
           nperiod = sys.B.nperiod
           println(io, "\n\nInput matrix B::$T($n×$m): $(sys.B.period/nperiod)    #subperiods: $nperiod ") 
-          isconstant(sys.B) ? show(io, mime, sys.B.M(0)) : show(io, mime, sys.B.M)
+          PeriodicMatrices.isconstant(sys.B) ? show(io, mime, sys.B.M(0)) : show(io, mime, sys.B.M)
        else
           println(io, "\n\nEmpty input matrix B.")
        end
@@ -418,14 +420,14 @@ function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateS
        if p > 0 
           nperiod = sys.C.nperiod
           println(io, "\n\nOutput matrix C::$T($p×$n): $(sys.C.period/nperiod)    #subperiods: $nperiod ")
-          isconstant(sys.C) ? show(io, mime, sys.C.M(0)) : show(io, mime, sys.C.M)
+          PeriodicMatrices.isconstant(sys.C) ? show(io, mime, sys.C.M(0)) : show(io, mime, sys.C.M)
        else 
           println(io, "\n\nEmpty output matrix C.") 
        end
        if m > 0 && p > 0
           nperiod = sys.D.nperiod
           println(io, "\n\nFeedthrough matrix D::$T($p×$m): $(sys.D.period/nperiod)    #subperiods: $nperiod ") 
-          isconstant(sys.D) ? show(io, mime, sys.D.M(0)) : show(io, mime, sys.D.M)
+          PeriodicMatrices.isconstant(sys.D) ? show(io, mime, sys.D.M(0)) : show(io, mime, sys.D.M)
        else
           println(io, "\n\nEmpty feedthrough matrix D.") 
        end
@@ -433,7 +435,7 @@ function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateS
     elseif m > 0 && p > 0
        nperiod = sys.D.nperiod
        println(io, "\nFeedthrough matrix D::$T($p×$m): $(sys.D.period/nperiod)    #subperiods: $nperiod ")
-       isconstant(sys.D) ? show(io, mime, sys.D.M(0)) : show(io, mime, sys.D.M)
+       PeriodicMatrices.isconstant(sys.D) ? show(io, mime, sys.D.M(0)) : show(io, mime, sys.D.M)
        println(io, "\n\nTime-varying gain.") 
     else
        println(io, "\nEmpty state-space model.")
@@ -557,11 +559,11 @@ function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateS
     if n > 0
        nperiod = sys.A.nperiod
        println(io, "\nState matrix A::$T($n×$n): subperiod: $(sys.A.period/nperiod)    #subperiods: $nperiod ")
-       isconstant(sys.A) ? show(io, mime, sys.A.f(0)) : show(io, mime, sys.A.f)
+       PeriodicMatrices.isconstant(sys.A) ? show(io, mime, sys.A.f(0)) : show(io, mime, sys.A.f)
        if m > 0 
           nperiod = sys.B.nperiod
           println(io, "\n\nInput matrix B::$T($n×$m): $(sys.B.period/nperiod)    #subperiods: $nperiod ") 
-          isconstant(sys.B) ? show(io, mime, sys.B.f(0)) : show(io, mime, sys.B.f)
+          PeriodicMatrices.isconstant(sys.B) ? show(io, mime, sys.B.f(0)) : show(io, mime, sys.B.f)
        else
           println(io, "\n\nEmpty input matrix B.")
        end
@@ -569,14 +571,14 @@ function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateS
        if p > 0 
           nperiod = sys.C.nperiod
           println(io, "\n\nOutput matrix C::$T($p×$n): $(sys.C.period/nperiod)    #subperiods: $nperiod ")
-          isconstant(sys.C) ? show(io, mime, sys.C.f(0)) : show(io, mime, sys.C.f)
+          PeriodicMatrices.isconstant(sys.C) ? show(io, mime, sys.C.f(0)) : show(io, mime, sys.C.f)
        else 
           println(io, "\n\nEmpty output matrix C.") 
        end
        if m > 0 && p > 0
           nperiod = sys.D.nperiod
           println(io, "\n\nFeedthrough matrix D::$T($p×$m): $(sys.D.period/nperiod)    #subperiods: $nperiod ") 
-          isconstant(sys.D) ? show(io, mime, sys.D.f(0)) : show(io, mime, sys.D.f)
+          PeriodicMatrices.isconstant(sys.D) ? show(io, mime, sys.D.f(0)) : show(io, mime, sys.D.f)
        else
           println(io, "\n\nEmpty feedthrough matrix D.") 
        end
@@ -585,7 +587,7 @@ function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateS
     elseif m > 0 && p > 0
        nperiod = sys.D.nperiod
        println(io, "\nFeedthrough matrix D::$T($p×$m): $(sys.D.period/nperiod)    #subperiods: $nperiod ")
-       isconstant(sys.D) ? show(io, mime, sys.D.f(0)) : show(io, mime, sys.D.f)
+       PeriodicMatrices.isconstant(sys.D) ? show(io, mime, sys.D.f(0)) : show(io, mime, sys.D.f)
        println(io, "Period:      $(sys.period) second(s).")
        println(io, "\n\nTime-varying gain.") 
     else
@@ -898,6 +900,11 @@ function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateS
         println(io, "\nEmpty Periodic discrete-time state-space model.")
     end
 end
+
+index2range(ind1, ind2) = (index2range(ind1), index2range(ind2))
+index2range(ind::T) where {T<:Number} = ind:ind
+index2range(ind::T) where {T<:AbstractArray} = ind
+index2range(ind::Colon) = ind
 
  
 # """ 

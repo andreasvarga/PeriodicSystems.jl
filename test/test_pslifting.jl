@@ -6,12 +6,12 @@ using Symbolics
 using Test
 using LinearAlgebra
 using ApproxFun
+using SparseArrays
+
 
 println("Test_liftings")
 
 # selected sequence to illustrate failure of BlockMatrices.jl v0.16.16
-using LinearAlgebra
-using ApproxFun
 Af = Fun(t -> [0 1; -10*cos(t) -24-10*sin(t)],Fourier(0..2π));
 D = Derivative(domain(Af));
 ND = [D 0I; 0I D];
@@ -160,7 +160,7 @@ z = z[sortperm(imag(z),by=abs)][1:4];
 β = 0.5
 a1 = PeriodicFunctionMatrix(t -> [-1-sin(2*t)^2 2-0.5*sin(4*t); -2-0.5*sin(4*t) -1-cos(2*t)^2],pi);
 #γ(t) = mod(t,pi) < pi/2 ? sin(2*t) : 0 
-γ = chop(Fun(t -> mod(t,pi) < pi/2 ? sin(2*t) : 0, Fourier(0..pi)),1.e-7);
+γ = chop(Fun(t -> mod(t,pi) < pi/2 ? sin(2*t) : 0, Fourier(0..pi),100),1.e-7);
 b1 = PeriodicFunctionMatrix(t ->  [0; 1-2*β*(mod(t,float(pi)) < pi/2 ? sin(2*t) : 0 )], pi); 
 b1 = PeriodicFunctionMatrix(t ->  [0; 1-2*β*γ(t)], pi); 
 c = [1 1]; d = [0];
@@ -217,6 +217,11 @@ psys = PeriodicStateSpace(Ad,Bd,Cd,Dd);
 sys = ps2ls(psys)
 sys1 = ps2ls(psys, 7, ss = true)
 @test iszero(sys-sys1)
+sysp = ps2spls(psys)
+@test Matrix(sysp.A) == sys.A && Matrix(sysp.E) == sys.E && Matrix(sysp.B) == sys.B && Matrix(sysp.C) == sys.C && Matrix(sysp.D) == sys.D
+psyssw = convert(PeriodicStateSpace{SwitchingPeriodicMatrix},psys)
+sysp = ps2spls(psyssw)
+@test Matrix(sysp.A) == sys.A && Matrix(sysp.E) == sys.E && Matrix(sysp.B) == sys.B && Matrix(sysp.C) == sys.C && Matrix(sysp.D) == sys.D
 
 Ad = PeriodicMatrix([[1. 0], [1;1]],2);
 Bd = PeriodicMatrix( [[ 1 ], [ 1; 1]] ,2);
@@ -226,6 +231,9 @@ psys = PeriodicStateSpace(Ad,Bd,Cd,Dd);
 sys = ps2ls(psys)
 sys1 = ps2ls(psys, 7, ss = true)
 @test iszero(sys-sys1)
+sysp = ps2spls(psys)
+@test Matrix(sysp.A) == sys.A && Matrix(sysp.E) == sys.E && Matrix(sysp.B) == sys.B && Matrix(sysp.C) == sys.C && Matrix(sysp.D) == sys.D
+
 
 sys = ps2ls(psys, 2)
 sys1 = ps2ls(psys, 8, ss = true)
@@ -234,6 +242,9 @@ sys1 = ps2ls(psys, 8, ss = true)
 sys = ps2ls(psys, cyclic = true)
 sys1 = ps2ls(psys, 3, cyclic = true)
 @test iszero(sys-sys1)
+sysp = ps2spls(psys, cyclic = true)
+@test Matrix(sysp.A) == sys.A && sysp.E == sys.E && Matrix(sysp.B) == sys.B && Matrix(sysp.C) == sys.C && Matrix(sysp.D) == sys.D
+
 
 
 Ad = PeriodicArray(rand(Float32,2,2,10),10);

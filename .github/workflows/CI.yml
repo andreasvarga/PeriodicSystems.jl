@@ -4,19 +4,17 @@ on:
     branches:
       - master
     paths-ignore:
-      - 'LICENSE.md'
-      - 'README.md'
+      - '*.md'
       - '.github/workflows/TagBot.yml'
-      - '.github/workflows/docs.yml'
+      - '.github/workflows/Documentation.yml'
       - 'docs/*'
   push:
     branches:
       - master
     paths-ignore:
-      - 'LICENSE.md'
-      - 'README.md'
+      - '*.md'
       - '.github/workflows/TagBot.yml'
-      - '.github/workflows/docs.yml'
+      - '.github/workflows/Documentation.yml'
       - 'docs/*'
     # tags: '*'
 permissions:
@@ -62,3 +60,5 @@ jobs:
       - uses: codecov/codecov-action@v4
         with:
           file: lcov.info 
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

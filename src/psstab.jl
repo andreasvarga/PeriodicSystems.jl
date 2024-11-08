@@ -628,7 +628,7 @@ function pdlqofc(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, R::
    # WORK = (temp1(m x n), temp2(m x n), temp3(n x p)
    WORK = (similar(Matrix{T},mu,n), similar(Matrix{T},mu,n), similar(Matrix{T},n,p))
    # WORK1 = (X, Y, At, xt, Q, pschur_ws)
-   WORK1 = (Array{T,3}(undef, n, n, N), nG ? nothing : Array{T,3}(undef, n, n, N), Array{T,3}(undef, n, n, N), Matrix{T}(undef, n, n), Array{T,3}(undef,n,n,N), ws_pschur(n, N) )
+   WORK1 = (Array{T,3}(undef, n, n, N), nG ? nothing : Array{T,3}(undef, n, n, N), Array{T,3}(undef, n, n, N), Matrix{T}(undef, n, n), Array{T,3}(undef,n,n,N), ws_pschur(Gt) )
    # WORK2 = (G, WUSD, WUD, WUL, WY, W, qr_ws, ormqr_ws)
    qr_ws = QRWs(zeros(8), zeros(4))
    WORK2 = (Array{Float64,3}(undef,2,2,N), Array{Float64,3}(undef,4,4,N), Array{Float64,3}(undef,4,4,N),
@@ -899,7 +899,7 @@ function pdlqofc_sw(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
    # WORK = (temp1(m x n), temp2(m x n), temp3(n x p)
    WORK = (similar(Matrix{T},mu,n), similar(Matrix{T},mu,n), similar(Matrix{T},n,p))
    # WORK1 = (WSGrad, X, Y, At, xt, Q, pschur_ws)
-   WORK1 = (Array{T,3}(undef, mu, p, N), Array{T,3}(undef, n, n, N), nG ? nothing : Array{T,3}(undef, n, n, N), Array{T,3}(undef, n, n, N), Matrix{T}(undef, n, n), Array{T,3}(undef,n,n,N), ws_pschur(n, N) )
+   WORK1 = (Array{T,3}(undef, mu, p, N), Array{T,3}(undef, n, n, N), nG ? nothing : Array{T,3}(undef, n, n, N), Array{T,3}(undef, n, n, N), Matrix{T}(undef, n, n), Array{T,3}(undef,n,n,N), ws_pschur(Gt) )
    # WORK2 = (G, WUSD, WUD, WUL, WY, W, qr_ws, ormqr_ws)
    qr_ws = QRWs(zeros(8), zeros(4))
    WORK2 = (Array{Float64,3}(undef,2,2,N), Array{Float64,3}(undef,4,4,N), Array{Float64,3}(undef,4,4,N),
@@ -1188,7 +1188,20 @@ The number of sample values to be used for interpolation can be specified with t
 
 The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
 together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`). 
+Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
+which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
+higher order solvers are employed able to cope with high accuracy demands. 
+
+The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+
+`solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
+
+`solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
+
+`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
+
+`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 
 Parallel computation of the matrices of the discrete-time problem can be alternatively performed 
 by starting Julia with several execution threads. 
@@ -1392,12 +1405,12 @@ function fungradsw!(Fun, Grad, K, x, A::PM, B::PM, C::PM, R, Q, ts, X0, options)
       for i = 1:Ns
           t0 = ts[i]; tf = i < Ns ? ts[i+1] : A.period   
           if quad
-            Grad[:,:,i] .= QuadGK.quadgk(t-> 2*(B(t)'*P(t)+RFC(t))*X(t)*C(t)', t0, tf, rtol=1e-5)[1]
+             Grad[:,:,i] .= QuadGK.quadgk(t-> 2*(B(t)'*P(t)+RFC(t))*X(t)*C(t)', t0, tf, rtol=1e-5)[1]
           else    
              Grad[:,:,i] = tvgrad!(V, Ar, B, C, RFC, P, tf, t0; solver = options.solver, reltol = options.reltol, abstol = options.abstol, dt = options.dt) 
           end
       end
-  end
+   end
 
    isnothing(Fun) ? (return nothing) : (tr(P(0)*X0))
 end
@@ -1427,7 +1440,22 @@ function tvgrad!(V, A::PM, B::PM, C::PM, RFC::PM, P::PFM, tf, t0; solver = optio
       
    The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
    together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-   absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt' (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+   absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt' (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`). 
+   Depending on the desired relative accuracy `reltol`, 
+   lower order solvers are employed for `reltol >= 1.e-4`, 
+   which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
+   higher order solvers are employed able to cope with high accuracy demands. 
+
+   The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+
+   `solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
+
+   `solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
+
+   `solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
+
+   `solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
+   
    """    
     n = size(A,1)   
     n == size(A,2) || error("the periodic matrix A must be square")
@@ -1611,7 +1639,20 @@ The number of sample values to be used for interpolation can be specified with t
 
 The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
 together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = 0`, only used if `solver = "symplectic"`). 
+Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
+which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
+higher order solvers are employed able to cope with high accuracy demands. 
+
+The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+
+`solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
+
+`solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
+
+`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
+
+`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 
 Parallel computation of the matrices of the discrete-time problem can be alternatively performed 
 by starting Julia with several execution threads. 
@@ -1848,7 +1889,7 @@ end
 """
     pcpofstab_sw(psys, ts = missing; K = 100, vinit, optimizer, maxit, vtol, Jtol, gtol, show_trace) -> (Fstab,info)
 
-For a continuoous-time periodic system `psys = (A(t), B(t), C(t), D(t))` of period `T` determine a periodic output feedback gain matrix 
+For a continuous-time periodic system `psys = (A(t), B(t), C(t), D(t))` of period `T` determine a periodic output feedback gain matrix 
 `Fstab(t)` of the same period and switching times `ts`,  
 such that the characteristic exponents `Λ` of the closed-loop state-matrix `A(t)+B(t)*Fstab(t)*inv(I-D(t)*Fstab(t))*C(t)` are stable. 
 The matrices of the system `psys` are of type `PeriodicFunctionMatrix`. 
@@ -2306,5 +2347,4 @@ function Fbuild_hr(x::AbstractVector{T}, psys::PeriodicStateSpace{PM}, nh::Int) 
       return temp
    end
 end
-
 

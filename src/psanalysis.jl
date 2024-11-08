@@ -6,13 +6,13 @@ the characteristic exponents of the periodic matrix `A(t)` (also called the _pol
 
 Depending on the underlying periodic matrix type `PM`, the optional argument `K` and keyword arguments `kwargs` may have the following values:
 
-- if `PM = PeriodicFunctionMatrix`, or `PM = PeriodicSymbolicMatrix`, or `PM = PeriodicTimeSeriesMatrix`, then `K` is the number of factors used to express the monodromy matrix of `A(t)` (default: `K = 1`)  and `kwargs` are the keyword arguments of  [`pseig(::PeriodicFunctionMatrix)`](@ref); 
+- if `PM = PeriodicFunctionMatrix`, or `PM = PeriodicSymbolicMatrix`, or `PM = PeriodicTimeSeriesMatrix`, then `K` is the number of factors used to express the monodromy matrix of `A(t)` (default: `K = 1`)  and `kwargs` are the keyword arguments of  `PeriodicMatrices.pseig(::PeriodicFunctionMatrix)`; 
 
-- if `PM = HarmonicArray`, then `K` is the number of harmonic components used to represent the Fourier series of `A(t)` (default: `K = max(10,nh-1)`, `nh` is the number of harmonics terms of `A(t)`)  and `kwargs` are the keyword arguments of  [`psceig(::HarmonicArray)`](@ref); 
+- if `PM = HarmonicArray`, then `K` is the number of harmonic components used to represent the Fourier series of `A(t)` (default: `K = max(10,nh-1)`, `nh` is the number of harmonics terms of `A(t)`)  and `kwargs` are the keyword arguments of  `PeriodicMatrices.psceig(::HarmonicArray)`; 
 
-- if `PM = FourierFunctionMatrix`, then `K` is the number of harmonic components used to represent the Fourier series of `A(t)` (default: `K = max(10,nh-1)`, `nh` is the number of harmonics terms of `A(t)`)  and `kwargs` are the keyword arguments of  [`psceig(::FourierFunctionMatrix)`](@ref); 
+- if `PM = FourierFunctionMatrix`, then `K` is the number of harmonic components used to represent the Fourier series of `A(t)` (default: `K = max(10,nh-1)`, `nh` is the number of harmonics terms of `A(t)`)  and `kwargs` are the keyword arguments of  `PeriodicMatrices.psceig(::FourierFunctionMatrix)`; 
 
-- if `PM = PeriodicMatrix` or `PM = PeriodicArray`, then `K` is the starting sample time (default: `K = 1`)  and `kwargs` are the keyword arguments of  [`psceig(::PeriodicMatrix)`](@ref); 
+- if `PM = PeriodicMatrix` or `PM = PeriodicArray`, then `K` is the starting sample time (default: `K = 1`)  and `kwargs` are the keyword arguments of  `PeriodicMatrices.psceig(::PeriodicMatrix)`; 
 """
 pspole(psys::PeriodicStateSpace{<: PeriodicArray}, N::Int = 1; kwargs...) = psceig(psys.A, N; kwargs...)
 pspole(psys::PeriodicStateSpace{<: PeriodicMatrix}, N::Int = 1; kwargs...) = psceig(psys.A, N; kwargs...)
@@ -35,7 +35,7 @@ _Periodic Function Matrix_, or _Periodic Symbolic Matrix_ representation
 `N` is the number of selected harmonic components in the Fourier series of the system matrices (default: `N = max(20,nh-1)`, 
 where `nh` is the maximum number of harmonics terms) and the keyword parameter `P` is the number of full periods 
 to be considered (default: `P = 1`) to build 
-a frequency-lifted LTI representation based on truncated block Toeplitz matrices (see [`ps2fls`](@ref)). 
+a frequency-lifted LTI representation based on truncated block Toeplitz matrices. 
 
 The computation of the zeros of the _complex_ lifted system is performed by reducing the corresponding system pencil 
 to an appropriate Kronecker-like form which exhibits the finite and infinite eigenvalues. 
@@ -95,7 +95,7 @@ where the periodic system matrices `Af(t)`, `Bf(t)`, `Cf(t)`, and `Df(t)` are in
 `N` is the number of selected harmonic components in the Fourier series of the system matrices (default: `N = max(20,nh-1)`, 
 where `nh` is the maximum number of harmonics terms) and the keyword parameter `P` is the number of full periods 
 to be considered (default: `P = 1`) to build 
-a frequency-lifted LTI representation based on truncated block Toeplitz matrices (see [`ps2frls`](@ref)). 
+a frequency-lifted LTI representation based on truncated block Toeplitz matrices. 
 
 The computation of the zeros of the _real_ lifted system is performed by reducing the corresponding system pencil 
 to an appropriate Kronecker-like form which exhibits the finite and infinite eigenvalues. 
@@ -186,7 +186,8 @@ function pszero(psys::PeriodicStateSpace{<: AbstractPeriodicArray{:d,T}}, K::Int
     p, m = size(psys)
     ndx, nx = size(psys.A)
     patype = length(nx) == 1 
-    si = [getpm(psys.A,K,na) getpm(psys.B,K,nb); getpm(psys.C,K,nc) getpm(psys.D,K,nd)]
+    #si = [getpm(psys.A,K,na) getpm(psys.B,K,nb); getpm(psys.C,K,nc) getpm(psys.D,K,nd)]
+    si = [psys.A[K] psys.B[K]; psys.C[K] psys.D[K]]
     ndxi = ndx[patype ? 1 : mod(K-1,na)+1]
     nxi1 = nx[patype ? 1 : mod(K,na)+1]
     ti = [ -I zeros(T,ndxi,m); zeros(T,p,nxi1+m)]
@@ -195,7 +196,8 @@ function pszero(psys::PeriodicStateSpace{<: AbstractPeriodicArray{:d,T}}, K::Int
     n1 = size(si,2)
     for i = K:K+N-3
         m1 = size(si,1)
-        si1 = [getpm(psys.A,i+1,na) getpm(psys.B,i+1,nb); getpm(psys.C,i+1,nc) getpm(psys.D,i+1,nd)]
+        #si1 = [getpm(psys.A,i+1,na) getpm(psys.B,i+1,nb); getpm(psys.C,i+1,nc) getpm(psys.D,i+1,nd)]
+        si1 = [psys.A[i+1] psys.B[i+1]; psys.C[i+1] psys.D[i+1]]
         mi1 = size(si1,1)
         ndxi1 = mi1-p
         nxi2 = nx[patype ? 1 : mod(i+1,na)+1]
@@ -210,7 +212,8 @@ function pszero(psys::PeriodicStateSpace{<: AbstractPeriodicArray{:d,T}}, K::Int
         si = F.Q'*[si; zeros(T,mi1,n1)]; si=si[rankr+1:end,:]
         ti = F.Q'*[ zeros(T,m1,nxi2+m); ti1]; ti = ti[rankr+1:end,:]
     end
-    sn = [getpm(psys.A,K+N-1,na) getpm(psys.B,K+N-1,nb); getpm(psys.C,K+N-1,nc) getpm(psys.D,K+N-1,nd)]
+    #sn = [getpm(psys.A,K+N-1,na) getpm(psys.B,K+N-1,nb); getpm(psys.C,K+N-1,nc) getpm(psys.D,K+N-1,nd)]
+    sn = [psys.A[K+N-1] psys.B[K+N-1]; psys.C[K+N-1] psys.D[K+N-1]]
     ndxi = ndx[patype ? 1 : mod(K+N-2,na)+1]
     nxi1 = nx[patype ? 1 : mod(K+N-1,na)+1]
     tn = [ I zeros(T,ndxi,m); zeros(T,p,nxi1+m)]
@@ -232,8 +235,7 @@ must be less than `smarg-β`, where `smarg` is the discrete-time stability margi
 of eigenvalues. The default value used for `β` is `sqrt(ϵ)`, where `ϵ` is the working machine precision. 
 
 The monodromy matrix is determined as a product `K` state transition matrices (default: `K = 1`) 
-computed by integrating numerically a homogeneous linear ODE with periodic coefficients 
-(see function [`monodromy`](@ref) for options which can be specified via the keyword arguments `kwargs`).
+computed by integrating numerically a homogeneous linear ODE with periodic coefficients.
 If `fast = false` (default) then the characteristic multipliers are computed using an approach
 based on the periodic Schur decomposition [1], while if `fast = true` 
 the structure exploiting reduction [2] of an appropriate lifted pencil is employed. 
@@ -377,8 +379,22 @@ The ODE solver to be employed to convert the continuous-time problem into a disc
 together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
 absolute accuracy `abstol` (default: `abstol = 1.e-7`) and 
 stepsize `dt` (default: `dt = 0`). The value stepsize is relevant only if `solver = "symplectic", in which case
-an adaptive stepsize strategy is used if `dt = 0` and a fixed stepsize is used if `dt > 0`. (see also [`tvstm`](@ref)). 
+an adaptive stepsize strategy is used if `dt = 0` and a fixed stepsize is used if `dt > 0`.
+Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
+which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
+higher order solvers are employed able to cope with high accuracy demands. 
 
+The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+
+`solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
+
+`solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
+
+`solver = "linear"` - use a special solver for linear ODEs (`MagnusGL6()`) with fixed time step `dt`;
+
+`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
+
+`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 
 _References_
 
@@ -474,7 +490,7 @@ function tvh2norm(A::PM1, B::PM2, C::PM3, P::AbstractMatrix, tf, t0; adj = false
 
     The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
     together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-    absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`) (see [`tvstm`](@ref)). 
+    absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`) 
     """
     n = size(A,1)
     n == size(A,2) || error("the periodic matrix A must be square")
@@ -646,7 +662,22 @@ The ODE solver to be employed to convert the continuous-time problem into a disc
 together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
 absolute accuracy `abstol` (default: `abstol = 1.e-7`) and 
 stepsize `dt` (default: `dt = 0`). The value stepsize is relevant only if `solver = "symplectic", in which case
-an adaptive stepsize strategy is used if `dt = 0` and a fixed stepsize is used if `dt > 0`. (see also [`tvstm`](@ref)). 
+an adaptive stepsize strategy is used if `dt = 0` and a fixed stepsize is used if `dt > 0`.
+Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
+which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
+higher order solvers are employed able to cope with high accuracy demands. 
+
+The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+
+`solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
+
+`solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
+
+`solver = "linear"` - use a special solver for linear ODEs (`MagnusGL6()`) with fixed time step `dt`;
+
+`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
+
+`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 
 
 _References_
@@ -833,7 +864,7 @@ function psnorminfd(psys::PeriodicStateSpace{<: PeriodicMatrix}, ft0, Ts, tol, f
           @warn "only constant dimensions are supported: fast approach employed"
           fast = true
        end
-       heigs = fast ? eigvals!(psreduc_reg(H,J)...) : pschur(H, J, withZ = false)[5]
+       heigs = fast ? eigvals!(psreduc_reg(H,J)...) : PeriodicMatrices.pschur(H, J, withZ = false)[5]
        heigs =  heigs[abs.(heigs) .< 1/toluc2]
  
        # Detect unit-circle eigenvalues
@@ -958,7 +989,7 @@ function psnorminfd(psys::PeriodicStateSpace{<: PeriodicArray}, ft0, Ts, tol, fa
           copyto!(view(H,:,:,i),view(h1,i1,i2))
           copyto!(view(J,:,:,i),view(j1,i1,i2))
       end
-      heigs = fast ? eigvals!(psreduc_reg(H,J)...) : pschur(H, J, withZ = false)[5]
+      heigs = fast ? eigvals!(psreduc_reg(H,J)...) : PeriodicMatrices.pschur(H, J, withZ = false)[5]
       heigs =  heigs[abs.(heigs) .< 1/toluc2]
 
       # Detect unit-circle eigenvalues
@@ -1039,7 +1070,23 @@ The ODE solver to be employed to compute the characteristic multipliers of the s
 together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
 absolute accuracy `abstol` (default: `abstol = 1.e-7`) and 
 stepsize `dt` (default: `dt = 0`). The value stepsize is relevant only if `solver = "symplectic", in which case
-an adaptive stepsize strategy is used if `dt = 0` and a fixed stepsize is used if `dt > 0`. (see also [`tvstm`](@ref)). 
+an adaptive stepsize strategy is used if `dt = 0` and a fixed stepsize is used if `dt > 0`.
+Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
+which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
+higher order solvers are employed able to cope with high accuracy demands. 
+
+The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl) package can be selected:
+
+`solver = "non-stiff"` - use a solver for non-stiff problems (`Tsit5()` or `Vern9()`);
+
+`solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
+
+`solver = "linear"` - use a special solver for linear ODEs (`MagnusGL6()`) with fixed time step `dt`;
+
+`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
+
+`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
+
 
 _References:_    
 
@@ -1065,7 +1112,7 @@ function pslinfnorm(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix{:c,
     (nu == 0 || ny == 0) && (return ZERO, ZERO)
 
     # quick exit in constant case  
-    if isconstant(psys.D)
+    if PeriodicMatrices.isconstant(psys.D)
        gd = opnorm(tpmeval(psys.D,0),2)
     else
        f = t-> -opnorm(tpmeval(psys.D,t),2)

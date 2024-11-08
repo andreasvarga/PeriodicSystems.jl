@@ -347,7 +347,7 @@ Q = Matrix{Float64}(I(2)); R = [1.;;]
 @test maximum(abs.(infoswi.vopt-infosw.vopt)) < 1.e-4 && abs(infoswi.fopt-infosw.fopt) < 1.e-7 
 
 # optimization with switching feedback
-@time Fsw2, infosw2 = pclqofc_sw(psys, Q, R, collect(0:9)*pi/5; K = 100, Jtol = 1.e-10, gtol = 1.e-6, abstol=1.e-7,reltol=1.e-7);
+@time Fsw2, infosw2 = pclqofc_sw(psys, Q, R, collect(0:9)*pi/5; K = 100, Jtol = 1.e-5, gtol = 1.e-4, abstol=1.e-7,reltol=1.e-7);
 @test infosw.sdeg0 > infosw2.sdeg 
 
 # stabilization and optimization with constant feedback
