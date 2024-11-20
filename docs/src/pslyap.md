@@ -4,7 +4,7 @@
 * **[`prclyap`](@ref)** Solution of reverse-time periodic Lyapunov differential equation equations. 
 * **[`pfclyap`](@ref)**  Solution of forward-time periodic Lyapunov differential equation equations.
 * **[`pgclyap`](@ref)** Computation of periodic generators for periodic Lyapunov differential equations.
-* **[`pgclyap2`](@ref)** Computation of periodic generators for a pair of periodic Lyapunov difference/differential and differential equations.
+* **[`pgclyap2`](@ref)** Computation of periodic generators for a pair of periodic Lyapunov differential equations.
 * **[`tvclyap_eval`](@ref)** Evaluation of time value of solution from the computed periodic generator.
 * **[`pdlyap`](@ref)** Solution of periodic discrete-time Lyapunov equations. 
 * **[`pdlyap2`](@ref)** Solution of a pair of periodic discrete-time Lyapunov equations. 

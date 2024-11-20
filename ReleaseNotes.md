@@ -1,5 +1,9 @@
 # Release Notes
 
+## Version 0.9.1
+
+Fix error in `psmrc2d`.
+
 ## Version 0.9
 
 This is a breaking release, which uses the `PeriodicMatrices` package for constructing and handling different periodic matrix types. This package has been built from the corresponding software available in the previous version of the `PeriodicSystems` package. 

@@ -60,9 +60,9 @@ function psmrc2d(sys::DescriptorStateSpace{T}, Ts::Real; ki::Vector{Int} = ones(
     Δ = sys.Ts
     T1 = T <: BlasFloat ? T : promote_type(Float64,T)
     n = sys.nx
-    if Δ != 0
+    @show Δ
+    if Δ == 0
        i1 = 1:n; i2 = n+1:n+m
-       Δ > 0 && (Ts = Δ)
        G = exp([ rmul!(A,Ts) rmul!(B,Ts); zeros(T1,m,n+m)])
        A =  G[i1,i1]
        B =  G[i1,i2]
@@ -84,6 +84,7 @@ function psmrc2d(sys::DescriptorStateSpace{T}, Ts::Real; ki::Vector{Int} = ones(
         Dp[i] = Ti*D
     end
     PMT = PeriodicMatrix
+    Δ > 0 && (Ts = Δ)
     period = K*Ts
     return ps(PMT(Ap,period),PMT(Bp,period),PMT(Cp,period),PMT(Dp,period))
 end
