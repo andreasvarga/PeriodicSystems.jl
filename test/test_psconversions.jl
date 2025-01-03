@@ -1,6 +1,7 @@
 module Test_conversions
 
 using PeriodicSystems
+using ApproxFun
 using DescriptorSystems
 using Symbolics
 using Test

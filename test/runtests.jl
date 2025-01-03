@@ -10,10 +10,6 @@ include("test_psconversions.jl")
 include("test_pslifting.jl")
 include("test_psanalysis.jl")
 include("test_pstimeresp.jl")
-include("test_pslyap.jl")
-include("test_psclyap.jl")
-include("test_pscric.jl")
-include("test_psdric.jl")
 include("test_stabilization.jl")
 end
 

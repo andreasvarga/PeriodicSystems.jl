@@ -518,8 +518,8 @@ for PM in (PeriodicFunctionMatrix, HarmonicArray, PeriodicSymbolicMatrix, Period
     # psys = ps(Ap,Bp,Cp,Dp);
     psys = convert(PeriodicStateSpace{PM},psysc0)
     psys1 = convert(PeriodicStateSpace{PM},psysc1)
-    solver = "noidea"
-    #for solver in ("non-stiff", "symplectic", "noidea")
+    solver = "auto"
+    for solver in ("non-stiff", "auto")
         println("solver = $solver")
         @time nh2pq = psh2norm(psys,K; solver, reltol=1.e-10, abstol = 1.e-10, quad = true)
         @time nh2p = psh2norm(psys,K; solver, reltol=1.e-10, abstol = 1.e-10)
@@ -540,7 +540,7 @@ for PM in (PeriodicFunctionMatrix, HarmonicArray, PeriodicSymbolicMatrix, Period
            @time nhinfpc1, fpeakpc1  = pslinfnorm(psys1,K; solver, reltol=1.e-10, abstol = 1.e-10, rtolinf)
            @test abs(nhi1-nhinfpc1) < rtolinf*nhi1
         end
-    #end
+    end
 end
 
 
@@ -660,7 +660,7 @@ end
 
 # nt = psh2norm(psys,200, adj = true, reltol=1.e-10, abstol = 1.e-10) 
 # solver = "non-stiff"
-# for solver in ("non-stiff", "stiff", "symplectic", "noidea")
+# for solver in ("non-stiff", "stiff", "symplectic", "auto")
 #     println("solver = $solver")
 #     @time n1 = psh2norm(psys,100; solver, adj = false, reltol=1.e-10, abstol = 1.e-10)
 #     @time n2 = psh2norm(psys,100; solver, adj = true, reltol=1.e-10, abstol = 1.e-10)
@@ -670,7 +670,7 @@ end
 # psys1 = ps(PeriodicFunctionMatrix,a1,b1,c,d1);
 # nti1 = pslinfnorm(psys1,200, reltol=1.e-10, abstol = 1.e-10)[1] 
 # solver = "non-stiff"
-# for solver in ("non-stiff", "stiff", "symplectic", "noidea")
+# for solver in ("non-stiff", "stiff", "symplectic", "auto")
 #     println("solver = $solver")
 #     @time n1 = pslinfnorm(psys1,100; solver, reltol=1.e-10, abstol = 1.e-10)[1]
 #     @time n2 = pslinfnorm(psys1,100; solver, reltol=1.e-10, abstol = 1.e-10)[1]
@@ -846,7 +846,7 @@ for PM in (PeriodicFunctionMatrix, HarmonicArray, FourierFunctionMatrix, Periodi
     # psys = ps(Ap,Bp,Cp,Dp);
     psys = convert(PeriodicStateSpace{PM},psys0)
     solver = "non-stiff"
-    for solver in ("non-stiff", "stiff", "symplectic", "noidea")
+    for solver in ("non-stiff", "stiff", "auto")
         println("solver = $solver")
         @time nhap = pshanorm(psys,K; solver, reltol=1.e-10, abstol = 1.e-10)
         @test nhapc ≈ nhap     
@@ -899,8 +899,8 @@ c = [1 0 0 0;0 1 0 0];
 d = zeros(2,1);
 psys = ps(a-β*I,PeriodicFunctionMatrix(b,period),c,d);
 
-@time n1 = pshanorm(psys,100; reltol=1.e-10, abstol = 1.e-10); 
-@time n2 = pshanorm(psys,200; reltol=1.e-10, abstol = 1.e-10); 
+@time n1 = pshanorm(psys,300; reltol=1.e-10, abstol = 1.e-10); 
+@time n2 = pshanorm(psys,500; reltol=1.e-10, abstol = 1.e-10); 
 @test n1 ≈ n2
 
 rtolinf = 1.e-8

@@ -47,7 +47,7 @@ The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/Ordi
 
 `solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
 
-`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
+`solver = "auto"` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 
 For large numbers of product terms, parallel computation of factors can be alternatively performed 
 by starting Julia with several execution threads. 
@@ -56,7 +56,7 @@ or by using the `JULIA_NUM_THREADS` environment variable.
 """
 function pstimeresp(psys::PeriodicStateSpace{PM}, u::AbstractVecOrMat{<:Number}, t::AbstractVector{<:Real},  
                   x0::AbstractVector{<:Number} = zeros(T,psys.nx[1]); 
-                  state_history::Bool = false, solver::String  = "", reltol = 1e-4, abstol = 1e-7, dt = 0) where {Domain,T, PM <: AbstractPeriodicArray{Domain,T}}
+                  state_history::Bool = false, solver::String  = "auto", reltol = 1e-4, abstol = 1e-7, dt = 0) where {Domain,T, PM <: AbstractPeriodicArray{Domain,T}}
 
    T1 = T <: BlasFloat ? T : promote_type(Float64,T) 
    n = psys.nx[1] 
@@ -214,7 +214,7 @@ The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/Ordi
 
 `solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
 
-`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
+`solver = "auto"` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 
 For large numbers of product terms, parallel computation of factors can be alternatively performed 
 by starting Julia with several execution threads. 
@@ -224,8 +224,8 @@ or by using the `JULIA_NUM_THREADS` environment variable.
 function psstepresp(psys::PeriodicStateSpace{PM}, tfinal::Real = 0;
                   x0::AbstractVector{<:Number} = zeros(T,psys.nx[1]), ustep::AbstractVector{<:Number} = ones(T,psys.nu[1]), 
                   state_history::Bool = false, timesteps::Int = 100,  
-                  solver::String  = "", reltol = 1e-4, abstol = 1e-7, dt = 0) where 
-                  {T, PM <: Union{PeriodicArray{:d,T},PeriodicMatrix{:d,T},PeriodicFunctionMatrix{:c,T},HarmonicArray{:c,T},FourierFunctionMatrix{:c,T}}}
+                  solver::String  = "auto", reltol = 1e-4, abstol = 1e-7, dt = 0) where 
+                  {T, PM <: Union{PeriodicArray{:d,T},PeriodicMatrix{:d,T},PeriodicFunctionMatrix{:c,T},HarmonicArray{:c,T}}}
 
    T1 = T <: BlasFloat ? T : promote_type(Float64,T) 
    n, p, m = psys.nx[1], psys.ny[1], psys.nu[1]
@@ -392,11 +392,11 @@ The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/Ordi
 
 `solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
 
-`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
+`solver = "auto"` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 """
 function pstimeresp(psys::PeriodicStateSpace{PM}, u::Function, t::AbstractVector{<:Real},  
                     x0::AbstractVector{<:Number} = zeros(T,psys.nx[1]);  
-                    state_history::Bool = false, solver::String  = "", reltol = 1e-4, abstol = 1e-7, dt = 0) where {T, PM <: AbstractPeriodicArray{:c,T}}
+                    state_history::Bool = false, solver::String  = "auto", reltol = 1e-4, abstol = 1e-7, dt = 0) where {T, PM <: AbstractPeriodicArray{:c,T}}
    T1 = T <: BlasFloat ? T : promote_type(Float64,T) 
    n = psys.nx 
    p, m = psys.ny, psys.nu
@@ -425,8 +425,8 @@ function pstimeresp(psys::PeriodicStateSpace{PM}, u::Function, t::AbstractVector
    end
    return y, tout, x
 end
-function tvtimeresp(A::PM, B::PM, tf, t0, u, x0::AbstractVector; solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) where
-   {PM <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicSwitchingMatrix,PeriodicTimeSeriesMatrix}} 
+function tvtimeresp(A::PM, B::PM, tf, t0, u, x0::AbstractVector; solver = "auto", reltol = 1e-4, abstol = 1e-7, dt = 0) where
+   {PM <: Union{PeriodicFunctionMatrix,HarmonicArray,PeriodicSwitchingMatrix,PeriodicTimeSeriesMatrix}} 
    """
       tvtimeresp(A, B, tf, t0, u, x0; solver, reltol, abstol) -> x::Vector
 
@@ -449,7 +449,7 @@ function tvtimeresp(A::PM, B::PM, tf, t0, u, x0::AbstractVector; solver = "", re
 
    `solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
 
-   `solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
+   `solver = "auto"` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
    """
    n = size(A,1)
    n == size(A,2) || error("the periodic matrix A must be square")

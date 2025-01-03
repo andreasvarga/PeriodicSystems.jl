@@ -147,7 +147,7 @@ function ps(PMT::Type, sys::DST, period::Real; ns::Int = 1) where {DST <: Descri
     sys.E == I || error("only standard state-spece models supported")
     Ts = sys.Ts
     if Ts == 0
-       PMT ∈ (PeriodicFunctionMatrix, HarmonicArray, PeriodicSwitchingMatrix, PeriodicTimeSeriesMatrix, PeriodicSymbolicMatrix, FourierFunctionMatrix) ||
+       PMT ∈ (PeriodicFunctionMatrix, HarmonicArray, PeriodicSwitchingMatrix, PeriodicTimeSeriesMatrix, PeriodicSymbolicMatrix) ||
              error("only continuous periodic matrix types allowed")
        ps(PMT(sys.A,period), PMT(sys.B,period), PMT(sys.C,period), PMT(sys.D,period))
     else

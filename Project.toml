@@ -1,10 +1,9 @@
 name = "PeriodicSystems"
 uuid = "5decd0d0-8a5f-11ec-2edd-87b25cbcd17e"
 authors = ["Andreas Varga <varga.andreas@gmail.com>"]
-version = "0.9.1"
+version = "1.0.0"
 
 [deps]
-ApproxFun = "28f2ccd6-bb30-5033-b560-165f7b14dc2f"
 DescriptorSystems = "a81e2ce2-54d1-11eb-2c75-db236b00f339"
 FastLapackInterface = "29a986be-02c6-4525-aec4-84b980013641" 
 IRKGaussLegendre = "58bc7355-f626-4c51-96f2-1f8a038f95a2"
@@ -16,12 +15,24 @@ MatrixPencils = "48965c70-4690-11ea-1f13-43a2532b2fa8"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
 PeriodicMatrices = "dd9cd634-6083-4ae5-8f2e-b983833de2bb"
+PeriodicMatrixEquations = "52570b1b-55d0-4b45-8be2-52db9c79d90e"
 PeriodicSchurDecompositions = "e5aedecb-f6c0-4c91-b6ff-fbae4296f459"
 QuadGK = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
+
+[weakdeps]
+ApproxFun = "28f2ccd6-bb30-5033-b560-165f7b14dc2f"
+
+[extensions] 
+FourierApproxExt1 = "ApproxFun"
+
+[extras]
+ApproxFun = "28f2ccd6-bb30-5033-b560-165f7b14dc2f"
+LinearMaps = "7a12625a-238d-50fd-b39a-03d52299707e"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
 ApproxFun = "0.13"
@@ -36,19 +47,15 @@ MatrixEquations = "2.2"
 MatrixPencils = "1.7"
 Optim = "1.7"
 OrdinaryDiffEq = "v5.72.2, 6"
-PeriodicMatrices = "0.1.1, 0.1.2"
-PeriodicSchurDecompositions = "0.1.1, 0.1.5"
+PeriodicMatrices = "0.1.2"
+PeriodicMatrixEquations = "0.1"
+PeriodicSchurDecompositions = "0.1.5"
 Reexport = "1.2.2"
 QuadGK = "2.9"
 Random = "1"
 Symbolics = "4, 5"
 julia = "1.10"
 
-
-[extras]
-LinearMaps = "7a12625a-238d-50fd-b39a-03d52299707e"
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-
 [targets]
-test = ["LinearMaps", "Test"]
+test = ["ApproxFun", "LinearMaps", "Test"]
 

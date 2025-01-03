@@ -1,11 +1,12 @@
 module Test_pstimeresp
 
 using PeriodicSystems
+using ApproxFun
 using DescriptorSystems
 using Symbolics
 using Test
 using LinearAlgebra
-using ApproxFun
+
 
 println("Test_pstimeresp")
 
@@ -147,7 +148,7 @@ ustep = 1.e5*ones(1);
 @test norm(yp1-yps1,Inf) < 1.e-5 && norm(xp1-xps1,Inf) < 1.e-5
 
 solver = "non-stiff"
-for solver in ("non-stiff", "stiff", "symplectic", "noidea")
+for solver in ("non-stiff", "stiff", "symplectic", "auto")
     println("solver = $solver")
     @time yp2, toutp2, xp2 = pstimeresp(psysc, t-> [1.e5], toutp, x0; state_history = true, solver, reltol = 1.e-8, abstol = 1.e-8);
     @test norm(yp1-yp2,Inf) < 1.e-5 && norm(xp1-xp2,Inf) < 1.e-5

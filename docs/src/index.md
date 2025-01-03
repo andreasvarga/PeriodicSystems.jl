@@ -68,33 +68,6 @@ The targeted functionality of this package is described in [1] and will cover bo
 * **[`pstimeresp`](@ref)**  Time response of a periodic system.
 * **[`psstepresp`](@ref)**  Step response of a periodic system.
 
-**Solving periodic Lyapunov equations**
-
-* **[`pclyap`](@ref)** Solution of periodic Lyapunov differential equations. 
-* **[`prclyap`](@ref)** Solution of reverse-time periodic Lyapunov differential equations. 
-* **[`pfclyap`](@ref)**  Solution of forward-time periodic Lyapunov differential equations.
-* **[`pgclyap`](@ref)** Computation of periodic generators for periodic Lyapunov differential equations.
-* **[`pdlyap`](@ref)** Solution of periodic discrete-time Lyapunov equations. 
-* **[`pdlyap2`](@ref)** Solution of a pair of periodic discrete-time Lyapunov equations. 
-* **[`prdlyap`](@ref)** Solution of reverse-time periodic discrete-time Lyapunov equations. 
-* **[`pfdlyap`](@ref)**  Solution of forward-time periodic discrete-time Lyapunov equations.
-* **[`pcplyap`](@ref)** Solution of positve periodic Lyapunov differential equations. 
-* **[`prcplyap`](@ref)** Solution of positve reverse-time periodic Lyapunov differential equations.
-* **[`pfcplyap`](@ref)**  Solution of positve forward-time periodic Lyapunov differential equations.
-* **[`pdplyap`](@ref)** Solution of positve periodic discrete-time Lyapunov equations. 
-* **[`prdplyap`](@ref)** Solution of positve reverse-time periodic discrete-time Lyapunov equations. 
-* **[`pfdplyap`](@ref)**  Solution of positve forward-time periodic discrete-time Lyapunov equations.
-
-**Solving periodic Riccati equations**
-
-* **[`pcric`](@ref)** Solution of periodic Riccati differential equations. 
-* **[`prcric`](@ref)** Solution of control-related reverse-time periodic Riccati differential equation. 
-* **[`pfcric`](@ref)**  Solution of filtering-related forward-time periodic Riccati differential equation.
-* **[`pgcric`](@ref)** Computation of periodic generators for periodic Riccati differential equations.
-* **[`prdric`](@ref)** Solution of control-related reverse-time periodic Riccati difference equation. 
-* **[`pfdric`](@ref)** Solution of filtering-related forward-time periodic Riccati difference equation. 
-
-
 **Simplification of periodic system models**
 
 **Periodic state feedback controller and estimator design** 

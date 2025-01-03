@@ -515,7 +515,7 @@ end
 
 end
 
-println("Test_stabilization")
+println("Test_state_feedback_stabilization")
 
 @testset "Test_state_feedback_stabilization" begin
 
@@ -644,28 +644,28 @@ println("Test_stabilization")
         #psyscw = ps(PM,dss(a,bw,c,dw),period);
         psyscw = ps(a,[convert(PM,PeriodicFunctionMatrix(b,period)) bw],c,[d dw]);
     
-        @time F, EVALS = pclqr(psysc, q, r; K = 100, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true); 
+        @time F, EVALS = pclqr(psysc, q, r; K = 100, reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true); 
         clev = psceig(psysc.A+psysc.B*F,500)
         @test norm(sort(real(clev)) - sort(real(EVALS))) < 1.e-7 && norm(sort(imag(clev)) - sort(imag(EVALS))) < 1.e-7 
     
         # this test covers the experimental code provided in PeriodicSchurDecompositions package and occasionally fails
-        @time F, EVALS = pclqr(psysc, q, r; K = 100, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = false ); 
+        @time F, EVALS = pclqr(psysc, q, r; K = 100, reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = false ); 
         clev = psceig(psysc.A+psysc.B*F,500)
         #println("EVALS = $EVALS, clev = $clev")
         @test norm(sort(real(clev)) - sort(real(EVALS))) < 1.e-7 && norm(sort(imag(clev)) - sort(imag(EVALS))) < 1.e-7 
     
         # low accuracy computation
-        @time F, EVALS = pclqr(psysc, q, r; K = 100, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = true); 
+        @time F, EVALS = pclqr(psysc, q, r; K = 100, reltol = 1.e-10, abstol = 1.e-10, fast = true); 
         clev = psceig(psysc.A+psysc.B*F,500)
         @test norm(sort(real(clev)) - sort(real(EVALS))) < 1.e-1 && norm(sort(imag(clev)) - sort(imag(EVALS))) < 1.e-1 
 
-        @time F, EVALS = pclqry(psysc, qy, r; K = 100, solver = "symplectic", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true); 
+        @time F, EVALS = pclqry(psysc, qy, r; K = 100, reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true); 
         clev = psceig(psysc.A+psysc.B*F,500)
         @test norm(sort(real(clev)) - sort(real(EVALS))) < 1.e-7 && norm(sort(imag(clev)) - sort(imag(EVALS))) < 1.e-7    
 
         qw = Matrix(I(4)); rv = 1.e-1*Matrix(I(2));       
         #qw = [0 0 0 0; 0 0 0 0; 0 0 0.05 0;0 0 0 1.e5]; rv = 1.e-13*Matrix(I(2));       
-        @time L, EVALS = pckeg(psysc, qw, rv; K = 100, solver = "stiff", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true, intpol=true);
+        @time L, EVALS = pckeg(psysc, qw, rv; K = 100, solver = "non-stiff", reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true, intpol=true);
         ev = psceig(psysc.A-L*psysc.C)
         @test norm(sort(real(EVALS))-sort(real(ev))) < 1.e-6 && 
               norm(sort(imag(EVALS))-sort(imag(ev))) < 1.e-6 
@@ -679,7 +679,7 @@ println("Test_stabilization")
        
 
         qw = 1.e-2*Matrix(I(2)); rv = 1.e0*Matrix(I(2));       
-        @time L, EVALS = pckegw(psyscw, qw, rv; K = 100, solver = "symplectic", intpol=true, reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true);  
+        @time L, EVALS = pckegw(psyscw, qw, rv; K = 100, intpol=true, reltol = 1.e-10, abstol = 1.e-10, fast = false, PSD_SLICOT = true);  
         ev = psceig(psyscw.A-L*psyscw.C)
         @test norm(sort(real(EVALS))-sort(real(ev))) < 1.e-4 && 
               norm(sort(imag(EVALS))-sort(imag(ev))) < 1.e-4 

@@ -1,11 +1,11 @@
 module Test_pslifting
 
 using PeriodicSystems
+using ApproxFun
 using DescriptorSystems
 using Symbolics
 using Test
 using LinearAlgebra
-using ApproxFun
 using SparseArrays
 
 

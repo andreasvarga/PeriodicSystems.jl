@@ -1,5 +1,14 @@
 using Documenter, PeriodicSystems
+using DocumenterInterLinks
 DocMeta.setdocmeta!(PeriodicSystems, :DocTestSetup, :(using PeriodicSystems); recursive=true)
+
+# links = InterLinks(
+#     "PeriodicMatrixEquations" => ("https://andreasvarga.github.io/PeriodicMatrixEquations.jl/dev/",
+#                                   "https://andreasvarga.github.io/PeriodicMatrixEquations.jl/dev/objects.inv"),
+# );                                   
+links = InterLinks(
+    "PeriodicMatrixEquations" => "https://andreasvarga.github.io/PeriodicMatrixEquations.jl/dev/",
+);                                   
 
 makedocs(warnonly = true, 
   modules  = [PeriodicSystems],
@@ -16,19 +25,12 @@ makedocs(warnonly = true,
           "Basic conversions" => 
           ["psconversions.md",
            "pslifting.md"],          
-   #      "order_reduction.md",
           "psanalysis.md",
-          "pslyap.md",
-          "psric.md",
-          "psstab.md",
-   #      "advanced_operations.md",
-   #      "model_matching.md"
+          "psstab.md"
          ],
-     "Utilities" => [
-      "pstools.md"
-      ],
      "Index" => "makeindex.md"
-  ]
+  ],
+  plugins=[links]
 )
 
 deploydocs(

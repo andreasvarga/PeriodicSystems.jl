@@ -60,7 +60,6 @@ function psmrc2d(sys::DescriptorStateSpace{T}, Ts::Real; ki::Vector{Int} = ones(
     Δ = sys.Ts
     T1 = T <: BlasFloat ? T : promote_type(Float64,T)
     n = sys.nx
-    @show Δ
     if Δ == 0
        i1 = 1:n; i2 = n+1:n+m
        G = exp([ rmul!(A,Ts) rmul!(B,Ts); zeros(T1,m,n+m)])
@@ -127,7 +126,7 @@ by starting Julia with several execution threads.
 The number of execution threads is controlled either by using the `-t/--threads` command line argument 
 or by using the `JULIA_NUM_THREADS` environment variable.  
 """
-function psc2d(psysc::PeriodicStateSpace{PM}, Ts::Real; solver::String  = "", reltol = 1e-3, abstol = 1e-7, dt = Ts/10) where {PM <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}}
+function psc2d(psysc::PeriodicStateSpace{PM}, Ts::Real; solver::String  = "", reltol = 1e-3, abstol = 1e-7, dt = Ts/10) where {PM <: Union{PeriodicFunctionMatrix,HarmonicArray}}
     Ts > 0 || error("the sampling time Ts must be positive")
     period = psysc.period
     r = rationalize(period/Ts)
@@ -174,7 +173,7 @@ function psc2d(psysc::PeriodicStateSpace{PM}, Ts::Real; solver::String  = "", re
     return ps(PMT(Ap,period; nperiod = na),PMT(Bp,period; nperiod = nb),PMT(Cp,period; nperiod = nc),PMT(Dp,period; nperiod = nd))
     # end PSC2D
 end
-function psc2d(PMT::Type, psysc::PeriodicStateSpace{PM}, Ts::Real; kwargs...) where {PM <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix}} 
+function psc2d(PMT::Type, psysc::PeriodicStateSpace{PM}, Ts::Real; kwargs...) where {PM <: Union{PeriodicFunctionMatrix,HarmonicArray}} 
     PMT ∈ (PeriodicMatrix, PeriodicArray, SwitchingPeriodicMatrix, SwitchingPeriodicArray) ||
            error("only discrete periodic matrix types allowed")
     convert(PeriodicStateSpace{PMT}, psc2d(psysc, Ts; kwargs...))

@@ -22,7 +22,7 @@ pspole(psys::PeriodicStateSpace{<: PeriodicSwitchingMatrix}) = psceig(psys.A)
 pspole(psys::PeriodicStateSpace{<: SwitchingPeriodicMatrix}) = psceig(convert(PeriodicMatrix,psys.A))
 pspole(psys::PeriodicStateSpace{<: HarmonicArray}, N::Int = 10; kwargs...) = psceighr(psys.A, N; kwargs...)
 #pspole(psys::PeriodicStateSpace{<: HarmonicArray}, N::Int = 10; kwargs...) = psceig(psys.A, N; kwargs...)  # fallback version
-pspole(psys::PeriodicStateSpace{<: FourierFunctionMatrix}, N::Int = 10; kwargs...)  = psceigfr(psys.A, N; kwargs...)
+#pspole(psys::PeriodicStateSpace{<: FourierFunctionMatrix}, N::Int = 10; kwargs...)  = psceigfr(psys.A, N; kwargs...)
 """
     pszero(psys::PeriodicStateSpace{HarmonicArray}[, N]; P, atol, rtol, fast) -> val
     pszero(psys::PeriodicStateSpace{PeriodicFunctionMatrix}[, N]; P, atol, rtol, fast) -> val
@@ -86,72 +86,6 @@ function pszero(psys::PeriodicStateSpace{<: HarmonicArray}, N::Union{Int,Missing
     else
        return σf
     end
-end
-"""
-    pszero(psys::PeriodicStateSpece{FourierFunctionMatrix}[, N]; P, atol, rtol, fast) -> val
-
-Compute the finite and infinite zeros of a continuous-time periodic system `psys = (Af(t), Bf(t), Cf(t), Df(t))` in `val`, 
-where the periodic system matrices `Af(t)`, `Bf(t)`, `Cf(t)`, and `Df(t)` are in a _Fourier Function Matrix_ representation. 
-`N` is the number of selected harmonic components in the Fourier series of the system matrices (default: `N = max(20,nh-1)`, 
-where `nh` is the maximum number of harmonics terms) and the keyword parameter `P` is the number of full periods 
-to be considered (default: `P = 1`) to build 
-a frequency-lifted LTI representation based on truncated block Toeplitz matrices. 
-
-The computation of the zeros of the _real_ lifted system is performed by reducing the corresponding system pencil 
-to an appropriate Kronecker-like form which exhibits the finite and infinite eigenvalues. 
-The reduction is performed using orthonal similarity transformations and involves rank decisions based on rank revealing QR-decompositions with column pivoting, 
-if `fast = true`, or, the more reliable, SVD-decompositions, if `fast = false`. For a system `psys` of period `T`, 
-the finite zeros are determined as those eigenvalues which have imaginary parts in the interval `[-ω/2, ω/2]`, where `ω = 2π/(P*T)`. 
-To eliminate possible spurious finite eigenvalues, the intersection of two finite eigenvalue sets is computed 
-for two lifted systems obtained for `N` and `N+2` harmonic components.    
-The infinite zeros are determined as the infinite zeros of the LTI system `(Af(ti), Bf(ti), Cf(ti), Df(ti))` 
-resulting for a random time value `ti`. _Warning:_ While this evaluation of the number of infinite zeros mostly 
-provides the correct result, there is no theoretical assessment of this approach (counterexamples are welcome!). 
-
-The keyword arguments `atol`  and `rtol` specify the absolute and relative tolerances for the nonzero
-elements of the underlying lifted system pencil, respectively. 
-The default relative tolerance is `n*ϵ`, where `n` is the size of the smallest dimension of the pencil, and `ϵ` is the 
-working machine epsilon. 
-"""
-function pszero(psys::PeriodicStateSpace{<: FourierFunctionMatrix}, N::Union{Int,Missing} = missing; P::Int= 1, fast::Bool = true, atol::Real = 0, rtol::Real = 0) 
-    ismissing(N) && (N = max(20, maximum(ncoefficients.(Matrix(psys.A.M))), maximum(ncoefficients.(Matrix(psys.B.M))),
-                                   maximum(ncoefficients.(Matrix(psys.C.M))), maximum(ncoefficients.(Matrix(psys.A.M)))))
-    (N == 0 || islti(psys) ) && (return MatrixPencils.spzeros(dssdata(psaverage(psys))...; fast, atol1 = atol, atol2 = atol, rtol)[1])
-
-    # employ heuristics to determine fix finite zeros by comparing two sets of computed zeros
-    z = MatrixPencils.spzeros(dssdata(ps2frls(psys, N; P))...; fast, atol1 = atol, atol2 = atol, rtol)[1] 
-
-    period = psys.A.period
-    ωhp2 = pi/P/period
-    n = size(psys.A,1)
-    T = promote_type(Float64, eltype(psys.A))
-    zf = z[isfinite.(z)]
-    ind = sortperm(imag(zf),by=abs); 
-    nf = count(abs.(imag(zf[ind[1:min(4*n,length(ind))]])) .<=  ωhp2*(1+sqrt(eps(T))))
-    zf = zf[ind[1:nf]]
-
-    z2 = MatrixPencils.spzeros(dssdata(ps2frls(psys, N+2; P))...; fast, atol1 = atol, atol2 = atol, rtol)[1] 
-    zf2 = z2[isfinite.(z2)]
-    ind = sortperm(imag(zf2),by=abs); 
-    nf2 = count(abs.(imag(zf2[ind[1:min(4*n,length(ind))]])) .<=  ωhp2*(1+sqrt(eps(T))))
-    zf2 = zf2[ind[1:nf2]]
-    σf = Complex{T}[]
-    nf < nf2 || ((zf, zf2) = (zf2, zf))
-    atol > 0 || (norms = max(norm(coefficients(psys.A.M),Inf),norm(coefficients(psys.B.M),Inf),norm(coefficients(psys.C.M),Inf),norm(coefficients(psys.D.M),Inf)))
-    tol = atol > 0 ? atol : (rtol > 0 ? rtol*norms : sqrt(eps(T))*norms)
-    for i = 1:min(nf,nf2)
-        minimum(abs.(zf2 .- zf[i])) < tol  && push!(σf,zf[i])
-    end
-    isreal(σf) && (σf = real(σf))
-
-    if any(isinf.(z)) 
-       # Conjecture: The number of infinite zeros is the same as that of the time-evaluated system! 
-       zm = MatrixPencils.spzeros(dssdata(psteval(psys, period*rand()))...; fast, atol1 = atol, atol2 = atol, rtol)[1] 
-       zf = [σf; zm[isinf.(zm)]]
-    end
-    nz = length(zf)
-    nz > n && (@warn "$(nz-n) spurious finite zero(s) present")
-    return zf
 end
 """
      pszero(psys::PeriodicStateSpace{PeriodicMatrix}[, K]; atol, rtol, fast) -> val
@@ -339,7 +273,7 @@ function psh2norm(psys::PeriodicStateSpace{<: AbstractPeriodicArray{:d,T}}; adj:
     end
 end
 """
-    psh2norm(psys, K; adj = false, smarg = 1, fast = false, offset = sqrt(ϵ), solver = "", reltol = 1.e-4, abstol = 1.e-7, quad = false) -> nrm
+    psh2norm(psys, K; adj = false, smarg = 1, fast = false, offset = sqrt(ϵ), solver = "auto", reltol = 1.e-4, abstol = 1.e-7, quad = false) -> nrm
 
 Compute the H2-norm of a continuous-time periodic system `psys = (A(t),B(t),C(t),D(t))`.  
 For the computation of the norm, the formulas given in [1] are employed, 
@@ -376,10 +310,8 @@ If `fast = false` (default) then the stability is checked using an approach base
 while if `fast = true` the stability is checked using a lifting-based approach.  
 
 The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
-together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-absolute accuracy `abstol` (default: `abstol = 1.e-7`) and 
-stepsize `dt` (default: `dt = 0`). The value stepsize is relevant only if `solver = "symplectic", in which case
-an adaptive stepsize strategy is used if `dt = 0` and a fixed stepsize is used if `dt > 0`.
+together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`) and  
+absolute accuracy `abstol` (default: `abstol = 1.e-7`). 
 Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
 which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
 higher order solvers are employed able to cope with high accuracy demands. 
@@ -390,11 +322,7 @@ The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/Ordi
 
 `solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
 
-`solver = "linear"` - use a special solver for linear ODEs (`MagnusGL6()`) with fixed time step `dt`;
-
-`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
-
-`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
+`solver = "auto"` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 
 _References_
 
@@ -404,8 +332,8 @@ _References_
 [2] A. Varga, On solving periodic differential matrix equations with applications to periodic system norms computation.
     Proc. CDC/ECC, Seville, p.6545-6550, 2005.  
 """
-function psh2norm(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix, HarmonicArray, FourierFunctionMatrix}}, K::Int = 1; adj::Bool = false, smarg::Real = 1, fast::Bool = false, 
-                  offset::Real = sqrt(eps()), solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0, quad = false) 
+function psh2norm(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix, HarmonicArray}}, K::Int = 1; adj::Bool = false, smarg::Real = 1, fast::Bool = false, 
+                  offset::Real = sqrt(eps()), solver = "auto", reltol = 1e-4, abstol = 1e-7, quad = false) 
     norm(psys.D) == 0 || (return Inf)            
     !isstable(psys, K; smarg, offset, fast, solver, reltol, abstol) && (return Inf)  # unstable system
     P = adj ? pgclyap(psys.A, psys.C'*psys.C, K; adj, solver, reltol, abstol) : pgclyap(psys.A, psys.B*psys.B', K; adj, solver, reltol, abstol)
@@ -432,40 +360,39 @@ function psh2norm(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix, Harm
        return sqrt(nrm*Ts*P.nperiod/psys.period)
     end
     μ = Vector{eltype(psys)}(undef,K)
-    solver == "symplectic" && dt == 0 && (dt = K >= 100 ? Ts : Ts*K/100)
     if adj
        #Threads.@threads for i = K:-1:1
         for i = K:-1:1
             ip =  mod.(i-1,pp).+1
             iw = ip < pp ? ip+1 : 1 
-            @inbounds μ[i] = tvh2norm(psys.A, psys.B, psys.C, P.values[iw], (i-1)*Ts, i*Ts; adj, solver, reltol, abstol, dt)
+            @inbounds μ[i] = tvh2norm(psys.A, psys.B, psys.C, P.values[iw], (i-1)*Ts, i*Ts; adj, solver, reltol, abstol)
         end
     else
        #Threads.@threads for i = K:-1:1
        for i = 1:K
            ip =  mod.(i-1,pp).+1
-           @inbounds μ[i]  = tvh2norm(psys.A, psys.B, psys.C, P.values[ip], i*Ts, (i-1)*Ts; adj, solver, reltol, abstol, dt) 
+           @inbounds μ[i]  = tvh2norm(psys.A, psys.B, psys.C, P.values[ip], i*Ts, (i-1)*Ts; adj, solver, reltol, abstol) 
        end
     end
     return sqrt(sum(μ)*P.nperiod/psys.period)
 end
 function psh2norm(psys::PeriodicStateSpace{<:PeriodicSymbolicMatrix}, K::Int = 1; adj::Bool = false, smarg::Real = 1, fast::Bool = false, 
-                  offset::Real = sqrt(eps()), solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0, quad = false) 
-    psh2norm(convert(PeriodicStateSpace{PeriodicFunctionMatrix},psys), K; adj, smarg, fast, offset, solver, reltol, abstol, dt, quad) 
+                  offset::Real = sqrt(eps()), solver = "auto", reltol = 1e-4, abstol = 1e-7, quad = false) 
+    psh2norm(convert(PeriodicStateSpace{PeriodicFunctionMatrix},psys), K; adj, smarg, fast, offset, solver, reltol, abstol, quad) 
 end
 function psh2norm(psys::PeriodicStateSpace{<:PeriodicTimeSeriesMatrix}, K::Int = 1; adj::Bool = false, smarg::Real = 1, fast::Bool = false, 
-                  offset::Real = sqrt(eps()), solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0, quad = false) 
-    psh2norm(convert(PeriodicStateSpace{HarmonicArray},psys), K; adj, smarg, fast, offset, solver, reltol, abstol, dt, quad) 
+                  offset::Real = sqrt(eps()), solver = "auto", reltol = 1e-4, abstol = 1e-7, quad = false) 
+    psh2norm(convert(PeriodicStateSpace{HarmonicArray},psys), K; adj, smarg, fast, offset, solver, reltol, abstol, quad) 
 end
 
-function tvh2norm(A::PM1, B::PM2, C::PM3, P::AbstractMatrix, tf, t0; adj = false, solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) where
-    {PM1 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicTimeSeriesMatrix}, 
-     PM2 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicTimeSeriesMatrix}, 
-     PM3 <: Union{PeriodicFunctionMatrix,HarmonicArray,FourierFunctionMatrix,PeriodicTimeSeriesMatrix}} 
+function tvh2norm(A::PM1, B::PM2, C::PM3, P::AbstractMatrix, tf, t0; adj = false, solver = "auto", reltol = 1e-4, abstol = 1e-7) where
+    {PM1 <: Union{PeriodicFunctionMatrix,HarmonicArray,PeriodicTimeSeriesMatrix}, 
+     PM2 <: Union{PeriodicFunctionMatrix,HarmonicArray,PeriodicTimeSeriesMatrix}, 
+     PM3 <: Union{PeriodicFunctionMatrix,HarmonicArray,PeriodicTimeSeriesMatrix}} 
     """
-       tvh2norm(A, B, C, P, tf, to; adj, solver, reltol, abstol, dt) ->  μ 
+       tvh2norm(A, B, C, P, tf, to; adj, solver, reltol, abstol) ->  μ 
  
-    Cmputes the H2-norm of the system (A(t),B(t),C(t),0) by integrating tf > t0 and adj = false
+    Cmputes the H2-norm of the system (A(t),B(t),C(t),0) by integrating for tf > t0 and adj = false
     jointly the differential matrix Lyapunov equation
 
             . 
@@ -489,8 +416,8 @@ function tvh2norm(A::PM1, B::PM2, C::PM3, P::AbstractMatrix, tf, t0; adj = false
 
 
     The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
-    together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-    absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt` (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`) 
+    together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`) and  
+    absolute accuracy `abstol` (default: `abstol = 1.e-7`).
     """
     n = size(A,1)
     n == size(A,2) || error("the periodic matrix A must be square")
@@ -517,17 +444,6 @@ function tvh2norm(A::PM1, B::PM2, C::PM3, P::AbstractMatrix, tf, t0; adj = false
        else
           # high accuracy non-stiff
           sol = solve(prob, Vern9(); reltol, abstol, save_everystep = false)
-       end
-    elseif solver == "symplectic" 
-       # high accuracy symplectic
-       if dt == 0 
-          sol = solve(prob, IRKGaussLegendre.IRKGL16(maxtrials=4); adaptive = true, reltol, abstol, save_everystep = false)
-          #@show sol.retcode
-          if sol.retcode == :Failure
-             sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = false, reltol, abstol, save_everystep = false, dt = abs(tf-t0)/100)
-          end
-       else
-            sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = false, reltol, abstol, save_everystep = false, dt)
        end
     else 
        if reltol > 1.e-4  
@@ -631,7 +547,7 @@ function pshanorm(psys::PeriodicStateSpace{<: AbstractPeriodicArray{:d,T}}; smar
   end
 end
 """
-    pshanorm(psys, K; smarg = 1, offset = sqrt(ϵ), solver = "", reltol = 1.e-4, abstol = 1.e-7) -> nrm
+    pshanorm(psys, K; smarg = 1, offset = sqrt(ϵ), solver = "auto", reltol = 1.e-4, abstol = 1.e-7) -> nrm
 
 Compute the Hankel-norm of a stable continuous-time periodic system `psys = (A(t),B(t),C(t),D(t))`.  
 For the computation of the norm, the approach suggested in [1] is employed, 
@@ -659,10 +575,8 @@ must be less than `smarg-β`, where `smarg` is the discrete-time stability margi
 of eigenvalues. The default value used for `β` is `sqrt(ϵ)`, where `ϵ` is the working machine precision. 
 
 The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
-together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-absolute accuracy `abstol` (default: `abstol = 1.e-7`) and 
-stepsize `dt` (default: `dt = 0`). The value stepsize is relevant only if `solver = "symplectic", in which case
-an adaptive stepsize strategy is used if `dt = 0` and a fixed stepsize is used if `dt > 0`.
+together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`) and  
+absolute accuracy `abstol` (default: `abstol = 1.e-7`). 
 Depending on the desired relative accuracy `reltol`, lower order solvers are employed for `reltol >= 1.e-4`, 
 which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
 higher order solvers are employed able to cope with high accuracy demands. 
@@ -673,11 +587,7 @@ The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/Ordi
 
 `solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
 
-`solver = "linear"` - use a special solver for linear ODEs (`MagnusGL6()`) with fixed time step `dt`;
-
-`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
-
-`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
+`solver = "auto"` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 
 
 _References_
@@ -685,20 +595,20 @@ _References_
 [1] A. Varga, On solving periodic differential matrix equations with applications to periodic system norms computation.
     Proc. CDC/ECC, Seville, p.6545-6550, 2005.  
 """
-function pshanorm(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix, HarmonicArray, FourierFunctionMatrix,PeriodicSymbolicMatrix}}, K::Int = 1; smarg::Real = 1, 
-                  offset::Real = sqrt(eps()), solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) 
+function pshanorm(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix, HarmonicArray, PeriodicSymbolicMatrix}}, K::Int = 1; smarg::Real = 1, 
+                  offset::Real = sqrt(eps()), solver = "auto", reltol = 1e-4, abstol = 1e-7) 
     !isstable(psys, K; smarg, offset, solver, reltol, abstol) && error("The system must be stable")  # unstable system
     Q = pgclyap(psys.A, psys.C'*psys.C, K; adj = true, solver, reltol, abstol) 
     P = pgclyap(psys.A, psys.B*psys.B', K; adj = false, solver, reltol, abstol)
     return sqrt(maximum(norm.(eigvals(P*Q),Inf)))
 end
 # function pshanorm(psys::PeriodicStateSpace{<:PeriodicSymbolicMatrix}, K::Int = 1; smarg::Real = 1, 
-#                   offset::Real = sqrt(eps()), solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) 
+#                   offset::Real = sqrt(eps()), solver = "auto", reltol = 1e-4, abstol = 1e-7) 
 #     pshanorm(convert(PeriodicStateSpace{PeriodicFunctionMatrix},psys), K; smarg, offset, solver, reltol, abstol, dt) 
 # end
 function pshanorm(psys::PeriodicStateSpace{<:PeriodicTimeSeriesMatrix}, K::Int = 1; smarg::Real = 1, 
-                  offset::Real = sqrt(eps()), solver = "", reltol = 1e-4, abstol = 1e-7, dt = 0) 
-    pshanorm(convert(PeriodicStateSpace{HarmonicArray},psys), K; smarg, offset, solver, reltol, abstol, dt) 
+                  offset::Real = sqrt(eps()), solver = "auto", reltol = 1e-4, abstol = 1e-7) 
+    pshanorm(convert(PeriodicStateSpace{HarmonicArray},psys), K; smarg, offset, solver, reltol, abstol) 
 end
 """
     pslinfnorm(psys, hinfnorm = false, rtolinf = 0.001, fast = true, offset = sqrt(ϵ)) -> (linfnorm, fpeak)
@@ -1085,7 +995,7 @@ The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/Ordi
 
 `solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
 
-`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
+`solver = "auto"` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 
 
 _References:_    
@@ -1096,7 +1006,7 @@ _References:_
 [2] A. Varga, On solving periodic differential matrix equations with applications to periodic system norms computation.
     Proc. CDC/ECC, Seville, p.6545-6550, 2005.  
 """   
-function pslinfnorm(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix{:c,T}, HarmonicArray{:c,T}, FourierFunctionMatrix{:c,T},PeriodicSymbolicMatrix{:c,T}}}, K::Int=100; hinfnorm::Bool = false, rtolinf::Real = float(real(T))(0.001), fast::Bool = true, 
+function pslinfnorm(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix{:c,T}, HarmonicArray{:c,T}, PeriodicSymbolicMatrix{:c,T}}}, K::Int=100; hinfnorm::Bool = false, rtolinf::Real = float(real(T))(0.001), fast::Bool = true, 
                    offset::Real = sqrt(eps(float(real(T)))), solver = "symplectic", reltol = 1e-6, abstol = 1e-7, dt = 0)  where {T} 
     
     islti(psys) && (return glinfnorm(psaverage(psys); hinfnorm, rtolinf))      
@@ -1159,7 +1069,7 @@ function pslinfnorm(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix{:c,
     end
     return g, nothing
 end
-function checkham1(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix{:c,T}, HarmonicArray{:c,T}, FourierFunctionMatrix{:c,T},PeriodicSymbolicMatrix{:c,T}}}, g::Real, K::Int,toluc1, toluc2, solver, reltol, abstol, dt)  where {T}
+function checkham1(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix{:c,T}, HarmonicArray{:c,T}, PeriodicSymbolicMatrix{:c,T}}}, g::Real, K::Int,toluc1, toluc2, solver, reltol, abstol, dt)  where {T}
     if iszero(psys.D) 
        Ht = [[psys.A (psys.B*psys.B')/g^2]; [-psys.C'*psys.C -psys.A']]
     else
@@ -1177,7 +1087,7 @@ function checkham1(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix{:c,T
     uceig = heigs[abs.(1 .- mag) .< toluc2 .+ toluc1*mag]
     return length(uceig) > 0
 end
-checkham1(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix{:c,T}, HarmonicArray{:c,T}, FourierFunctionMatrix{:c,T},PeriodicSymbolicMatrix{:c,T}}}, g::Real, K::Int)  where {T} = checkham1(psys,g,K,eps(), sqrt(eps()), "symplectic", 1.e-10,1.e-10,0)
+checkham1(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix{:c,T}, HarmonicArray{:c,T}, PeriodicSymbolicMatrix{:c,T}}}, g::Real, K::Int)  where {T} = checkham1(psys,g,K,eps(), sqrt(eps()), "symplectic", 1.e-10,1.e-10,0)
 function pshinfnorm(psys::PeriodicStateSpace{<: Union{PeriodicFunctionMatrix{:c,T}, HarmonicArray{:c,T}, FourierFunctionMatrix{:c,T},PeriodicSymbolicMatrix{:c,T}}}; 
     rtolinf::Real = float(real(T))(0.001), offset::Real = sqrt(eps(float(real(T)))), solver = "symplectic", reltol = 1e-6, abstol = 1e-7, dt = 0)  where {T} 
     return pslinfnorm(psys; hinfnorm = true, rtolinf, solver, reltol, abstol, dt)

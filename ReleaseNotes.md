@@ -1,5 +1,9 @@
 # Release Notes
 
+## Version 1.0.0
+
+Breaking release, which concludes the integration of  `PeriodicMatrices`  and `PeriodicMatrixEquations` packages as separate supporting packages. This version also achieves the splitting of the `ApproxFun` package as an optional package. 
+
 ## Version 0.9.1
 
 Fix error in `psmrc2d`.

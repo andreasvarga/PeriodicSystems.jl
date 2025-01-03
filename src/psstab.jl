@@ -21,7 +21,8 @@ The matrix `S` is set to zero when omitted. The dimension of `u(t)` is deduced f
 
 Also returned are the closed-loop characteristic exponents `EVALS` of `A(t)+B(t)F(t)`.
 
-The keyword arguments contained in `kwargs` are those used for the function [`prdric`](@ref). 
+The keyword arguments contained in `kwargs` are those used for the function 
+[`PeriodicMatrixEquations.prdric`](@extref).
 
 Note: The pair `(A(t),B(t))` must be stabilizable and `[Q S;S' R]` must be nonnegative definite.
 """
@@ -61,7 +62,7 @@ If `intpol = false`, the gain `F(t)` is computed from a multi-point solution of 
 by the integration of the corresponding ODE using the nearest point value as initial condition. 
 This option is not recommended to be used jointly with symplectic integrators, which are used by default.   
 
-The keyword arguments contained in `kwargs` are those used for the function [`prcric`](@ref) (excepting intpol). 
+The keyword arguments contained in `kwargs` are those used for the function [`PeriodicMatrixEquations.prcric`](@extref) (excepting intpol). 
 
 Note: The pair `(A(t),B(t))` must be stabilizable, `R` must be positive definite and `[Q S;S' R]` must be nonnegative definite .
 """
@@ -118,7 +119,7 @@ The matrix `S` is set to zero when omitted.
 
 Also returned are the closed-loop characteristic exponents `EVALS` of `A(t)+B(t)F(t)`.
 
-The keyword arguments contained in `kwargs` are those used for the function [`prdric`](@ref). 
+The keyword arguments contained in `kwargs` are those used for the function [`PeriodicMatrixEquations.prdric`](@extref). 
 
 Note: The pair `(A(t),B(t))` must be stabilizable and `[Q S;S' R]` must be nonnegative definite.
 """
@@ -172,7 +173,7 @@ If `intpol = false`, the gain `F(t)` is computed from a multi-point solution of 
 by the integration of the corresponding ODE using the nearest point value as initial condition. 
 This option is not recommended to be used jointly with symplectic integrators, which are used by default.   
 
-The keyword arguments contained in `kwargs` are those used for the function [`prcric`](@ref) (excepting intpol).  
+The keyword arguments contained in `kwargs` are those used for the function [`PeriodicMatrixEquations.prcric`](@extref) (excepting intpol).  
 
 Note: The pair `(A(t),B(t))` must be stabilizable and `[Q S;S' R]` must be nonnegative definite.
 """
@@ -223,7 +224,7 @@ The matrix `Sn` is set to zero when omitted.
 
 Also returned are the closed-loop characteristic exponents `EVALS` of `A(t)-L(t)C(t)`.
 
-The keyword arguments contained in `kwargs` are those used for the function [`pfdric`](@ref). 
+The keyword arguments contained in `kwargs` are those used for the function [`PeriodicMatrixEquations.pfdric`](@extref). 
 
 Note: The pair `(A(t),C(t))` must be detectable and `[Qw Sn;Sn' Rv]` must be nonnegative definite.
 """
@@ -260,7 +261,7 @@ If `intpol = false`, the gain `L(t)` is computed from a multi-point solution of 
 by the integration of the corresponding ODE using the nearest point value as initial condition. 
 This option is not recommended to be used jointly with symplectic integrators, which are used by default.   
 
-The keyword arguments contained in `kwargs` are those used for the function [`pfcric`](@ref) (excepting intpol). 
+The keyword arguments contained in `kwargs` are those used for the function [`PeriodicMatrixEquations.pfcric`](@extref) (excepting intpol). 
 
 Note: The pair `(A(t),C(t))` must be detectable and `[Qw Sn;Sn' Rv]` must be nonnegative definite.
 """
@@ -311,7 +312,7 @@ The matrix `Sn` is set to zero when omitted. The number of disturbance inputs `m
 
 Also returned are the closed-loop characteristic exponents `EVALS` of `A(t)-L(t)C(t)`.
 
-The keyword arguments contained in `kwargs` are those used for the function [`pfdric`](@ref). 
+The keyword arguments contained in `kwargs` are those used for the function [`PeriodicMatrixEquations.pfdric`](@extref). 
 
 Note: The pair `(A(t),C(t))` must be detectable,  `Qw` must be non-negative definite,  `Rv` must be positive definite
 and `[Qw Sn; Sn' Rv]` must be nonnegative definite.
@@ -369,7 +370,7 @@ If `intpol = false`, the gain `L(t)` is computed from a multi-point solution of 
 by the integration of the corresponding ODE using the nearest point value as initial condition. 
 This option is not recommended to be used jointly with symplectic integrators, which are used by default.   
 
-The keyword arguments contained in `kwargs` are those used for the function [`pfcric`](@ref) (excepting intpol). 
+The keyword arguments contained in `kwargs` are those used for the function [`PeriodicMatrixEquations.pfcric`](@extref) (excepting intpol). 
 
 Note: The pair `(A(t),C(t))` must be detectable,  `Qw` must be non-negative definite,  `Rv` must be positive definite
 and `[Qw Sn; Sn' Rv]` must be nonnegative definite.
@@ -1084,8 +1085,8 @@ function Kbuild_sw(x::Array{T,3}, D::PM, ns::Vector{Int}) where {T, PM <: Period
 end
 """
     pclqofc_sw(psys, Q, R, ts = missing; K = 1, sdeg = 0, G = I, vinit, optimizer, stabilizer,
-               maxiter, vtol, Jtol, gtol, show_trace, solver, reltol, abstol, dt,
-               N = 128, intpolmeth = "cubic", quad = false ) -> (Fopt,info)
+               maxiter, vtol, Jtol, gtol, show_trace, solver, reltol, abstol, 
+               N = 128, quad = false ) -> (Fopt,info)
 
 Compute the optimal periodic stabilizing gain matrix `Fopt(t)`, such that for a continuous-time periodic state-space model 
 `psys` of the form
@@ -1182,9 +1183,7 @@ If `K = 1` (default), the single shooting method is employed to compute periodic
 If `K > 1`, the multiple-shooting method of [2] is employed, first, to convert the continuous-time periodic Lyapunov differential equations into discrete-time periodic Lyapunov equations satisfied by 
 the generator solution in `K` grid points and then to compute the solution by solving an appropriate discrete-time periodic Lyapunov 
 equation using the periodic Schur method of [3]. If quad = true, a quadrature-based evaluation of gradients is used, as proposed in [1], in conjunction with
-interpolation techniques. The interpolation method to be used can be specified using the keyword parameter `intpolmeth` (default: `intpolmeth = "cubic"`). 
-Other interpolation options are `"intpolmeth = quadratic"`, `intpolmeth = "linear"` and `intpolmeth = "constant"`.
-The number of sample values to be used for interpolation can be specified with the keyword parameter `N` (deafult: `N = 128`). 
+interpolation techniques. The number of sample values to be used for interpolation can be specified with the keyword parameter `N` (deafult: `N = 128`). 
 
 The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
 together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
@@ -1199,9 +1198,7 @@ The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/Ordi
 
 `solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
 
-`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
-
-`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
+`solver = "auto"` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 
 Parallel computation of the matrices of the discrete-time problem can be alternatively performed 
 by starting Julia with several execution threads. 
@@ -1221,7 +1218,7 @@ function pclqofc_sw(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
    ts = missing; K::Int = 1, sdeg::Real = 0, G = I, lub = missing, vinit::Union{AbstractArray{<:Real,3},Missing} = missing, 
    optimizer = LBFGS(;alphaguess = LineSearches.InitialStatic(;scaled=true)), stabilizer = LBFGS(;alphaguess = LineSearches.InitialStatic(;scaled=true)),
    maxiter = 1000, vtol = 0., Jtol = 0., gtol = 1e-5, show_trace = false,
-   solver = "", reltol = 1.e-5, abstol = 1.e-7, dt = 0, N = 128, intpolmeth = "cubic", quad = false)  where 
+   solver = "auto", reltol = 1.e-5, abstol = 1.e-7, N = 128, intpolmeth = "cubic", quad = false)  where 
    {PM <: PeriodicFunctionMatrix, PM1 <: PeriodicFunctionMatrix, PM2 <: PeriodicFunctionMatrix}
    period = psys.period
    #optimizer = Optim.NelderMead()
@@ -1289,7 +1286,7 @@ function pclqofc_sw(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
    evs = sd
    if sd >= stlim
       shift = min(-sd*1.01,-0.001)
-      options = (solver = solver, reltol = reltol, abstol = abstol, N = 128, dt = dt, intpolmeth = "cubic", quad = true)
+      options = (solver = solver, reltol = reltol, abstol = abstol, N = 128, intpolmeth = intpolmeth, quad = true)
       nit = 10
       it = 1
       evs = sd
@@ -1312,7 +1309,7 @@ function pclqofc_sw(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
       xopt = x
       sd = evs
       sd = sdeg < 0 ? maximum(real(psceig(psys.A+Bu*convert(PeriodicFunctionMatrix,KK)*C,100))) : evs
-      options = (solver = solver, reltol = reltol, abstol = abstol, N = N, dt = dt, intpolmeth = intpolmeth, quad = quad)
+      options = (solver = solver, reltol = reltol, abstol = abstol, N = N, intpolmeth = intpolmeth, quad = quad)
       par = (K, A, Bu, C, R, Q, ts, X0, options)
       fopt = pclqofcswfungrad!(true, nothing, x, par)
       result = nothing
@@ -1320,7 +1317,7 @@ function pclqofc_sw(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
    else
       maxit = maxiter 
 
-      options = (solver = solver, reltol = reltol, abstol = abstol, N = N, dt = dt, intpolmeth = intpolmeth, quad = quad)
+      options = (solver = solver, reltol = reltol, abstol = abstol, N = N, intpolmeth = intpolmeth, quad = quad)
       par = (K, A, Bu, C, R, Q, ts, X0, options)
       result = optimize(Optim.only_fg!((F,G,x) -> pclqofcswfungrad!(F, G, x, par)), x, optimizer,
          Optim.Options(x_tol = vtol, f_tol = Jtol, g_tol = gtol, iterations = maxit, show_trace=show_trace))
@@ -1364,7 +1361,7 @@ function fungradsw!(Fun, Grad, K, x, A::PM, B::PM, C::PM, R, Q, ts, X0, options)
    #K = 100
    if isnothing(Grad)
       try
-         P = pgclyap(Ar, QR, K; adj = true, solver = options.solver, reltol = options.reltol, abstol = options.abstol, dt = options.dt, stability_check = true)
+         P = pgclyap(Ar, QR, K; adj = true, solver = options.solver, reltol = options.reltol, abstol = options.abstol, stability_check = true)
          return tr(P(0)*X0)
       catch te
          isnothing(findfirst("stability",te.msg)) && (@show te; error("unknown error"))
@@ -1372,7 +1369,7 @@ function fungradsw!(Fun, Grad, K, x, A::PM, B::PM, C::PM, R, Q, ts, X0, options)
       end
    end
    Z, Y = try
-      pgclyap2(Ar, X0, QR, K; solver = options.solver, reltol = options.reltol, abstol = options.abstol, dt = options.dt, stability_check = true)
+      pgclyap2(Ar, X0, QR, K; solver = options.solver, reltol = options.reltol, abstol = options.abstol, stability_check = true)
    catch te
       isnothing(findfirst("stability",te.msg)) && (@show te; error("unknown error"))
       return 1.e20
@@ -1390,10 +1387,11 @@ function fungradsw!(Fun, Grad, K, x, A::PM, B::PM, C::PM, R, Q, ts, X0, options)
          end
       else
          N = max(options.N,32)
-         Yt = PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, Y, Ar, QR; adj = true, solver = options.solver, reltol = options.reltol, abstol = options.abstol, dt = options.dt),A.period)
+         Yt = PeriodicFunctionMatrix(t->PeriodicMatrixEquations.tvclyap_eval(t, Y, Ar, QR; adj = true, solver = options.solver, reltol = options.reltol, abstol = options.abstol),A.period)
          P = convert(PeriodicFunctionMatrix,convert(PeriodicTimeSeriesMatrix,Yt;ns=N), method = options.intpolmeth)
-         if quad 
-            Xt = PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, Z, Ar, Z(0); adj = false, solver = options.solver, reltol = options.reltol, abstol = options.abstol, dt = options.dt),A.period)
+         if quad   
+            #Xt = PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, Z, Ar, Z(0); adj = false, solver = options.solver, reltol = options.reltol, abstol = options.abstol),A.period)
+            Xt = PeriodicFunctionMatrix(t->PeriodicMatrixEquations.tvclyap_eval(t, Z, Ar; solver = options.solver, reltol = options.reltol, abstol = options.abstol),A.period)
             Xts = Xt.f.((0:N-1)*period/N)
             Xts = [Xts; [Xts[1]-X0]]
             #X = convert(PeriodicFunctionMatrix,convert(PeriodicTimeSeriesMatrix,Xt;ns=N), method = options.intpolmeth)
@@ -1407,7 +1405,7 @@ function fungradsw!(Fun, Grad, K, x, A::PM, B::PM, C::PM, R, Q, ts, X0, options)
           if quad
              Grad[:,:,i] .= QuadGK.quadgk(t-> 2*(B(t)'*P(t)+RFC(t))*X(t)*C(t)', t0, tf, rtol=1e-5)[1]
           else    
-             Grad[:,:,i] = tvgrad!(V, Ar, B, C, RFC, P, tf, t0; solver = options.solver, reltol = options.reltol, abstol = options.abstol, dt = options.dt) 
+             Grad[:,:,i] = tvgrad!(V, Ar, B, C, RFC, P, tf, t0; solver = options.solver, reltol = options.reltol, abstol = options.abstol) 
           end
       end
    end
@@ -1421,10 +1419,10 @@ function Kbuild_sw(x::AbstractArray{T,3}, D::PM, ts) where {T, PM <: PeriodicFun
    return iszero(D) ? K : inv(I+K*convert(PeriodicSwitchingMatrix,D[:,1:mu]))*K
 end
 
-function tvgrad!(V, A::PM, B::PM, C::PM, RFC::PM, P::PFM, tf, t0; solver = options.solver, reltol = options.reltol, abstol = options.atol, dt = options.dt) where 
+function tvgrad!(V, A::PM, B::PM, C::PM, RFC::PM, P::PFM, tf, t0; solver = options.solver, reltol = options.reltol, abstol = options.atol) where 
    {PM <: Union{PeriodicFunctionMatrix,HarmonicArray}, PFM <: PeriodicFunctionMatrix}
    """
-   tvgrad!(A, B, C, R, F, P, V, tf, to; solver, reltol, abstol, dt) ->  G 
+   tvgrad!(A, B, C, R, F, P, V, tf, to; solver, reltol, abstol) ->  G 
 
    Compute the gradient of the objective function for a linear-quadratic problem for a closed-loop system (A(t),B(t),C(t),0) with output feedback. 
    by integrating for tf > t0, jointly the differential matrix Lyapunov equation
@@ -1439,8 +1437,8 @@ function tvgrad!(V, A::PM, B::PM, C::PM, RFC::PM, P::PFM, tf, t0; solver = optio
       
       
    The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
-   together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
-   absolute accuracy `abstol` (default: `abstol = 1.e-7`) and stepsize `dt' (default: `dt = abs(tf-t0)/100`, only used if `solver = "symplectic"`). 
+   together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`) and  
+   absolute accuracy `abstol` (default: `abstol = 1.e-7`). 
    Depending on the desired relative accuracy `reltol`, 
    lower order solvers are employed for `reltol >= 1.e-4`, 
    which are generally very efficient, but less accurate. If `reltol < 1.e-4`,
@@ -1452,10 +1450,7 @@ function tvgrad!(V, A::PM, B::PM, C::PM, RFC::PM, P::PFM, tf, t0; solver = optio
 
    `solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
 
-   `solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
-
-   `solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
-   
+   `solver = "auto"` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
    """    
     n = size(A,1)   
     n == size(A,2) || error("the periodic matrix A must be square")
@@ -1484,17 +1479,6 @@ function tvgrad!(V, A::PM, B::PM, C::PM, RFC::PM, P::PFM, tf, t0; solver = optio
        else
           # high accuracy non-stiff
           sol = solve(prob, Vern9(); reltol, abstol, save_everystep = false)
-       end
-    elseif solver == "symplectic" 
-       # high accuracy symplectic
-       if dt == 0 
-          sol = solve(prob, IRKGaussLegendre.IRKGL16(maxtrials=4); adaptive = true, reltol, abstol, save_everystep = false)
-          #@show sol.retcode
-          if sol.retcode == :Failure
-             sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = false, reltol, abstol, save_everystep = false, dt = abs(tf-t0)/100)
-          end
-       else
-            sol = solve(prob, IRKGaussLegendre.IRKGL16(); adaptive = false, reltol, abstol, save_everystep = false, dt)
        end
     else 
        if reltol > 1.e-4  
@@ -1539,8 +1523,8 @@ function muladdcsymgr!(y::AbstractVector, x::AbstractVector, A::AbstractMatrix, 
 end
 """
     pclqofc_hr(psys, Q, R, nh = 0; K = 1, sdeg = 0, G = I, vinit, optimizer, stabilizer,
-               maxiter, vtol, Jtol, gtol, show_trace, solver, reltol, abstol, dt,
-               N = 128, intpolmeth = "cubic", quad = false ) -> (Fopt,info)
+               maxiter, vtol, Jtol, gtol, show_trace, solver, reltol, abstol, 
+               N = 128, quad = false ) -> (Fopt,info)
 
 Compute the optimal periodic stabilizing gain matrix `Fopt(t)`, such that for a continuous-time periodic state-space model 
 `psys` of the form
@@ -1633,9 +1617,7 @@ If `K = 1` (default), the single shooting method is employed to compute periodic
 If `K > 1`, the multiple-shooting method of [2] is employed, first, to convert the continuous-time periodic Lyapunov differential equations into discrete-time periodic Lyapunov equations satisfied by 
 the generator solution in `K` grid points and then to compute the solution by solving an appropriate discrete-time periodic Lyapunov 
 equation using the periodic Schur method of [3]. If quad = true, a quadrature-based evaluation of gradients is used, as proposed in [1], in conjunction with
-interpolation techniques. The interpolation method to be used can be specified using the keyword parameter `intpolmeth` (default: `intpolmeth = "cubic"`). 
-Other interpolation options are `"intpolmeth = quadratic"`, `intpolmeth = "linear"` and `intpolmeth = "constant"`.
-The number of sample values to be used for interpolation can be specified with the keyword parameter `N` (deafult: `N = 128`). 
+interpolation techniques. The number of sample values to be used for interpolation can be specified with the keyword parameter `N` (deafult: `N = 128`). 
 
 The ODE solver to be employed to convert the continuous-time problem into a discrete-time problem can be specified using the keyword argument `solver`, 
 together with the required relative accuracy `reltol` (default: `reltol = 1.e-4`),  
@@ -1650,9 +1632,7 @@ The following solvers from the [OrdinaryDiffEq.jl](https://github.com/SciML/Ordi
 
 `solver = "stiff"` - use a solver for stiff problems (`Rodas4()` or `KenCarp58()`);
 
-`solver = "symplectic"` - use a symplectic Hamiltonian structure preserving solver (`IRKGL16()`);
-
-`solver = ""` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
+`solver = "auto"` - use the default solver, which automatically detects stiff problems (`AutoTsit5(Rosenbrock23())` or `AutoVern9(Rodas5())`). 
 
 Parallel computation of the matrices of the discrete-time problem can be alternatively performed 
 by starting Julia with several execution threads. 
@@ -1672,7 +1652,7 @@ function pclqofc_hr(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
    nh::Int = 0; K::Int = 1, sdeg::Real = 0, G = I, vinit::Union{AbstractVector{<:Real},Missing} = missing, 
    optimizer = LBFGS(;alphaguess = LineSearches.InitialStatic(;scaled=true)), stabilizer = LBFGS(;alphaguess = LineSearches.InitialStatic(;scaled=true)),
    maxiter = 1000, vtol = 0., Jtol = 0., gtol = 1e-5, show_trace = false,
-   solver = "", reltol = 1.e-5, abstol = 1.e-7, dt = 0, N = 128, intpolmeth = "cubic", quad = false)  where 
+   solver = "auto", reltol = 1.e-5, abstol = 1.e-7, N = 128, intpolmeth = "cubic", quad = false)  where 
    {PM <: HarmonicArray, PM1 <: HarmonicArray, PM2 <: HarmonicArray}
    period = psys.period
    n = size(psys.A,2)
@@ -1740,7 +1720,7 @@ function pclqofc_hr(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
    
    if sd >= stlim
       shift = min(-sd*1.01,-0.001)
-      options = (solver = solver, reltol = reltol, abstol = abstol, N = 128, dt = dt, intpolmeth = "cubic", quad = true)
+      options = (solver = solver, reltol = reltol, abstol = abstol, N = 128, intpolmeth = intpolmeth, quad = true)
       nit = 10
       it = 1
       evs = max(sd,0)
@@ -1763,7 +1743,7 @@ function pclqofc_hr(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
       xopt = x
       sd = evs
       sd = sdeg < 0 ? maximum(real(psceig(psys.A+Bu*KK*C,100))) : evs
-      options = (solver = solver, reltol = reltol, abstol = abstol, N = N, dt = dt, intpolmeth = intpolmeth, quad = quad)
+      options = (solver = solver, reltol = reltol, abstol = abstol, N = N, intpolmeth = intpolmeth, quad = quad)
       par = (K, A, Bu, C, R, Q, X0, options)
 
       #fopt = nothing
@@ -1773,7 +1753,7 @@ function pclqofc_hr(psys::PeriodicStateSpace{PM}, Q::Union{AbstractMatrix,PM1}, 
    else
       maxit = maxiter 
 
-      options = (solver = solver, reltol = reltol, abstol = abstol, N = N, dt = dt, intpolmeth = intpolmeth, quad = quad)
+      options = (solver = solver, reltol = reltol, abstol = abstol, N = N, intpolmeth = intpolmeth, quad = quad)
       par = (K, A, Bu, C, R, Q, X0, options)
       result = optimize(Optim.only_fg!((F,G,x) -> pclqofchrfungrad!(F, G, x, par)), x, optimizer,
          Optim.Options(x_tol = vtol, f_tol = Jtol, g_tol = gtol, iterations = maxit, show_trace=show_trace))
@@ -1809,7 +1789,7 @@ function fungradhr!(Fun, Grad, K, x, A::PM, B::PM, C::PM, R, Q, X0, options) whe
    #(WSGrad, X, Y, At, xt, QW, pschur_ws) = WORK1
    if isnothing(Grad)
       try
-         P = pgclyap(Ar, QR, K; adj = true, solver = "options.solver", reltol = options.reltol, abstol = options.abstol, dt = options.dt, stability_check = true)
+         P = pgclyap(Ar, QR, K; adj = true, solver = options.solver, reltol = options.reltol, abstol = options.abstol, stability_check = true)
          return tr(P(0)*X0)
       catch te
          isnothing(findfirst("stability",te.msg)) && (@show te; error("unknown error"))
@@ -1817,7 +1797,7 @@ function fungradhr!(Fun, Grad, K, x, A::PM, B::PM, C::PM, R, Q, X0, options) whe
       end
    end
    Z, Y = try
-      pgclyap2(Ar, X0, QR, K; solver = options.solver, reltol = options.reltol, abstol = options.abstol, dt = options.dt, stability_check = true)
+      pgclyap2(Ar, X0, QR, K; solver = options.solver, reltol = options.reltol, abstol = options.abstol, stability_check = true)
    catch te
       isnothing(findfirst("stability",te.msg)) && (@show te; error("unknown error"))
       return 1.e20
@@ -1826,6 +1806,7 @@ function fungradhr!(Fun, Grad, K, x, A::PM, B::PM, C::PM, R, Q, X0, options) whe
       #   Grad = 2*(B'*pmshift(X)*Ar + RFC + ST)*Y*C'
       if K >= 32
          P = convert(PeriodicFunctionMatrix, Y, method = options.intpolmeth)
+         #P = PeriodicMatrixEquations.pclyap_intpol(Ar, QR, Y; N = 1, adj = true, solver = options.solver, reltol = options.reltol, abstol = options.abstol)        
          if quad 
             Xts = Z.values
             Xts = [Xts; [Xts[1]-X0]]
@@ -1833,10 +1814,11 @@ function fungradhr!(Fun, Grad, K, x, A::PM, B::PM, C::PM, R, Q, X0, options) whe
          end
       else
          N = max(options.N,32)
-         Yt = PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, Y, Ar, QR; adj = true, solver = options.solver, reltol = options.reltol, abstol = options.abstol, dt = options.dt),period)
+         Yt = PeriodicFunctionMatrix(t->PeriodicMatrixEquations.tvclyap_eval(t, Y, Ar, QR; adj = true, solver = options.solver, reltol = options.reltol, abstol = options.abstol),period)
          P = convert(PeriodicFunctionMatrix,convert(PeriodicTimeSeriesMatrix,Yt;ns=N), method = options.intpolmeth)
          if quad 
-            Xt = PeriodicFunctionMatrix(t->PeriodicSystems.tvclyap_eval(t, Z, Ar, Z(0); adj = false, solver = options.solver, reltol = options.reltol, abstol = options.abstol, dt = options.dt),A.period)
+            #Xt = PeriodicFunctionMatrix(t->PeriodicMatrixEquations.tvclyap_eval(t, Z, Ar, Z(0); adj = false, solver = options.solver, reltol = options.reltol, abstol = options.abstol),A.period)
+            Xt = PeriodicFunctionMatrix(t->PeriodicMatrixEquations.tvclyap_eval(t, Z, Ar; solver = options.solver, reltol = options.reltol, abstol = options.abstol),A.period)
             Xts = Xt.f.((0:N-1)*period/N)
             Xts = [Xts; [Xts[1]-X0]]
             X = PeriodicSystems.ts2fm(Xts, period; method = options.intpolmeth)
@@ -1847,7 +1829,7 @@ function fungradhr!(Fun, Grad, K, x, A::PM, B::PM, C::PM, R, Q, X0, options) whe
       if quad
          Grad[:] .= QuadGK.quadgk(t-> 2*(B(t)'*P(t)+RFC(t))*X(t)*C(t)', t0, tf)[1][:]
       else    
-         Grad[:] .= tvgrad!(V, Ar, B, C, RFC, P, tf, t0; solver = options.solver, reltol = options.reltol, abstol = options.abstol, dt = options.dt)[:]
+         Grad[:] .= tvgrad!(V, Ar, B, C, RFC, P, tf, t0; solver = options.solver, reltol = options.reltol, abstol = options.abstol)[:]
       end
    end
 
