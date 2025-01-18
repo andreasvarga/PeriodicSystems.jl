@@ -1,5 +1,9 @@
 # Release Notes
 
+## Version 1.0.1
+
+Implement some new system constructors via the function `ps` for discrete time-varying gains and a new unique version of `show` for periodic systems based on the new `show` functions of  `PeriodicMatrices`.
+
 ## Version 1.0.0
 
 Breaking release, which concludes the integration of  `PeriodicMatrices`  and `PeriodicMatrixEquations` packages as separate supporting packages. This version also achieves the splitting of the `ApproxFun` package as an optional package. 

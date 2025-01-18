@@ -29,10 +29,7 @@ ts = (0:K-1)*Δ
 
 psys = ps(A,B,C,D);
 psys = ps(A,B,C);
-ps(A);
-ps(B);
-ps(C);
-ps(D);
+display(ps(D))
 psys = ps(A,B,C,D,4*pi);
 psys = ps(A,B,C,4*pi);
 psys = ps(HarmonicArray,A,B,C,D,4*pi);
@@ -100,6 +97,7 @@ psys = PeriodicStateSpace(convert(HarmonicArray,A),
                           convert(HarmonicArray,C), 
                           convert(HarmonicArray,D));
 print(psys);
+print(ps(psys.D))
 convert(PeriodicStateSpace{PeriodicSymbolicMatrix},psys);
 convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys);
 convert(PeriodicStateSpace{PeriodicFunctionMatrix},psys);
@@ -122,6 +120,7 @@ Ct = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,C).f.(ts),C.period)
 Dt = PeriodicTimeSeriesMatrix(convert(PeriodicFunctionMatrix,D).f.(ts),D.period);
 psys = PeriodicStateSpace(At, Bt, Ct, Dt); 
 print(psys);
+print(ps(psys.D))
 convert(PeriodicStateSpace{PeriodicFunctionMatrix},psys);
 convert(PeriodicStateSpace{PeriodicSymbolicMatrix},psys);
 convert(PeriodicStateSpace{HarmonicArray},psys);
@@ -136,6 +135,7 @@ psys = PeriodicStateSpace(convert(FourierFunctionMatrix,A),
                           convert(FourierFunctionMatrix,C), 
                           convert(FourierFunctionMatrix,D));
 print(psys);
+@test_throws "not available" print(ps(psys.D))
 convert(PeriodicStateSpace{PeriodicFunctionMatrix},psys);
 convert(PeriodicStateSpace{HarmonicArray},psys); 
 convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys);
@@ -174,6 +174,7 @@ Cd = PeriodicMatrix( [[ 1 1 ], [ 1 ]] ,2);
 Dd = PeriodicMatrix( [[ 1 ]], 1); 
 psys = PeriodicStateSpace(Ad,Bd,Cd,Dd);
 print(psys);
+print(ps(psys.D))
 convert(PeriodicStateSpace{PeriodicArray},psys);
 convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys);
 
@@ -187,6 +188,7 @@ Cd = PeriodicArray(rand(1,2,3),3);
 Dd = PeriodicArray(rand(1,1,1), 1);
 psys = PeriodicStateSpace(Ad,Bd,Cd,Dd); 
 print(psys);
+print(ps(psys.D))
 convert(PeriodicStateSpace{PeriodicMatrix},psys)
 convert(PeriodicStateSpace{PeriodicTimeSeriesMatrix},psys)
 
@@ -195,6 +197,9 @@ psys = ps(Ad,Bd,Cd);
 psys = ps(convert(PeriodicMatrix,Ad), Bd, convert(PeriodicMatrix,Cd), Dd); 
 psys = ps(convert(PeriodicMatrix,Ad), Bd, convert(PeriodicMatrix,Cd)); 
 
+print(ps(SwitchingPeriodicArray(rand(1,2,3),[2,4,6],10)))
+
+print(ps(SwitchingPeriodicMatrix(PeriodicMatrices.pmzeros([1,1],[2,2]),[5,10],10)))
 end
 end
 

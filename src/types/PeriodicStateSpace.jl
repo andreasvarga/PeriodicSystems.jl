@@ -1,43 +1,3 @@
-# Base.promote_rule(PeriodicFunctionMatrix, PeriodicSymbolicMatrix) = PeriodicFunctionMatrix{:c,T}
-# Base.promote_rule(PeriodicFunctionMatrix, HarmonicArray) = PeriodicFunctionMatrix
-# function promote_period(PM1,args...; ndigits = 4)
-#    nlim = 2^ndigits
-#    if typeof(PM1) <: AbstractVecOrMat 
-#       period = nothing 
-#       isconst = true
-#    else
-#       period = PM1.period
-#       isconst = isconstant(PM1)
-#    end
-#    for a in args
-#        typeof(a) <: AbstractVecOrMat && continue
-#        if isconstant(a)
-#           if isconst
-#              if isnothing(period) 
-#                 period = a.period
-#              else
-#                 #period = max(period,a.period)
-#                 peri = a.period
-#                 r = rationalize(period/peri)
-#                 num = numerator(r)
-#                 den = denominator(r)
-#                 num <= nlim || den <= nlim || error("incommensurate periods")
-#                 period = period*den
-#              end
-#           end
-#           continue
-#        end
-#        isconst && (isconst = false; period = a.period; continue)
-#        peri = a.period
-#        r = rationalize(period/peri)
-#        num = numerator(r)
-#        den = denominator(r)
-#        num <= nlim || den <= nlim || error("incommensurate periods")
-#        period = period*den
-#    end
-#    return period
-# end
-
 function promote_Ts(PM1,args...)
     Ts = PM1.Ts
     isconst = PeriodicMatrices.isconstant(PM1)
@@ -139,8 +99,9 @@ The different periods must be commensurate (i.e., their ratios must be rational 
 numerators and denominators up to at most 4 decimal digits). 
 All periodic matrix objects must have the same type `PM`, where
 `PM` stays for one of the supported periodic matrix types, i.e., 
-`PeriodicMatrix`, `PeriodicArray`, `PeriodicFunctionMatrix`, `PeriodicSymbolicMatrix`,
-`HarmonicArray`, `FourierFunctionMatrix` or `PeriodicTimeSeriesMatrix`. 
+`PeriodicMatrix`, `SwitchingPeriodicMatrix`, `PeriodicArray`, `SwitchingPeriodicArray`, 
+`PeriodicFunctionMatrix`, `PeriodicSymbolicMatrix`,
+`HarmonicArray`, `FourierFunctionMatrix`, `PeriodicTimeSeriesMatrix` or `PeriodicSwitchingMatrix`. 
 """
 function PeriodicStateSpace(A::PFM1, B::PFM2, C::PFM3, D::PFM4) where {PFM1 <: PeriodicFunctionMatrix, PFM2 <: PeriodicFunctionMatrix, PFM3 <: PeriodicFunctionMatrix, PFM4 <: PeriodicFunctionMatrix}
     period = ps_validation(A, B, C, D)
@@ -151,16 +112,6 @@ function PeriodicStateSpace(A::PFM1, B::PFM2, C::PFM3, D::PFM4) where {PFM1 <: P
                                                      (period == D.period && T == eltype(D)) ? D : PeriodicFunctionMatrix{:c,T}(D,period), 
                                                      Float64(period))
 end
-# function PeriodicStateSpace(A::FFM1, B::FFM2, C::FFM3, D::FFM4) where {FFM1 <: FourierFunctionMatrix, FFM2 <: FourierFunctionMatrix, FFM3 <: FourierFunctionMatrix, FFM4 <: FourierFunctionMatrix}
-#     period = ps_validation(A, B, C, D)
-#     T = promote_type(eltype(A),eltype(B),eltype(C),eltype(D))
-#     PeriodicStateSpace{FourierFunctionMatrix{:c,T}}((period == A.period && T == eltype(A)) ? A : FourierFunctionMatrix{:c,T}(A,period), 
-#                                                      (period == B.period && T == eltype(B)) ? B : FourierFunctionMatrix{:c,T}(B,period), 
-#                                                      (period == C.period && T == eltype(C)) ? C : FourierFunctionMatrix{:c,T}(C,period), 
-#                                                      (period == D.period && T == eltype(D)) ? D : FourierFunctionMatrix{:c,T}(D,period), 
-#                                                      Float64(period))
-# end
-
 function PeriodicStateSpace(A::PSM, B::PSM, C::PSM, D::PSM) where {PSM <: PeriodicSymbolicMatrix}
    period = ps_validation(A, B, C, D)
    PeriodicStateSpace(period == A.period ? A : set_period(A,period), 
@@ -396,510 +347,59 @@ end
 
 # display sys
 Base.print(io::IO, sys::PeriodicStateSpace) = show(io, sys)
-Base.show(io::IO, sys::PeriodicStateSpace{PM}) where 
-    {PM <: Union{PeriodicMatrix,PeriodicArray,PeriodicTimeSeriesMatrix,PeriodicSymbolicMatrix,PeriodicFunctionMatrix,HarmonicArray}} = 
+Base.show(io::IO, sys::PeriodicStateSpace{PM}) where {PM <: AbstractPeriodicArray} = 
     show(io, MIME("text/plain"), sys)
 
-# function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateSpace{<:FourierFunctionMatrix})
-#     summary(io, sys); println(io)
-#     n = size(sys.A,1) 
-#     p, m = size(sys.D)
-#     T = eltype(sys)
-#     if n > 0
-#        nperiod = sys.A.nperiod
-#        println(io, "\nState matrix A::$T($n×$n): subperiod: $(sys.A.period/nperiod)    #subperiods: $nperiod ")
-#        PeriodicMatrices.isconstant(sys.A) ? show(io, mime, sys.A.M(0)) : show(io, mime, sys.A.M)
-#        if m > 0 
-#           nperiod = sys.B.nperiod
-#           println(io, "\n\nInput matrix B::$T($n×$m): $(sys.B.period/nperiod)    #subperiods: $nperiod ") 
-#           PeriodicMatrices.isconstant(sys.B) ? show(io, mime, sys.B.M(0)) : show(io, mime, sys.B.M)
-#        else
-#           println(io, "\n\nEmpty input matrix B.")
-#        end
-       
-#        if p > 0 
-#           nperiod = sys.C.nperiod
-#           println(io, "\n\nOutput matrix C::$T($p×$n): $(sys.C.period/nperiod)    #subperiods: $nperiod ")
-#           PeriodicMatrices.isconstant(sys.C) ? show(io, mime, sys.C.M(0)) : show(io, mime, sys.C.M)
-#        else 
-#           println(io, "\n\nEmpty output matrix C.") 
-#        end
-#        if m > 0 && p > 0
-#           nperiod = sys.D.nperiod
-#           println(io, "\n\nFeedthrough matrix D::$T($p×$m): $(sys.D.period/nperiod)    #subperiods: $nperiod ") 
-#           PeriodicMatrices.isconstant(sys.D) ? show(io, mime, sys.D.M(0)) : show(io, mime, sys.D.M)
-#        else
-#           println(io, "\n\nEmpty feedthrough matrix D.") 
-#        end
-#        println(io, "\n\nContinuous-time periodic state-space model.")  
-#     elseif m > 0 && p > 0
-#        nperiod = sys.D.nperiod
-#        println(io, "\nFeedthrough matrix D::$T($p×$m): $(sys.D.period/nperiod)    #subperiods: $nperiod ")
-#        PeriodicMatrices.isconstant(sys.D) ? show(io, mime, sys.D.M(0)) : show(io, mime, sys.D.M)
-#        println(io, "\n\nTime-varying gain.") 
-#     else
-#        println(io, "\nEmpty state-space model.")
-#     end
-# end
 
-
-function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateSpace{<:HarmonicArray})
-    summary(io, sys); println(io)
-    n = sys.nx 
-    p, m = size(sys)
-    period = sys.period
-    if n > 0
-       nharmonics, nperiod = size(sys.A.values,3)-1, sys.A.nperiod
-       subperiod = period/nperiod
-       println(io, "\nState matrix A: subperiod: $subperiod    #subperiods: $nperiod   #harmonics: $nharmonics")
-       ts = 2*pi*nperiod/period
-       if nharmonics >= 0
-          println("Constant term") 
-          display(mime, real(sys.A.values[:,:,1]))
-       end
-       for i in [1:min(4,nharmonics); nharmonics-2:nharmonics]
-         i <= 0 && break
-         println("cos($(i*ts)t) factor")
-          display(mime, real(sys.A.values[:,:,i+1]))
-          println("sin($(i*ts)t) factor")
-          display(mime, imag(sys.A.values[:,:,i+1]))
-          i == 4 && nharmonics > 4 && println("   ⋮")
-       end
-       if m > 0 
-          nharmonics, nperiod = size(sys.B.values,3)-1, sys.B.nperiod
-          subperiod = period/nperiod
-          println(io, "\nInput matrix B: subperiod: $subperiod    #subperiods: $nperiod   #harmonics: $nharmonics")
-          ts = 2*pi*nperiod/period
-          if nharmonics >= 0
-             println("Constant term") 
-             display(mime, real(sys.B.values[:,:,1]))
-          end
-          for i in [1:min(4,nharmonics); nharmonics-2:nharmonics]
-             i <= 0 && break
-             println("cos($(i*ts)t) factor")
-             display(mime, real(sys.B.values[:,:,i+1]))
-             println("sin($(i*ts)t) factor")
-             display(mime, imag(sys.B.values[:,:,i+1]))
-             i == 4 && nharmonics > 4 && println("   ⋮")
-          end
-       else
+function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateSpace{PM}) where 
+        {PM <: AbstractPeriodicArray} 
+      #   {PM <: Union{PeriodicFunctionMatrix,HarmonicArray,PeriodicSymbolicMatrix,PeriodicTimeSeriesMatrix,PeriodicSwitchingMatrix,
+      #                PeriodicMatrix}}
+   summary(io, sys); println(io)
+   n = maximum(sys.nx) 
+   p, m = size(sys)
+   if n > 0
+      println(io, "\nState matrix A")
+      display(sys.A)
+      if m > 0 
+          println(io, "\nInput matrix B")
+          display(sys.B)
+      else
           println(io, "\n\nEmpty input matrix B.")
-       end
-       if p > 0 
-          nharmonics, nperiod = size(sys.C.values,3)-1, sys.C.nperiod
-          subperiod = period/nperiod
-          println(io, "\nOutput matrix C: subperiod: $subperiod    #subperiods: $nperiod   #harmonics: $nharmonics")
-          ts = 2*pi*nperiod/period
-          if nharmonics >= 0
-            println("Constant term") 
-            display(mime, real(sys.C.values[:,:,1]))
-         end
-         for i in [1:min(4,nharmonics); nharmonics-2:nharmonics]
-            i <= 0 && break
-            println("cos($(i*ts)t) factor")
-            display(mime, real(sys.C.values[:,:,i+1]))
-            println("sin($(i*ts)t) factor")
-            display(mime, imag(sys.C.values[:,:,i+1]))
-            i == 4 && nharmonics > 4 && println("   ⋮")
-         end
+      end
+      if p > 0 
+          println(io, "\nOutput matrix C")
+          display(sys.C)
       else
           println(io, "\n\nEmpty output matrix C.") 
-       end
-       if m > 0 && p > 0
-          nharmonics, nperiod = size(sys.D.values,3)-1, sys.D.nperiod
-          subperiod = period/nperiod
-          println(io, "\nFeedthrough matrix D: subperiod: $subperiod    #subperiods: $nperiod   #harmonics: $nharmonics")
-          ts = 2*pi*nperiod/period
-          if nharmonics >= 0
-            println("Constant term") 
-            display(mime, real(sys.D.values[:,:,1]))
-          end
-          for i in [1:min(4,nharmonics); nharmonics-2:nharmonics]
-             i <= 0 && break
-             println("cos($(i*ts)t) factor")
-             display(mime, real(sys.D.values[:,:,i+1]))
-             println("sin($(i*ts)t) factor")
-             display(mime, imag(sys.C.values[:,:,i+1]))
-             i == 4 && nharmonics > 4 && println("   ⋮")
-          end
-       else
-          println(io, "\n\nEmpty feedthrough matrix D.") 
-       end
-       println(io, "\n\nPeriod:      $(sys.period) second(s).")
-       println(io, "Periodic continuous-time state-space model.") 
-    elseif m > 0 && p > 0
-       nharmonics, nperiod = size(sys.D.values,3)-1, sys.D.nperiod
-       subperiod = period/nperiod
-       println(io, "\nFeedthrough matrix D: subperiod: $subperiod    #subperiods: $nperiod   #harmonics: $nharmonics")
-       ts = 2*pi*nperiod/period
-       if nharmonics >= 0
-          println("Constant term") 
-          display(mime, real(sys.D.values[:,:,1]))
-       end
-       for i in [1:min(4,nharmonics); nharmonics-2:nharmonics]
-          i <= 0 && break
-          println("cos($(i*ts)t) factor")
-          display(mime, real(sys.D.values[:,:,i+1]))
-          println("sin($(i*ts)t) factor")
-          display(mime, imag(sys.D.values[:,:,i+1]))
-          i == 4 && nharmonics > 4 && println("⋮")
-       end
-       println(io, "\n\nPeriod:      $(sys.period) second(s).")
+      end
+      if m > 0 && p > 0
+          println(io, "\nFeedthrough matrix D")
+          display(sys.D)
+      else
+          println(io, "\nEmpty feedthrough matrix D.") 
+      end
+      println(io, "\nSystem period:      $(sys.period) second(s).")
+      if iscontinuous(sys)
+          println(io, "Periodic continuous-time state-space model.") 
+      else
+          println(io, "Periodic discrete-time state-space model.") 
+      end
+   elseif m > 0 && p > 0
+       println(io, "\nFeedthrough matrix D")
+       display(sys.D)
+       println(io, "\nSystem period:      $(sys.period) second(s).")
        println(io, "Time-varying gains.") 
-    else
-       println(io, "\nEmpty Periodic continuous-time state-space model.")
-    end
+   else
+      if iscontinuous(sys)
+         println(io, "Empty periodic continuous-time state-space model.") 
+      else
+         println(io, "Empty periodic discrete-time state-space model.") 
+      end
+   end
 end
 
-function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateSpace{<:PeriodicFunctionMatrix})
-    summary(io, sys); println(io)
-    n = size(sys.A,1) 
-    p, m = size(sys.D)
-    T = eltype(sys)
-    if n > 0
-       nperiod = sys.A.nperiod
-       println(io, "\nState matrix A::$T($n×$n): subperiod: $(sys.A.period/nperiod)    #subperiods: $nperiod ")
-       PeriodicMatrices.isconstant(sys.A) ? show(io, mime, sys.A.f(0)) : show(io, mime, sys.A.f)
-       if m > 0 
-          nperiod = sys.B.nperiod
-          println(io, "\n\nInput matrix B::$T($n×$m): $(sys.B.period/nperiod)    #subperiods: $nperiod ") 
-          PeriodicMatrices.isconstant(sys.B) ? show(io, mime, sys.B.f(0)) : show(io, mime, sys.B.f)
-       else
-          println(io, "\n\nEmpty input matrix B.")
-       end
-       
-       if p > 0 
-          nperiod = sys.C.nperiod
-          println(io, "\n\nOutput matrix C::$T($p×$n): $(sys.C.period/nperiod)    #subperiods: $nperiod ")
-          PeriodicMatrices.isconstant(sys.C) ? show(io, mime, sys.C.f(0)) : show(io, mime, sys.C.f)
-       else 
-          println(io, "\n\nEmpty output matrix C.") 
-       end
-       if m > 0 && p > 0
-          nperiod = sys.D.nperiod
-          println(io, "\n\nFeedthrough matrix D::$T($p×$m): $(sys.D.period/nperiod)    #subperiods: $nperiod ") 
-          PeriodicMatrices.isconstant(sys.D) ? show(io, mime, sys.D.f(0)) : show(io, mime, sys.D.f)
-       else
-          println(io, "\n\nEmpty feedthrough matrix D.") 
-       end
-       println(io, "\n\nPeriod:      $(sys.period) second(s).")
-       println(io, "Continuous-time periodic state-space model.")  
-    elseif m > 0 && p > 0
-       nperiod = sys.D.nperiod
-       println(io, "\nFeedthrough matrix D::$T($p×$m): $(sys.D.period/nperiod)    #subperiods: $nperiod ")
-       PeriodicMatrices.isconstant(sys.D) ? show(io, mime, sys.D.f(0)) : show(io, mime, sys.D.f)
-       println(io, "Period:      $(sys.period) second(s).")
-       println(io, "\n\nTime-varying gain.") 
-    else
-       println(io, "\nEmpty state-space model.")
-    end
-end
 
-function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateSpace{<:PeriodicSymbolicMatrix})
-    summary(io, sys); println(io)
-    n = size(sys.A,1) 
-    p, m = size(sys.D)
-    if n > 0
-       nperiod = sys.A.nperiod
-       println(io, "\nState matrix A: subperiod: $(sys.A.period/nperiod)    #subperiods: $nperiod ")
-       show(io, mime, sys.A.F)
-       if m > 0 
-          nperiod = sys.B.nperiod
-          println(io, "\n\nInput matrix B: $(sys.B.period/nperiod)    #subperiods: $nperiod ") 
-          show(io, mime, sys.B.F)
-       else
-          println(io, "\n\nEmpty input matrix B.")
-       end
-       
-       if p > 0 
-          nperiod = sys.C.nperiod
-          println(io, "\n\nOutput matrix C: $(sys.C.period/nperiod)    #subperiods: $nperiod ")
-          show(io, mime, sys.C.F)
-       else 
-          println(io, "\n\nEmpty output matrix C.") 
-       end
-       if m > 0 && p > 0
-          nperiod = sys.D.nperiod
-          println(io, "\n\nFeedthrough matrix D: $(sys.D.period/nperiod)    #subperiods: $nperiod ") 
-          show(io, mime, sys.D.F)
-       else
-          println(io, "\n\nEmpty feedthrough matrix D.") 
-       end
-       println(io, "\n\nPeriod:      $(sys.period) second(s).")
-       println(io, "Continuous-time periodic state-space model.")  
-    elseif m > 0 && p > 0
-       nperiod = sys.D.nperiod
-       println(io, "\nFeedthrough matrix D: $(sys.D.period/nperiod)    #subperiods: $nperiod ")
-       show(io, mime, sys.D.F)
-       println(io, "\n\nPeriod:      $(sys.period) second(s).")
-       println(io, "Time-varying gain.") 
-    else
-       println(io, "\nEmpty state-space model.")
-    end
-end
-
-function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateSpace{<:PeriodicTimeSeriesMatrix})
-    summary(io, sys); println(io)
-    n = sys.nx 
-    N = length(sys.A)
-    p, m = size(sys)
-    period = sys.period
-    if n > 0
-       dperiod, nperiod = length(sys.A), sys.A.nperiod
-       subperiod = period/nperiod
-       Ts = subperiod/dperiod
-       println(io, "\nState matrix A: subperiod: $subperiod    #subperiods: $nperiod ")
-       if dperiod == 1
-          println(io, "time values: t[1:$dperiod] = [$(0*Ts)]")
-       else
-          println(io, "time values: t[1:$dperiod] = [$(0*Ts)  $(Ts) ... $((dperiod-1)*Ts)]")
-       end
-       for i in [1:min(4,dperiod); dperiod-2:dperiod]
-          i <= 0 && break
-          println("t[$i] = $((i-1)*Ts)")
-          display(mime, sys.A.values[i])
-          i == 4 && dperiod > 4 && println("   ⋮")
-       end
-       if m > 0 
-          dperiod, nperiod = length(sys.B), sys.B.nperiod
-          subperiod = period/nperiod
-          Ts = subperiod/dperiod
-          println(io, "\n\nInput matrix B: subperiod: $subperiod    #subperiods: $nperiod ") 
-          if dperiod == 1
-             println(io, "time values: t[1:$dperiod] = [$(0*Ts)]")
-          else
-             println(io, "time values: t[1:$dperiod] = [$(0*Ts)  $(Ts) ... $((dperiod-1)*Ts)]")
-          end
-          for i in [1:min(4,dperiod); dperiod-2:dperiod]
-              i <= 0 && break
-              println("t[$i] = $((i-1)*Ts)")
-              display(mime, sys.B.values[i])
-              i == 4 && dperiod > 4 && println("   ⋮")
-          end
-       else
-          println(io, "\n\nEmpty input matrix B.")
-       end
-       if p > 0 
-          dperiod, nperiod = length(sys.C), sys.C.nperiod
-          subperiod = period/nperiod
-          Ts = subperiod/dperiod
-          println(io, "\n\nOutput matrix C: subperiod: $subperiod    #subperiods: $nperiod ")
-          if dperiod == 1
-             println(io, "time values: t[1:$dperiod] = [$(0*Ts)]")
-          else
-             println(io, "time values: t[1:$dperiod] = [$(0*Ts)  $(Ts) ... $((dperiod-1)*Ts)]")
-          end
-          for i in [1:min(4,dperiod); dperiod-2:dperiod]
-              i <= 0 && break
-              println("t[$i] = $((i-1)*Ts)")
-              display(mime, sys.C.values[i])
-              i == 4 && dperiod > 4 && println("   ⋮")
-          end
-       else
-          println(io, "\n\nEmpty output matrix C.") 
-       end
-       if m > 0 && p > 0
-          dperiod, nperiod = length(sys.D), sys.D.nperiod
-          subperiod = period/nperiod
-          Ts = subperiod/dperiod
-          println(io, "\n\nFeedthrough matrix D: subperiod: $subperiod    #subperiods: $nperiod ") 
-          if dperiod == 1
-             println(io, "time values: t[1:$dperiod] = [$(0*Ts)]")
-          else
-             println(io, "time values: t[1:$dperiod] = [$(0*Ts)  $(Ts) ... $((dperiod-1)*Ts)]")
-          end
-          for i in [1:min(4,dperiod); dperiod-2:dperiod]
-              i <= 0 && break
-              println("t[$i] = $((i-1)*Ts)")
-              display(mime, sys.D.values[i])
-              i == 4 && dperiod > 4 && println("   ⋮")
-          end
-       else
-           println(io, "\n\nEmpty feedthrough matrix D.") 
-       end
-       println(io, "\n\nPeriod:      $(sys.period) second(s).")
-       println(io, "Periodic continuous-time state-space model.") 
-    elseif m > 0 && p > 0
-       dperiod, nperiod = length(sys.D), sys.D.nperiod
-       subperiod = period/nperiod
-       Ts = subperiod/dperiod
-       println(io, "\n\nFeedthrough matrix D: subperiod: $subperiod    #subperiods: $nperiod ") 
-       println(io, "time values: t[1:$dperiod] = [$(0*Ts)  $(Ts) ... $((dperiod-1)*Ts)]")
-       for i in [1:min(4,dperiod); dperiod-2:dperiod]
-           i <= 0 && break
-           println("t[$i] = $((i-1)*Ts)")
-           display(mime, sys.D.values[i])
-           i == 4 && dperiod > 4 && println("   ⋮")
-       end
-       println(io, "\n\nPeriod:      $(sys.period) second(s).")
-       println(io, "Time-varying gains.") 
-    else
-       println(io, "\nEmpty Periodic continuous-time state-space model.")
-    end
-end
-
-function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateSpace{<:PeriodicMatrix})
-    summary(io, sys); println(io)
-    n = sys.nx 
-    N = sys.A.dperiod
-    p, m = size(sys)
-    period = sys.period
-    Ts = sys.A.Ts
-    if any(n .> 0)
-       dperiod, nperiod = sys.A.dperiod, sys.A.nperiod
-       subperiod = period/nperiod
-       println(io, "\nState matrix A: subperiod: $subperiod    #subperiods: $nperiod ")
-       println(io, "time values: t[1:$dperiod]")
-       for i in [1:min(4,dperiod); dperiod-2:dperiod]
-           i <= 0 && break
-           println("t[$i] = $(i*Ts)")
-           display(mime, sys.A.M[i])
-           i == 4 && dperiod > 4 && println("   ⋮")
-       end
-       if m > 0 
-          dperiod, nperiod = sys.B.dperiod, sys.B.nperiod
-          subperiod = period/nperiod
-          println(io, "\n\nInput matrix B: subperiod: $subperiod    #subperiods: $nperiod ") 
-          println(io, "time values: t[1:$dperiod]")
-          for i in [1:min(4,dperiod); dperiod-2:dperiod]
-              i <= 0 && break
-              println("t[$i] = $(i*Ts)")
-              display(mime, sys.B.M[i])
-              i == 4 && dperiod > 4 && println("   ⋮")
-          end
-       else
-          println(io, "\n\nEmpty input matrix B.")
-       end
-       if p > 0 
-          dperiod, nperiod = sys.C.dperiod, sys.C.nperiod
-          subperiod = period/nperiod
-          println(io, "\n\nOutput matrix C: subperiod: $subperiod    #subperiods: $nperiod ")
-          println(io, "time values: t[1:$dperiod]")
-          for i in [1:min(4,dperiod); dperiod-2:dperiod]
-              i <= 0 && break
-              println("t[$i] = $(i*Ts)")
-              display(mime, sys.C.M[i])
-              i == 4 && dperiod > 4 && println("   ⋮")
-          end
-       else
-          println(io, "\n\nEmpty output matrix C.") 
-       end
-       if m > 0 && p > 0
-          dperiod, nperiod = sys.D.dperiod, sys.D.nperiod
-          subperiod = period/nperiod
-          println(io, "\n\nFeedthrough matrix D: subperiod: $subperiod    #subperiods: $nperiod ") 
-          println(io, "time values: t[1:$dperiod]")
-          for i in [1:min(4,dperiod); dperiod-2:dperiod]
-              i <= 0 && break
-              println("t[$i] = $(i*Ts)")
-              display(mime, sys.D.M[i])
-              i == 4 && dperiod > 4 && println("   ⋮")
-          end
-       else
-           println(io, "\n\nEmpty feedthrough matrix D.") 
-       end
-       println(io, "\n\nPeriod:      $(sys.period) second(s).")
-       println(io,     "Sample time: $Ts second(s).")
-       println(io, "Periodic discrete-time state-space model.") 
-    elseif m > 0 && p > 0
-       dperiod, nperiod = sys.D.dperiod, sys.D.nperiod
-       subperiod = period/nperiod
-       println(io, "\n\nFeedthrough matrix D: subperiod: $subperiod    #subperiods: $nperiod ") 
-       println(io, "time values: t[1:$dperiod]")
-       for i in [1:min(4,dperiod); dperiod-2:dperiod]
-           i <= 0 && break
-           println("t[$i] = $(i*Ts)")
-           display(mime, sys.D.M[i])
-           i == 4 && dperiod > 4 && println("   ⋮")
-       end
-       println(io, "\n\nPeriod:      $(sys.period) second(s).")
-       println(io,     "Sample time: $Ts second(s).")
-       println(io, "Time-varying gains.") 
-    else
-       println(io, "\nEmpty Periodic discrete-time state-space model.")
-    end
-end
-function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, sys::PeriodicStateSpace{<:PeriodicArray})
-    summary(io, sys); println(io)
-    n = sys.nx 
-    N = sys.A.dperiod
-    p, m = size(sys)
-    period = sys.period
-    Ts = sys.A.Ts
-    if any(n .> 0)
-        dperiod, nperiod = sys.A.dperiod, sys.A.nperiod
-        subperiod = period/nperiod
-        println(io, "\nState matrix A: subperiod: $subperiod    #subperiods: $nperiod ")
-        println(io, "time values: t[1:$dperiod]")
-        for i in [1:min(4,dperiod); dperiod-2:dperiod]
-            i <= 0 && break
-            println("t[$i] = $(i*Ts)")
-            display(mime, sys.A.M[:,:,i])
-            i == 4 && dperiod > 4 && println("   ⋮")
-         end
-        if m > 0 
-           dperiod, nperiod = sys.B.dperiod, sys.B.nperiod
-           subperiod = period/nperiod
-           println(io, "\n\nInput matrix B: subperiod: $subperiod    #subperiods: $nperiod ") 
-           println(io, "time values: t[1:$dperiod]")
-           for i in [1:min(4,dperiod); dperiod-2:dperiod]
-               i <= 0 && break
-               println("t[$i] = $(i*Ts)")
-               display(mime, sys.B.M[:,:,i])
-               i == 4 && dperiod > 4 && println("   ⋮")
-            end
-        else
-           println(io, "\n\nEmpty input matrix B.")
-        end
-        if p > 0 
-           dperiod, nperiod = sys.C.dperiod, sys.C.nperiod
-           subperiod = period/nperiod
-           println(io, "\n\nOutput matrix C: subperiod: $subperiod    #subperiods: $nperiod ")
-           println(io, "time values: t[1:$dperiod]")
-           for i in [1:min(4,dperiod); dperiod-2:dperiod]
-               i <= 0 && break
-               println("t[$i] = $(i*Ts)")
-               display(mime, sys.C.M[:,:,i])
-               i == 4 && dperiod > 4 && println("   ⋮")
-            end
-        else
-           println(io, "\n\nEmpty output matrix C.") 
-        end
-        if m > 0 && p > 0
-           dperiod, nperiod = sys.D.dperiod, sys.D.nperiod
-           subperiod = period/nperiod
-           println(io, "\n\nFeedthrough matrix D: subperiod: $subperiod    #subperiods: $nperiod ") 
-           println(io, "time values: t[1:$dperiod]")
-           for i in [1:min(4,dperiod); dperiod-2:dperiod]
-               i <= 0 && break
-               println("t[$i] = $(i*Ts)")
-               display(mime, sys.D.M[:,:,i])
-               i == 4 && dperiod > 4 && println("   ⋮")
-            end
-        else
-           println(io, "\n\nEmpty feedthrough matrix D.") 
-        end
-        println(io, "\n\nPeriod:      $(sys.period) second(s).")
-        println(io,     "Sample time: $Ts second(s).")
-        println(io, "Periodic discrete-time state-space model.") 
-    elseif m > 0 && p > 0
-        dperiod, nperiod = sys.D.dperiod, sys.D.nperiod
-        subperiod = period/nperiod
-        println(io, "\n\nFeedthrough matrix D: subperiod: $subperiod    #subperiods: $nperiod ") 
-        println(io, "time values: t[1:$dperiod]")
-        for i in [1:min(4,dperiod); dperiod-2:dperiod]
-            i <= 0 && break
-            println("t[$i] = $(i*Ts)")
-            display(mime, sys.D.M[:,:,i])
-            i == 4 && dperiod > 4 && println("   ⋮")
-         end
-        println(io, "\n\nPeriod:      $(sys.period) second(s).")
-        println(io,     "Sample time: $Ts second(s).")
-        println(io, "Time-varying gains.") 
-    else
-        println(io, "\nEmpty Periodic discrete-time state-space model.")
-    end
-end
 
 index2range(ind1, ind2) = (index2range(ind1), index2range(ind2))
 index2range(ind::T) where {T<:Number} = ind:ind

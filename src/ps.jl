@@ -113,18 +113,83 @@ ps(A::APMorVM, B::APMorVM, C::APMorVM, period::Real) =
 ps(PMT::Type, A::APMorVM, B::APMorVM, C::APMorVM, period::Real) =
     ps(PMT, set_period(A,period), set_period(B,period), set_period(C,period))
 
-function ps(D::PM) where {PM <: AbstractPeriodicArray}
-    p, m = size(D,1), size(D,2)
-    PMT = typeof(D).name.wrapper
-    ps(convert(PMT,PeriodicMatrices.PeriodicFunctionMatrix(zeros(0,0),D.period)),
-       convert(PMT,PeriodicMatrices.PeriodicFunctionMatrix(zeros(0,m),D.period)), 
-       convert(PMT,PeriodicMatrices.PeriodicFunctionMatrix(zeros(p,0),D.period)), D)
+#function ps(D::PM) where {PM <: AbstractPeriodicArray{:c,T}} where {T}
+function ps(D::PM) where {PM <: Union{PeriodicFunctionMatrix, PeriodicSymbolicMatrix, HarmonicArray, 
+                                      PeriodicTimeSeriesMatrix, PeriodicSwitchingMatrix}}
+   p, m = size(D,1), size(D,2)
+   T = eltype(D)
+   PMT = typeof(D).name.wrapper
+   ps(convert(PMT,PeriodicMatrices.PeriodicFunctionMatrix(zeros(T,0,0),D.period)),
+       convert(PMT,PeriodicMatrices.PeriodicFunctionMatrix(zeros(T,0,m),D.period)), 
+       convert(PMT,PeriodicMatrices.PeriodicFunctionMatrix(zeros(T,p,0),D.period)), D)
+end
+function ps(D::PM) where {PM <: FourierFunctionMatrix}
+   error("This function is not available for FourierFunctionMatrix type")
+   # p, m = size(D,1), size(D,2)
+   # ps(FourierFunctionMatrix(zeros(T,0,0),D.period),
+   # FourierFunctionMatrix(zeros(T,0,m),D.period), 
+   # FourierFunctionMatrix(zeros(T,p,0),D.period), D)
+end
+
+# function ps(D::PM) where {PM <: AbstractPeriodicArray{:d,T}} where {T}
+#    p, m = size(D,1), size(D,2)
+#    (maximum(p) == minimum(p) && maximum(m) == minimum(m)) || 
+#         throw(DimensionMismatch("only constant dimensions allowed for a feedthrough matrix"))
+#    PMT = typeof(D).name.wrapper
+#    @show T
+#    # ps(convert(PMT,PeriodicMatrices.PeriodicFunctionMatrix(zeros(T,0,0),D.period)),
+#    #    convert(PMT,PeriodicMatrices.PeriodicFunctionMatrix(zeros(T,0,m),D.period)), 
+#    #    convert(PMT,PeriodicMatrices.PeriodicFunctionMatrix(zeros(T,p,0),D.period)), D)
+#    if PMT == PeriodicMatrix || PMT == PeriodicArray
+#       ps(PMT(zeros(T,0,0),D.period),
+#          PMT(zeros(T,0,m[1]),D.period), 
+#          PMT(zeros(T,p[1],0),D.period), D)
+#    else
+#       ns = [length(D)]
+#       ps(PMT(zeros(T,0,0),D.period),
+#          PMT(zeros(T,0,m[1]),D.period), 
+#          PMT(zeros(T,p[1],0),D.period), D)
+#    end
+# end
+function ps(D::PM) where {PM <: PeriodicMatrix{:d,T}} where {T}
+   p, m = size(D,1), size(D,2)
+   (maximum(p) == minimum(p) && maximum(m) == minimum(m)) || 
+        throw(DimensionMismatch("only constant dimensions allowed for a feedthrough matrix"))
+   PMT = typeof(D).name.wrapper
+   ps(PMT(PeriodicMatrices.pmzeros(T,[0],[0]),D.period;nperiod = D.dperiod),
+         PMT(PeriodicMatrices.pmzeros(T,[0],[m[1]]),D.period;nperiod = D.dperiod), 
+         PMT(PeriodicMatrices.pmzeros(T,[p[1]],[0]),D.period;nperiod = D.dperiod), D)
+end
+function ps(D::PM) where {PM <: SwitchingPeriodicMatrix{:d,T}} where {T}
+   p, m = size(D,1), size(D,2)
+   (maximum(p) == minimum(p) && maximum(m) == minimum(m)) || 
+        throw(DimensionMismatch("only constant dimensions allowed for a feedthrough matrix"))
+   PMT = typeof(D).name.wrapper
+   ns = [1]
+   ps(PMT(PeriodicMatrices.pmzeros(T,[0],[0]),ns,D.period;nperiod = D.dperiod),
+         PMT(PeriodicMatrices.pmzeros(T,[0],[m[1]]),ns,D.period;nperiod = D.dperiod), 
+         PMT(PeriodicMatrices.pmzeros(T,[p[1]],[0]),ns,D.period;nperiod = D.dperiod), D)
+end
+function ps(D::PM) where {PM <: PeriodicArray{:d,T}} where {T}
+   p, m = size(D,1), size(D,2)
+   PMT = typeof(D).name.wrapper
+   ps(PMT(zeros(T,0,0),D.period;nperiod = D.dperiod),
+         PMT(zeros(T,0,m[1]),D.period;nperiod = D.dperiod), 
+         PMT(zeros(T,p[1],0),D.period;nperiod = D.dperiod), D)
+end
+function ps(D::PM) where {PM <: SwitchingPeriodicArray{:d,T}} where {T}
+   p, m = size(D,1), size(D,2)
+   PMT = typeof(D).name.wrapper
+   ns = [1]
+   ps(PMT(zeros(T,0,0,1),ns,D.period;nperiod = D.dperiod),
+         PMT(zeros(T,0,m[1],1),ns,D.period;nperiod = D.dperiod), 
+         PMT(zeros(T,p[1],0,1),ns,D.period;nperiod = D.dperiod), D)
 end
 
 function ps(sys::DST, period::Real; ns::Int = 1) where {DST <: DescriptorStateSpace}
     sys.E == I || error("only standard state-spece models supported")
 function ps1(A::T) where {T <: PeriodicFunctionMatrix}
-   return typeof(A)
+   return typeof(A) 
 end
     Ts = sys.Ts
     if Ts == 0

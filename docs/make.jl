@@ -2,10 +2,6 @@ using Documenter, PeriodicSystems
 using DocumenterInterLinks
 DocMeta.setdocmeta!(PeriodicSystems, :DocTestSetup, :(using PeriodicSystems); recursive=true)
 
-# links = InterLinks(
-#     "PeriodicMatrixEquations" => ("https://andreasvarga.github.io/PeriodicMatrixEquations.jl/dev/",
-#                                   "https://andreasvarga.github.io/PeriodicMatrixEquations.jl/dev/objects.inv"),
-# );                                   
 links = InterLinks(
     "PeriodicMatrixEquations" => "https://andreasvarga.github.io/PeriodicMatrixEquations.jl/dev/",
 );                                   
